@@ -180,7 +180,9 @@ impl RateLimiter {
             entry.count = 0;
         }
         if entry.count >= limit {
-            let remaining = self.window.saturating_sub(now.duration_since(entry.window_start));
+            let remaining = self
+                .window
+                .saturating_sub(now.duration_since(entry.window_start));
             return Err(Error::RateLimited {
                 retry_after: Some(remaining.max(Duration::from_millis(1))),
             });
@@ -202,11 +204,12 @@ mod tests {
             ..Default::default()
         };
         let auth = Authenticator::from_config(&config).expect("auth");
-        assert!(auth
-            .authenticate(Some("vydra_dev_abcdefgh"))
-            .expect("valid")
-            .key_id
-            .starts_with("bootstrap-"));
+        assert!(
+            auth.authenticate(Some("vydra_dev_abcdefgh"))
+                .expect("valid")
+                .key_id
+                .starts_with("bootstrap-")
+        );
         assert!(auth.authenticate(Some("vydra_dev_wrongsecret")).is_err());
         assert!(auth.authenticate(None).is_err());
     }
@@ -231,7 +234,12 @@ mod tests {
             limiter.check("k", 3).expect("within limit");
         }
         let error = limiter.check("k", 3).expect_err("must be limited");
-        assert!(matches!(error, Error::RateLimited { retry_after: Some(_) }));
+        assert!(matches!(
+            error,
+            Error::RateLimited {
+                retry_after: Some(_)
+            }
+        ));
         // A different bucket is unaffected.
         limiter.check("other", 3).expect("separate bucket");
     }

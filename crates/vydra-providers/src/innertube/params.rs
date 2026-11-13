@@ -108,10 +108,12 @@ pub fn encode_search_filters(filters: &SearchFilters) -> Result<Option<String>, 
 
 /// Parse a `params` token back into filters. Used by tests and diagnostics only.
 pub fn decode_search_filters(token: &str) -> Result<SearchFilters, ProviderError> {
-    let bytes = URL_SAFE_NO_PAD.decode(token).map_err(|_| ProviderError::InvalidRequest {
-        field: "cursor".into(),
-        issue: "invalid_params".into(),
-    })?;
+    let bytes = URL_SAFE_NO_PAD
+        .decode(token)
+        .map_err(|_| ProviderError::InvalidRequest {
+            field: "cursor".into(),
+            issue: "invalid_params".into(),
+        })?;
 
     let mut filters = SearchFilters::default();
     let mut index = 0usize;
@@ -210,7 +212,9 @@ mod tests {
             sort: SearchSort::UploadDate,
             ..Default::default()
         };
-        let token = encode_search_filters(&filters).expect("encode").expect("some");
+        let token = encode_search_filters(&filters)
+            .expect("encode")
+            .expect("some");
         // field 1, varint 1 → 0x08 0x01 → base64url "CAE"
         assert_eq!(token, "CAE");
     }

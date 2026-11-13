@@ -84,7 +84,9 @@ impl TransportRequest {
             .host_str()
             .ok_or_else(|| TransportError::BlockedUrl("url without host".into()))?;
         if !is_allowed_host(host) {
-            return Err(TransportError::BlockedUrl(format!("host not allowed: {host}")));
+            return Err(TransportError::BlockedUrl(format!(
+                "host not allowed: {host}"
+            )));
         }
         if self.headers.len() > MAX_HEADERS {
             return Err(TransportError::InvalidHeader(format!(
@@ -137,7 +139,12 @@ pub fn is_allowed_host(host: &str) -> bool {
         "yt3.ggpht.com",
         "yt3.googleusercontent.com",
     ];
-    const SUFFIXES: &[&str] = &[".youtube.com", ".ytimg.com", ".ggpht.com", ".googleusercontent.com"];
+    const SUFFIXES: &[&str] = &[
+        ".youtube.com",
+        ".ytimg.com",
+        ".ggpht.com",
+        ".googleusercontent.com",
+    ];
 
     let host = host.to_ascii_lowercase();
     EXACT.contains(&host.as_str()) || SUFFIXES.iter().any(|suffix| host.ends_with(suffix))
@@ -204,7 +211,8 @@ impl TransportError {
 /// The transport contract.
 #[async_trait::async_trait]
 pub trait Transport: Send + Sync {
-    async fn execute(&self, request: TransportRequest) -> Result<TransportResponse, TransportError>;
+    async fn execute(&self, request: TransportRequest)
+    -> Result<TransportResponse, TransportError>;
 }
 
 /// Production transport backed by `reqwest`.
@@ -249,16 +257,13 @@ impl ReqwestTransport {
             builder = builder.body(body.clone());
         }
 
-        let mut response = builder
-            .send()
-            .await
-            .map_err(|err| {
-                if err.is_timeout() {
-                    TransportError::Timeout(request.timeout)
-                } else {
-                    TransportError::Connect(err.to_string())
-                }
-            })?;
+        let mut response = builder.send().await.map_err(|err| {
+            if err.is_timeout() {
+                TransportError::Timeout(request.timeout)
+            } else {
+                TransportError::Connect(err.to_string())
+            }
+        })?;
 
         let status = response.status().as_u16();
         let headers = response
@@ -299,7 +304,10 @@ impl ReqwestTransport {
 
 #[async_trait::async_trait]
 impl Transport for ReqwestTransport {
-    async fn execute(&self, request: TransportRequest) -> Result<TransportResponse, TransportError> {
+    async fn execute(
+        &self,
+        request: TransportRequest,
+    ) -> Result<TransportResponse, TransportError> {
         request.validate()?;
         let timeout = request.timeout;
         match tokio::time::timeout(timeout, self.execute_once(&request)).await {
@@ -348,22 +356,21 @@ impl ReplayTransport {
 
 #[async_trait::async_trait]
 impl Transport for ReplayTransport {
-    async fn execute(&self, request: TransportRequest) -> Result<TransportResponse, TransportError> {
+    async fn execute(
+        &self,
+        request: TransportRequest,
+    ) -> Result<TransportResponse, TransportError> {
         request.validate()?;
         if let Ok(mut calls) = self.calls.lock() {
             calls.push(request);
         }
-        let next = self
-            .queued
-            .lock()
-            .ok()
-            .and_then(|mut queue| {
-                if queue.is_empty() {
-                    None
-                } else {
-                    Some(queue.remove(0))
-                }
-            });
+        let next = self.queued.lock().ok().and_then(|mut queue| {
+            if queue.is_empty() {
+                None
+            } else {
+                Some(queue.remove(0))
+            }
+        });
         next.unwrap_or_else(|| {
             Err(TransportError::Connect(
                 "ReplayTransport has no queued response left".into(),
@@ -528,9 +535,11 @@ mod tests {
         assert_eq!(transport.call_count(), 1);
 
         // Queue is exhausted: the transport must fail loudly rather than fabricate a response.
-        assert!(transport
-            .execute(request("https://www.youtube.com/youtubei/v1/search"))
-            .await
-            .is_err());
+        assert!(
+            transport
+                .execute(request("https://www.youtube.com/youtubei/v1/search"))
+                .await
+                .is_err()
+        );
     }
 }

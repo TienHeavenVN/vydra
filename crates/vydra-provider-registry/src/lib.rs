@@ -147,7 +147,12 @@ impl ProviderState {
     }
 
     /// Record an outcome and apply the transition rules.
-    fn record(&mut self, healthy: bool, config: &RegistryConfig, now: Instant) -> Option<CircuitState> {
+    fn record(
+        &mut self,
+        healthy: bool,
+        config: &RegistryConfig,
+        now: Instant,
+    ) -> Option<CircuitState> {
         let previous = self.state;
 
         self.window.push_back(healthy);
@@ -234,7 +239,9 @@ impl TokenBucket {
     }
 
     fn try_take(&mut self, now: Instant) -> bool {
-        let elapsed = now.saturating_duration_since(self.refilled_at).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.refilled_at)
+            .as_secs_f64();
         self.tokens = (self.tokens + elapsed * self.refill_per_second).min(self.capacity);
         self.refilled_at = now;
         if self.tokens >= 1.0 {
@@ -282,7 +289,10 @@ pub struct ProviderRegistry {
 impl fmt::Debug for ProviderRegistry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ProviderRegistry")
-            .field("providers", &self.providers.iter().map(|p| p.id()).collect::<Vec<_>>())
+            .field(
+                "providers",
+                &self.providers.iter().map(|p| p.id()).collect::<Vec<_>>(),
+            )
             .field("config", &self.config)
             .field("observer", &self.observer.is_some())
             .finish()
@@ -350,7 +360,9 @@ impl ProviderRegistry {
     pub fn capabilities(&self) -> CapabilitySet {
         self.providers
             .iter()
-            .fold(CapabilitySet::NONE, |acc, provider| acc.union(provider.capabilities()))
+            .fold(CapabilitySet::NONE, |acc, provider| {
+                acc.union(provider.capabilities())
+            })
     }
 
     pub fn supports(&self, capability: Capability) -> bool {
@@ -358,7 +370,10 @@ impl ProviderRegistry {
     }
 
     pub fn provider_ids(&self) -> Vec<ProviderId> {
-        self.providers.iter().map(|provider| provider.id()).collect()
+        self.providers
+            .iter()
+            .map(|provider| provider.id())
+            .collect()
     }
 
     /// Sanitized health for `GET /status`.
@@ -368,7 +383,9 @@ impl ProviderRegistry {
         self.providers
             .iter()
             .map(|provider| {
-                let state = states.entry(provider.id()).or_insert_with(ProviderState::new);
+                let state = states
+                    .entry(provider.id())
+                    .or_insert_with(ProviderState::new);
                 state.refresh(now);
                 ProviderHealthSnapshot {
                     provider: provider.id().as_str().to_owned(),
@@ -428,7 +445,9 @@ impl ProviderRegistry {
                 continue;
             }
             let allowed_by_breaker = {
-                let state = states.entry(provider.id()).or_insert_with(ProviderState::new);
+                let state = states
+                    .entry(provider.id())
+                    .or_insert_with(ProviderState::new);
                 state.allow(now)
             };
             if !allowed_by_breaker {
@@ -751,10 +770,17 @@ mod tests {
         let (second, second_calls) = stub("b", Behaviour::Ok);
         let registry = ProviderRegistry::new(vec![first, second]);
 
-        let error = registry.fetch(request(), &ctx()).await.expect_err("must fail");
+        let error = registry
+            .fetch(request(), &ctx())
+            .await
+            .expect_err("must fail");
         assert!(matches!(error, Error::ContentUnavailable { .. }));
         assert_eq!(first_calls.load(Ordering::SeqCst), 1);
-        assert_eq!(second_calls.load(Ordering::SeqCst), 0, "quota must not be spent");
+        assert_eq!(
+            second_calls.load(Ordering::SeqCst),
+            0,
+            "quota must not be spent"
+        );
     }
 
     #[tokio::test]
@@ -769,11 +795,21 @@ mod tests {
                 ..Default::default()
             },
         );
-        let error = registry.fetch(request(), &ctx()).await.expect_err("must fail");
-        assert!(matches!(error, Error::Provider(_) | Error::ProviderUnavailable(_)));
+        let error = registry
+            .fetch(request(), &ctx())
+            .await
+            .expect_err("must fail");
+        assert!(matches!(
+            error,
+            Error::Provider(_) | Error::ProviderUnavailable(_)
+        ));
         assert_eq!(a_calls.load(Ordering::SeqCst), 1);
         assert_eq!(b_calls.load(Ordering::SeqCst), 1);
-        assert_eq!(c_calls.load(Ordering::SeqCst), 0, "third provider must not be tried");
+        assert_eq!(
+            c_calls.load(Ordering::SeqCst),
+            0,
+            "third provider must not be tried"
+        );
     }
 
     #[tokio::test]
@@ -789,7 +825,10 @@ mod tests {
             gl: "US".into(),
             limit: 20,
         };
-        let error = registry.fetch(request, &ctx()).await.expect_err("must fail");
+        let error = registry
+            .fetch(request, &ctx())
+            .await
+            .expect_err("must fail");
         assert!(matches!(error, Error::CapabilityUnavailable(_)));
         assert!(!registry.supports(Capability::SearchVideos));
     }
@@ -808,10 +847,13 @@ mod tests {
     #[tokio::test]
     async fn circuit_transitions_closed_open_half_open_closed() {
         // First call fails (below min_samples), then we force enough samples to open.
-        let (provider, _) = stub("a", Behaviour::Fail(ProviderError::Upstream {
-            status: 500,
-            message: "boom".into(),
-        }));
+        let (provider, _) = stub(
+            "a",
+            Behaviour::Fail(ProviderError::Upstream {
+                status: 500,
+                message: "boom".into(),
+            }),
+        );
         let registry = ProviderRegistry::with_config(
             vec![provider],
             RegistryConfig {
@@ -840,7 +882,10 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(60)).await;
         let _ = registry.fetch(request(), &ctx()).await;
         let state = registry.health()[0].state.clone();
-        assert!(state == "open" || state == "half_open", "unexpected state {state}");
+        assert!(
+            state == "open" || state == "half_open",
+            "unexpected state {state}"
+        );
     }
 
     #[tokio::test]
@@ -874,9 +919,9 @@ mod tests {
                         message: "boom".into(),
                     })
                 } else {
-                    Ok(ProviderResponse::Video(Box::new(stub_document(&ProviderId::new(
-                        "flaky",
-                    )))))
+                    Ok(ProviderResponse::Video(Box::new(stub_document(
+                        &ProviderId::new("flaky"),
+                    ))))
                 }
             }
         }
@@ -903,7 +948,10 @@ mod tests {
         assert_eq!(registry.health()[0].state, "open");
 
         tokio::time::sleep(Duration::from_millis(50)).await;
-        let outcome = registry.fetch(request(), &ctx()).await.expect("probe succeeds");
+        let outcome = registry
+            .fetch(request(), &ctx())
+            .await
+            .expect("probe succeeds");
         assert_eq!(outcome.provider.as_str(), "flaky");
         assert_eq!(registry.health()[0].state, "closed");
         assert_eq!(calls.load(Ordering::SeqCst), 3);
@@ -952,7 +1000,10 @@ mod tests {
 
         registry.fetch(request(), &ctx()).await.expect("first");
         registry.fetch(request(), &ctx()).await.expect("second");
-        let third = registry.fetch(request(), &ctx()).await.expect_err("third must be throttled");
+        let third = registry
+            .fetch(request(), &ctx())
+            .await
+            .expect_err("third must be throttled");
         assert!(matches!(third, Error::RateLimited { .. }));
         assert_eq!(calls.load(Ordering::SeqCst), 2);
     }
@@ -988,8 +1039,14 @@ mod tests {
         let registry = ProviderRegistry::new(vec![slow]);
         let mut short = ctx();
         short.deadline = Instant::now() + Duration::from_millis(50);
-        let error = registry.fetch(request(), &short).await.expect_err("must fail");
-        assert!(matches!(error, Error::Provider(ProviderError::Timeout) | Error::Timeout));
+        let error = registry
+            .fetch(request(), &short)
+            .await
+            .expect_err("must fail");
+        assert!(matches!(
+            error,
+            Error::Provider(ProviderError::Timeout) | Error::Timeout
+        ));
     }
 
     #[tokio::test]
@@ -1017,11 +1074,8 @@ mod tests {
 
         let recorder = Arc::new(Recorder::default());
         let (provider, _) = stub("a", Behaviour::Ok);
-        let registry = ProviderRegistry::with_config(
-            vec![provider],
-            RegistryConfig::default(),
-        )
-        .with_observer(recorder.clone());
+        let registry = ProviderRegistry::with_config(vec![provider], RegistryConfig::default())
+            .with_observer(recorder.clone());
 
         registry.fetch(request(), &ctx()).await.expect("ok");
         assert_eq!(recorder.attempts.load(Ordering::SeqCst), 1);

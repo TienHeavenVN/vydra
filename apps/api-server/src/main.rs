@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use tokio::net::TcpListener;
 use tracing::info;
-use vydra_api::{router, AppState, MetricsObserver};
+use vydra_api::{AppState, MetricsObserver, router};
 use vydra_auth::{Authenticator, RateLimiter};
 use vydra_cache::MemoryCache;
 use vydra_common::{BuildInfo, CursorCodec};
@@ -14,8 +14,8 @@ use vydra_config::Config;
 use vydra_engines::{Engines, EnginesConfig};
 use vydra_observability::Metrics;
 use vydra_provider_registry::{ProviderRegistry, RegistryConfig};
-use vydra_providers::innertube::{ClientKind, InnertubeProvider, InnertubeProviderConfig};
 use vydra_providers::ReqwestTransport;
+use vydra_providers::innertube::{ClientKind, InnertubeProvider, InnertubeProviderConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,9 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ),
             hl: config.providers.default_hl.clone(),
             gl: config.providers.default_gl.clone(),
-            request_timeout: Duration::from_millis(
-                config.providers.innertube.request_timeout_ms,
-            ),
+            request_timeout: Duration::from_millis(config.providers.innertube.request_timeout_ms),
             session_ttl: Duration::from_secs(config.providers.innertube.session_ttl_secs),
             max_response_bytes: config.providers.innertube.max_response_bytes,
             consent_cookie: config.providers.innertube.consent_cookie.clone(),
@@ -121,9 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // --- edge services ---
     let authenticator = Arc::new(Authenticator::from_config(&config.auth)?);
     if config.auth.bootstrap_key.is_some() {
-        tracing::warn!(
-            "auth.bootstrap_key is configured: development only, refused in production"
-        );
+        tracing::warn!("auth.bootstrap_key is configured: development only, refused in production");
     }
     let limiter = Arc::new(RateLimiter::new(Duration::from_secs(60), 100_000));
 
@@ -149,10 +145,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-        .with_graceful_shutdown(shutdown_signal(Duration::from_millis(
-            config.server.shutdown_grace_ms,
-        )))
-        .await?;
+    .with_graceful_shutdown(shutdown_signal(Duration::from_millis(
+        config.server.shutdown_grace_ms,
+    )))
+    .await?;
     Ok(())
 }
 

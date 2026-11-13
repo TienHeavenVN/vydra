@@ -134,7 +134,10 @@ id_newtype!(
     /// A channel handle such as `@somebody`.
     ChannelHandle,
     "handle",
-    |v: &str| v.len() > 1 && v.len() <= 40 && v.starts_with('@') && check_charset(v, is_bare_id_char)
+    |v: &str| v.len() > 1
+        && v.len() <= 40
+        && v.starts_with('@')
+        && check_charset(v, is_bare_id_char)
 );
 
 /// Either a channel id (`UC…`) or a handle (`@…`).
@@ -234,6 +237,9 @@ mod tests {
         let id: VideoId = serde_json::from_str("\"dQw4w9WgXcQ\"").expect("deserialize");
         assert_eq!(id.as_str(), "dQw4w9WgXcQ");
         assert!(serde_json::from_str::<VideoId>("\"nope\"").is_err());
-        assert_eq!(serde_json::to_string(&id).expect("serialize"), "\"dQw4w9WgXcQ\"");
+        assert_eq!(
+            serde_json::to_string(&id).expect("serialize"),
+            "\"dQw4w9WgXcQ\""
+        );
     }
 }

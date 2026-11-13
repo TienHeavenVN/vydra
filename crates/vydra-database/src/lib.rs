@@ -46,10 +46,7 @@ impl Database {
     }
 
     /// Look up an API key by prefix.
-    pub async fn find_api_key(
-        &self,
-        prefix: &str,
-    ) -> Result<Option<ApiKeyRow>, Error> {
+    pub async fn find_api_key(&self, prefix: &str) -> Result<Option<ApiKeyRow>, Error> {
         let row = sqlx::query_as::<_, ApiKeyRow>(
             "SELECT id::text, prefix, secret_hash, monthly_quota, revoked_at IS NOT NULL AS revoked \
              FROM api_keys WHERE prefix = $1 LIMIT 1",

@@ -123,9 +123,7 @@ impl ClientProfile {
             name: "TVHTML5",
             name_id: "7",
             version: version_override.unwrap_or("7.20250101.10.00").to_owned(),
-            user_agent: Some(
-                "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version".to_owned(),
-            ),
+            user_agent: Some("Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version".to_owned()),
             platform: None,
             api_key: None,
         }

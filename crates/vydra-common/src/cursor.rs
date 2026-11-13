@@ -101,8 +101,8 @@ impl CursorCodec {
             t: token.to_owned(),
             iat: issued_at,
         };
-        let payload_json =
-            serde_json::to_vec(&payload).map_err(|e| Error::Internal(format!("cursor encode: {e}")))?;
+        let payload_json = serde_json::to_vec(&payload)
+            .map_err(|e| Error::Internal(format!("cursor encode: {e}")))?;
         let signature = self.sign(&payload_json);
         if signature.is_empty() {
             return Err(Error::Internal("cursor signing failed".into()));
@@ -174,7 +174,9 @@ mod tests {
     #[test]
     fn kind_mismatch_is_rejected() {
         let codec = codec();
-        let cursor = codec.encode("search.videos", "innertube-web", "t").expect("encode");
+        let cursor = codec
+            .encode("search.videos", "innertube-web", "t")
+            .expect("encode");
         assert_eq!(
             codec.decode(&cursor, "comments.replies"),
             Err(Error::InvalidCursor)
@@ -184,11 +186,17 @@ mod tests {
     #[test]
     fn tampering_is_rejected() {
         let codec = codec();
-        let cursor = codec.encode("search.videos", "innertube-web", "token").expect("encode");
+        let cursor = codec
+            .encode("search.videos", "innertube-web", "token")
+            .expect("encode");
         let (payload, signature) = cursor.split_once('.').expect("split");
-        let forged_payload = URL_SAFE_NO_PAD.encode(br#"{"v":1,"k":"search.videos","p":"x","t":"y","iat":0}"#);
+        let forged_payload =
+            URL_SAFE_NO_PAD.encode(br#"{"v":1,"k":"search.videos","p":"x","t":"y","iat":0}"#);
         let forged = format!("{forged_payload}.{signature}");
-        assert_eq!(codec.decode(&forged, "search.videos"), Err(Error::InvalidCursor));
+        assert_eq!(
+            codec.decode(&forged, "search.videos"),
+            Err(Error::InvalidCursor)
+        );
 
         let forged_signature = format!("{payload}.{}", URL_SAFE_NO_PAD.encode([0u8; 32]));
         assert_eq!(
@@ -202,8 +210,13 @@ mod tests {
         let a = codec();
         let b = CursorCodec::new("another-secret-0123456789", Duration::from_secs(60))
             .expect("valid codec");
-        let cursor = a.encode("search.videos", "innertube-web", "t").expect("encode");
-        assert_eq!(b.decode(&cursor, "search.videos"), Err(Error::InvalidCursor));
+        let cursor = a
+            .encode("search.videos", "innertube-web", "t")
+            .expect("encode");
+        assert_eq!(
+            b.decode(&cursor, "search.videos"),
+            Err(Error::InvalidCursor)
+        );
     }
 
     #[test]
@@ -212,7 +225,10 @@ mod tests {
             .expect("valid codec");
         let cursor = codec.encode("search.videos", "p", "t").expect("encode");
         // `iat` is generated from the wall clock; a zero max-age expires immediately.
-        assert_eq!(codec.decode(&cursor, "search.videos"), Err(Error::InvalidCursor));
+        assert_eq!(
+            codec.decode(&cursor, "search.videos"),
+            Err(Error::InvalidCursor)
+        );
     }
 
     #[test]

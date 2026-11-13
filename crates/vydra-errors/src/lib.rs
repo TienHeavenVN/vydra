@@ -165,8 +165,7 @@ impl ProviderError {
 
     pub fn retry_after(&self) -> Option<Duration> {
         match self {
-            Self::RateLimited { retry_after }
-            | Self::CircuitOpen { retry_after } => *retry_after,
+            Self::RateLimited { retry_after } | Self::CircuitOpen { retry_after } => *retry_after,
             _ => None,
         }
     }
@@ -322,7 +321,9 @@ impl ErrorCode {
             Self::NotFound => 404,
             Self::ContentUnavailable => 409,
             Self::QuotaExceeded | Self::RateLimited | Self::ProviderRateLimited => 429,
-            Self::CapabilityUnavailable | Self::ProviderUnavailable | Self::ProviderCircuitOpen => 503,
+            Self::CapabilityUnavailable | Self::ProviderUnavailable | Self::ProviderCircuitOpen => {
+                503
+            }
             Self::Timeout => 504,
             Self::InternalError => 500,
         }
@@ -373,13 +374,17 @@ impl ErrorBody {
                 retry_after_ms: None,
                 details: issues.clone(),
             },
-            Error::InvalidRequest(msg) => Self::plain(ErrorCode::InvalidRequest, msg.clone(), request_id),
+            Error::InvalidRequest(msg) => {
+                Self::plain(ErrorCode::InvalidRequest, msg.clone(), request_id)
+            }
             Error::InvalidCursor => Self::plain(
                 ErrorCode::InvalidCursor,
                 "Cursor is malformed or has expired.",
                 request_id,
             ),
-            Error::Unauthorized(msg) => Self::plain(ErrorCode::Unauthorized, msg.clone(), request_id),
+            Error::Unauthorized(msg) => {
+                Self::plain(ErrorCode::Unauthorized, msg.clone(), request_id)
+            }
             Error::Forbidden(msg) => Self::plain(ErrorCode::Forbidden, msg.clone(), request_id),
             Error::NotFound(msg) => Self::plain(ErrorCode::NotFound, msg.clone(), request_id),
             Error::ContentUnavailable { reason, message } => Self {
@@ -402,7 +407,11 @@ impl ErrorBody {
             },
             Error::RateLimited { retry_after } => Self {
                 retry_after_ms: retry_after.map(ms),
-                ..Self::plain_with(ErrorCode::RateLimited, "Request rate limit exceeded.", request_id)
+                ..Self::plain_with(
+                    ErrorCode::RateLimited,
+                    "Request rate limit exceeded.",
+                    request_id,
+                )
             },
             Error::Provider(err) if matches!(err, ProviderError::RateLimited { .. }) => {
                 let retry_after = err.retry_after();
@@ -436,7 +445,11 @@ impl ErrorBody {
                     request_id,
                 )
             },
-            Error::Timeout => Self::plain(ErrorCode::Timeout, "Upstream deadline exceeded.", request_id),
+            Error::Timeout => Self::plain(
+                ErrorCode::Timeout,
+                "Upstream deadline exceeded.",
+                request_id,
+            ),
             Error::Cache(_) | Error::Database(_) | Error::Internal(_) => Self::plain_with(
                 ErrorCode::InternalError,
                 "An internal error occurred.",
@@ -510,7 +523,8 @@ mod tests {
 
     #[test]
     fn internal_details_do_not_leak() {
-        let body = ErrorBody::from_error(&Error::Internal("postgres: password=hunter2".into()), RID);
+        let body =
+            ErrorBody::from_error(&Error::Internal("postgres: password=hunter2".into()), RID);
         assert_eq!(body.code, ErrorCode::InternalError);
         assert!(!body.message.contains("hunter2"));
         assert_eq!(body.status, 500);

@@ -370,7 +370,13 @@ impl Config {
 
         // --- server ---
         set_string(vars, "VYDRA__SERVER__HOST", &mut config.server.host);
-        set_u16(vars, "VYDRA__SERVER__PORT", &mut config.server.port, "server.port", &mut issues);
+        set_u16(
+            vars,
+            "VYDRA__SERVER__PORT",
+            &mut config.server.port,
+            "server.port",
+            &mut issues,
+        );
         set_u64(
             vars,
             "VYDRA__SERVER__REQUEST_TIMEOUT_MS",
@@ -451,8 +457,16 @@ impl Config {
             "providers.max_attempts",
             &mut issues,
         );
-        set_string(vars, "VYDRA__PROVIDERS__DEFAULT_HL", &mut config.providers.default_hl);
-        set_string(vars, "VYDRA__PROVIDERS__DEFAULT_GL", &mut config.providers.default_gl);
+        set_string(
+            vars,
+            "VYDRA__PROVIDERS__DEFAULT_HL",
+            &mut config.providers.default_hl,
+        );
+        set_string(
+            vars,
+            "VYDRA__PROVIDERS__DEFAULT_GL",
+            &mut config.providers.default_gl,
+        );
         set_bool_opt(
             vars,
             "VYDRA__PROVIDERS__ENABLE_UNVERIFIED_FILTERS",
@@ -494,7 +508,11 @@ impl Config {
             "cache.search_ttl_secs",
             &mut issues,
         );
-        set_bool_opt(vars, "VYDRA__CACHE__CACHE_SEARCH", &mut config.cache.cache_search);
+        set_bool_opt(
+            vars,
+            "VYDRA__CACHE__CACHE_SEARCH",
+            &mut config.cache.cache_search,
+        );
 
         // --- database ---
         if let Some(value) = vars.get("VYDRA__DATABASE__URL") {
@@ -605,7 +623,13 @@ impl Config {
         if self.providers.default_hl.trim().is_empty() || self.providers.default_hl.len() > 16 {
             err = err.push("providers.default_hl", "invalid_value");
         }
-        if self.providers.default_gl.len() != 2 || !self.providers.default_gl.chars().all(|c| c.is_ascii_alphabetic()) {
+        if self.providers.default_gl.len() != 2
+            || !self
+                .providers
+                .default_gl
+                .chars()
+                .all(|c| c.is_ascii_alphabetic())
+        {
             err = err.push("providers.default_gl", "invalid_value");
         }
         if self.cache.backend == CacheBackend::Redis && self.cache.redis_url.is_none() {
@@ -789,7 +813,10 @@ mod tests {
             ("VYDRA__ENV", "production"),
             ("VYDRA__AUTH__BOOTSTRAP_KEY", "vydra_dev_secret"),
             ("VYDRA__DATABASE__URL", "postgres://localhost/vydra"),
-            ("VYDRA__AUTH__CURSOR_SECRET", "a-sufficiently-long-production-secret"),
+            (
+                "VYDRA__AUTH__CURSOR_SECRET",
+                "a-sufficiently-long-production-secret",
+            ),
         ]);
         let config = Config::from_map(&vars).expect("parse");
         let err = config.validate().expect_err("must fail");
@@ -810,7 +837,10 @@ mod tests {
     fn redacted_summary_hides_secrets() {
         let vars = map(&[
             ("VYDRA__DATABASE__URL", "postgres://user:password@db/vydra"),
-            ("VYDRA__AUTH__CURSOR_SECRET", "another-production-grade-secret"),
+            (
+                "VYDRA__AUTH__CURSOR_SECRET",
+                "another-production-grade-secret",
+            ),
         ]);
         let config = Config::from_map(&vars).expect("parse");
         let summary = config.redacted_summary();

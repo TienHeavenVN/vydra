@@ -12,14 +12,12 @@ use vydra_common::text::{is_abbreviated_count, parse_clock_duration, parse_view_
 use vydra_common::{ChannelId, PlaylistId, VideoId};
 use vydra_domain::{
     Availability, CaptionKind, CaptionTrack, Chapter, Count, DeliveryKind, LiveState,
-    MediaFormatInfo, PlaylistSummary, Provenance, SearchItem, SearchResults,
-    Thumbnail, VideoDocument, VideoSummary,
+    MediaFormatInfo, PlaylistSummary, Provenance, SearchItem, SearchResults, Thumbnail,
+    VideoDocument, VideoSummary,
 };
 use vydra_errors::{ProviderError, UnavailabilityReason};
 
-use crate::parse::{
-    ParseReport, Renderer, find_continuation, number_of, text_of, thumbnails_of,
-};
+use crate::parse::{ParseReport, Renderer, find_continuation, number_of, text_of, thumbnails_of};
 
 fn first_text<'a>(value: &'a Value, keys: &[&str]) -> Option<String> {
     for key in keys {
@@ -89,8 +87,12 @@ fn live_state_of(renderer: &Value) -> Option<LiveState> {
 /// Channel id from `browseEndpoint.browseId` on the owner/byline runs.
 fn channel_id_of(renderer: &Value, keys: &[&str]) -> Option<ChannelId> {
     for key in keys {
-        let Some(field) = renderer.get(*key) else { continue };
-        let Some(runs) = field.get("runs").and_then(Value::as_array) else { continue };
+        let Some(field) = renderer.get(*key) else {
+            continue;
+        };
+        let Some(runs) = field.get("runs").and_then(Value::as_array) else {
+            continue;
+        };
         for run in runs {
             if let Some(id) = run
                 .get("navigationEndpoint")
@@ -132,7 +134,11 @@ fn video_summary_from_renderer(renderer: &Value, report: &mut ParseReport) -> Op
         .and_then(text_of)
         .and_then(|text| parse_clock_duration(&text));
 
-    let view_count = count_from_fields(renderer, "viewCount", &["viewCountText", "shortViewCountText"]);
+    let view_count = count_from_fields(
+        renderer,
+        "viewCount",
+        &["viewCountText", "shortViewCountText"],
+    );
 
     let published_text = first_text(renderer, &["publishedTimeText"]);
 
@@ -175,8 +181,14 @@ fn video_summary_from_renderer(renderer: &Value, report: &mut ParseReport) -> Op
     Some(VideoSummary {
         id,
         title,
-        channel_id: channel_id_of(renderer, &["ownerText", "longBylineText", "shortBylineText"]),
-        channel_title: first_text(renderer, &["ownerText", "longBylineText", "shortBylineText"]),
+        channel_id: channel_id_of(
+            renderer,
+            &["ownerText", "longBylineText", "shortBylineText"],
+        ),
+        channel_title: first_text(
+            renderer,
+            &["ownerText", "longBylineText", "shortBylineText"],
+        ),
         duration_seconds: duration,
         view_count,
         published_text,
@@ -275,10 +287,17 @@ fn playlist_summary_from_renderer(
 }
 
 /// Map one renderer into a [`SearchItem`], reporting skips instead of failing the page.
-pub fn search_item_from_renderer(renderer: &Renderer<'_>, report: &mut ParseReport) -> Option<SearchItem> {
+pub fn search_item_from_renderer(
+    renderer: &Renderer<'_>,
+    report: &mut ParseReport,
+) -> Option<SearchItem> {
     match renderer.key {
-        "videoRenderer" | "compactVideoRenderer" | "gridVideoRenderer" | "playlistVideoRenderer"
-        | "playlistPanelVideoRenderer" | "channelVideoPlayerRenderer" => {
+        "videoRenderer"
+        | "compactVideoRenderer"
+        | "gridVideoRenderer"
+        | "playlistVideoRenderer"
+        | "playlistPanelVideoRenderer"
+        | "channelVideoPlayerRenderer" => {
             video_summary_from_renderer(renderer.value, report).map(SearchItem::Video)
         }
         "channelRenderer" | "gridChannelRenderer" => {
@@ -443,7 +462,10 @@ fn caption_tracks_from(value: &Value) -> Vec<CaptionTrack> {
     tracks
         .iter()
         .filter_map(|track| {
-            let language_code = track.get("languageCode").and_then(Value::as_str)?.to_owned();
+            let language_code = track
+                .get("languageCode")
+                .and_then(Value::as_str)?
+                .to_owned();
             let kind = match track.get("kind").and_then(Value::as_str) {
                 Some("asr") => CaptionKind::Automatic,
                 None => CaptionKind::Manual,
@@ -466,10 +488,12 @@ fn caption_tracks_from(value: &Value) -> Vec<CaptionTrack> {
                 .unwrap_or_default();
             Some(CaptionTrack {
                 language_code,
-                name: track
-                    .get("name")
-                    .and_then(text_of)
-                    .or_else(|| track.get("vssId").and_then(Value::as_str).map(str::to_owned)),
+                name: track.get("name").and_then(text_of).or_else(|| {
+                    track
+                        .get("vssId")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                }),
                 kind,
                 is_translatable: track
                     .get("isTranslatable")
@@ -485,7 +509,10 @@ fn caption_tracks_from(value: &Value) -> Vec<CaptionTrack> {
 /// Map one format entry. **No URL is ever copied into the domain model** (ADR-006).
 fn media_format_from(value: &Value) -> Option<MediaFormatInfo> {
     let mime_type = value.get("mimeType").and_then(Value::as_str);
-    let itag = value.get("itag").and_then(number_of).and_then(|v| u32::try_from(v).ok());
+    let itag = value
+        .get("itag")
+        .and_then(number_of)
+        .and_then(|v| u32::try_from(v).ok());
     let has_drm = value
         .get("drmFamilies")
         .map(|drm| !drm.is_null())
@@ -508,14 +535,23 @@ fn media_format_from(value: &Value) -> Option<MediaFormatInfo> {
     Some(MediaFormatInfo {
         itag,
         mime_type: mime_type.map(str::to_owned),
-        codecs: value.get("codecs").and_then(Value::as_str).map(str::to_owned),
+        codecs: value
+            .get("codecs")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
         bitrate: value.get("bitrate").and_then(number_of),
-        width: value.get("width").and_then(number_of).and_then(|v| u32::try_from(v).ok()),
+        width: value
+            .get("width")
+            .and_then(number_of)
+            .and_then(|v| u32::try_from(v).ok()),
         height: value
             .get("height")
             .and_then(number_of)
             .and_then(|v| u32::try_from(v).ok()),
-        fps: value.get("fps").and_then(number_of).and_then(|v| u32::try_from(v).ok()),
+        fps: value
+            .get("fps")
+            .and_then(number_of)
+            .and_then(|v| u32::try_from(v).ok()),
         quality_label: value
             .get("qualityLabel")
             .and_then(Value::as_str)
@@ -759,7 +795,10 @@ mod tests {
         match &results.items[0] {
             SearchItem::Video(video) => {
                 assert_eq!(video.duration_seconds, Some(213));
-                assert_eq!(video.view_count.as_ref().map(|c| c.value), Some(1_200_000_000));
+                assert_eq!(
+                    video.view_count.as_ref().map(|c| c.value),
+                    Some(1_200_000_000)
+                );
                 assert_eq!(
                     video.view_count.as_ref().map(|c| c.precision),
                     Some(Precision::Approximate)
@@ -812,7 +851,10 @@ mod tests {
         let document = map_player(&payload, &id, &mut report, provenance()).expect("mapped");
 
         assert_eq!(document.formats.len(), 2);
-        assert_eq!(document.formats[0].delivery, DeliveryKind::SignatureProtected);
+        assert_eq!(
+            document.formats[0].delivery,
+            DeliveryKind::SignatureProtected
+        );
         assert_eq!(document.formats[1].delivery, DeliveryKind::Direct);
         assert!(document.formats[1].audio_only);
         // The domain type has no url field at all: the test verifies the contract structurally.
@@ -868,7 +910,10 @@ mod tests {
         assert_eq!(document.caption_tracks.len(), 2);
         assert_eq!(document.caption_tracks[0].kind, CaptionKind::Automatic);
         assert!(document.caption_tracks[0].base_url_present);
-        assert_eq!(document.caption_tracks[0].translation_languages, vec!["de".to_owned()]);
+        assert_eq!(
+            document.caption_tracks[0].translation_languages,
+            vec!["de".to_owned()]
+        );
         assert_eq!(document.caption_tracks[1].kind, CaptionKind::Manual);
     }
 }

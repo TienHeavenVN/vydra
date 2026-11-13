@@ -86,7 +86,12 @@ impl InnertubeProvider {
         self.client.profile()
     }
 
-    fn provenance(&self, endpoint: &str, report: &ParseReport, fetched_at: OffsetDateTime) -> Provenance {
+    fn provenance(
+        &self,
+        endpoint: &str,
+        report: &ParseReport,
+        fetched_at: OffsetDateTime,
+    ) -> Provenance {
         Provenance {
             provider: self.config.provider_id.as_str().to_owned(),
             endpoint: endpoint.to_owned(),
@@ -170,7 +175,11 @@ impl InnertubeProvider {
         Ok(results)
     }
 
-    async fn video(&self, id: vydra_common::VideoId, ctx: &ProviderContext) -> Result<VideoDocument, ProviderError> {
+    async fn video(
+        &self,
+        id: vydra_common::VideoId,
+        ctx: &ProviderContext,
+    ) -> Result<VideoDocument, ProviderError> {
         let session = self.client.session(ctx).await;
         let mut body = self.client.context_value(&session, ctx);
         body["videoId"] = json!(id.as_str());

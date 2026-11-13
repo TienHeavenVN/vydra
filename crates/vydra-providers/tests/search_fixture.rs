@@ -98,10 +98,22 @@ async fn capabilities_reflect_verified_functionality_only() {
         transport.clone(),
     );
     assert!(conservative.capabilities().contains(Capability::SearchAll));
-    assert!(conservative.capabilities().contains(Capability::VideoMetadata));
+    assert!(
+        conservative
+            .capabilities()
+            .contains(Capability::VideoMetadata)
+    );
     // Type-scoped search needs the protobuf params builder, which is unverified.
-    assert!(!conservative.capabilities().contains(Capability::SearchVideos));
-    assert!(!conservative.capabilities().contains(Capability::CommentsThread));
+    assert!(
+        !conservative
+            .capabilities()
+            .contains(Capability::SearchVideos)
+    );
+    assert!(
+        !conservative
+            .capabilities()
+            .contains(Capability::CommentsThread)
+    );
 
     let opted_in = InnertubeProvider::new(
         Arc::new(InnertubeProviderConfig {

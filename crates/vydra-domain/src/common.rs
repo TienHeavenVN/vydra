@@ -110,10 +110,7 @@ pub enum Availability {
 
 impl Availability {
     pub fn is_available(self) -> bool {
-        matches!(
-            self,
-            Self::Available | Self::Upcoming | Self::Live
-        )
+        matches!(self, Self::Available | Self::Upcoming | Self::Live)
     }
 
     pub fn from_reason(reason: UnavailabilityReason) -> Self {

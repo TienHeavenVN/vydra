@@ -21,6 +21,7 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 use tracing::Instrument;
 use uuid::Uuid;
+use vydra_auth::{Authenticator, RateLimiter};
 use vydra_common::{BuildInfo, PageParams, PaginationMeta, VideoId};
 use vydra_config::Config;
 use vydra_domain::{AttemptOutcome, Provenance, SearchResults, SourceAttempt, VideoDocument};
@@ -32,7 +33,6 @@ use vydra_providers::{
     Capability, ProviderId, SearchDate, SearchDuration, SearchFeature, SearchFilters, SearchKind,
     SearchSort,
 };
-use vydra_auth::{Authenticator, RateLimiter};
 
 /// Request identifier attached by middleware.
 #[derive(Debug, Clone)]
@@ -79,7 +79,11 @@ pub struct Meta {
 }
 
 impl Meta {
-    fn from_provenance(request_id: &str, provenance: &Provenance, pagination: Option<PaginationMeta>) -> Self {
+    fn from_provenance(
+        request_id: &str,
+        provenance: &Provenance,
+        pagination: Option<PaginationMeta>,
+    ) -> Self {
         Self {
             request_id: request_id.to_owned(),
             provider: Some(provenance.provider.clone()),
@@ -156,7 +160,11 @@ impl SearchQuery {
     /// Audit finding A-10: `sort/since/duration/filter` were accepted by the OpenAPI document but
     /// silently dropped. They are now parsed strictly, rejected when the deployment has not opted
     /// into unverified filters, and rejected with `capability_unavailable` instead of being ignored.
-    fn into_input(self, kind: SearchKind, filters_allowed: bool) -> vydra_errors::Result<SearchInput> {
+    fn into_input(
+        self,
+        kind: SearchKind,
+        filters_allowed: bool,
+    ) -> vydra_errors::Result<SearchInput> {
         let query = self.q.trim().to_owned();
         if query.is_empty() {
             return Err(Error::validation("q", "required"));
@@ -223,7 +231,10 @@ impl SearchQuery {
 
 /// Locales are interpolated into provider query strings and cache keys, so they are validated here
 /// (finding A-11): ASCII letters/digits plus `-`, 2..=10 chars, lowercased.
-fn normalise_locale(field: &'static str, raw: Option<String>) -> vydra_errors::Result<Option<String>> {
+fn normalise_locale(
+    field: &'static str,
+    raw: Option<String>,
+) -> vydra_errors::Result<Option<String>> {
     let Some(value) = raw else { return Ok(None) };
     let trimmed = value.trim();
     let valid = (2..=10).contains(&trimmed.len())
@@ -237,9 +248,15 @@ fn normalise_locale(field: &'static str, raw: Option<String>) -> vydra_errors::R
 }
 
 fn parse_features(raw: Option<&str>) -> vydra_errors::Result<Vec<SearchFeature>> {
-    let Some(raw) = raw else { return Ok(Vec::new()) };
+    let Some(raw) = raw else {
+        return Ok(Vec::new());
+    };
     let mut features = Vec::new();
-    for part in raw.split(',').map(str::trim).filter(|part| !part.is_empty()) {
+    for part in raw
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+    {
         let feature = match part {
             "live" => SearchFeature::Live,
             "hd" => SearchFeature::Hd,
@@ -358,7 +375,10 @@ async fn search_impl(
     let results = state
         .engines
         .search(input)
-        .instrument(tracing::info_span!("engine.search", kind = kind.cursor_namespace()))
+        .instrument(tracing::info_span!(
+            "engine.search",
+            kind = kind.cursor_namespace()
+        ))
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
 
@@ -368,7 +388,10 @@ async fn search_impl(
         results.next_cursor.clone(),
     );
     let meta = Meta::from_provenance(&request_id.0, &results.provenance, Some(pagination));
-    Ok(Json(Envelope { data: results, meta }))
+    Ok(Json(Envelope {
+        data: results,
+        meta,
+    }))
 }
 
 async fn video_handler(
@@ -387,7 +410,10 @@ async fn video_handler(
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let meta = Meta::from_provenance(&request_id.0, &document.provenance, None);
-    Ok(Json(Envelope { data: document, meta }))
+    Ok(Json(Envelope {
+        data: document,
+        meta,
+    }))
 }
 
 async fn chapters_handler(
@@ -406,7 +432,10 @@ async fn chapters_handler(
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let meta = Meta::from_provenance(&request_id.0, &chapters.provenance, None);
-    Ok(Json(Envelope { data: chapters, meta }))
+    Ok(Json(Envelope {
+        data: chapters,
+        meta,
+    }))
 }
 
 async fn captions_handler(
@@ -524,8 +553,12 @@ impl ProviderObserver for MetricsObserver {
             AttemptOutcome::Failed => "failed",
             AttemptOutcome::Skipped => "skipped",
         };
-        self.metrics
-            .record_provider_attempt(provider.as_str(), capability.as_str(), outcome, latency);
+        self.metrics.record_provider_attempt(
+            provider.as_str(),
+            capability.as_str(),
+            outcome,
+            latency,
+        );
     }
 
     fn on_circuit_change(&self, provider: ProviderId, state: CircuitState) {
@@ -588,7 +621,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .layer(TimeoutLayer::new(Duration::from_millis(
             state.config.server.request_timeout_ms,
         )))
-        .layer(RequestBodyLimitLayer::new(state.config.server.body_limit_bytes))
+        .layer(RequestBodyLimitLayer::new(
+            state.config.server.body_limit_bytes,
+        ))
         .with_state(state)
 }
 
@@ -676,10 +711,22 @@ mod tests {
     #[test]
     fn malformed_filter_values_are_rejected() {
         for query in [
-            SearchQuery { sort: Some("views".into()), ..simple_query() },
-            SearchQuery { since: Some("decade".into()), ..simple_query() },
-            SearchQuery { duration: Some("eternal".into()), ..simple_query() },
-            SearchQuery { filter: Some("live,teleport".into()), ..simple_query() },
+            SearchQuery {
+                sort: Some("views".into()),
+                ..simple_query()
+            },
+            SearchQuery {
+                since: Some("decade".into()),
+                ..simple_query()
+            },
+            SearchQuery {
+                duration: Some("eternal".into()),
+                ..simple_query()
+            },
+            SearchQuery {
+                filter: Some("live,teleport".into()),
+                ..simple_query()
+            },
         ] {
             assert!(query.into_input(SearchKind::All, true).is_err());
         }
@@ -700,14 +747,27 @@ mod tests {
 
     #[test]
     fn locales_are_validated_and_normalised() {
-        let query = SearchQuery { hl: Some("EN-us".into()), ..simple_query() };
+        let query = SearchQuery {
+            hl: Some("EN-us".into()),
+            ..simple_query()
+        };
         assert_eq!(
-            query.into_input(SearchKind::All, false).expect("input").hl.as_deref(),
+            query
+                .into_input(SearchKind::All, false)
+                .expect("input")
+                .hl
+                .as_deref(),
             Some("en-us")
         );
-        let query = SearchQuery { hl: Some("en us".into()), ..simple_query() };
+        let query = SearchQuery {
+            hl: Some("en us".into()),
+            ..simple_query()
+        };
         assert!(query.into_input(SearchKind::All, false).is_err());
-        let query = SearchQuery { gl: Some("x".into()), ..simple_query() };
+        let query = SearchQuery {
+            gl: Some("x".into()),
+            ..simple_query()
+        };
         assert!(query.into_input(SearchKind::All, false).is_err());
     }
 

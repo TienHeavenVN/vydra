@@ -98,7 +98,10 @@ impl MemoryCache {
         }
         let mut oldest: Option<((CacheClass, String), Instant)> = None;
         for (key, slot) in slots.iter() {
-            if oldest.as_ref().is_none_or(|(_, at)| slot.entry.inserted < *at) {
+            if oldest
+                .as_ref()
+                .is_none_or(|(_, at)| slot.entry.inserted < *at)
+            {
                 oldest = Some((key.clone(), slot.entry.inserted));
             }
         }
@@ -172,7 +175,13 @@ mod tests {
     #[test]
     fn fresh_entries_are_returned() {
         let cache = MemoryCache::new(4);
-        cache.set(CacheClass::Metadata, "v:1", "{\"a\":1}".into(), Duration::from_secs(60), 7);
+        cache.set(
+            CacheClass::Metadata,
+            "v:1",
+            "{\"a\":1}".into(),
+            Duration::from_secs(60),
+            7,
+        );
         assert_eq!(
             cache.get(CacheClass::Metadata, "v:1", 7),
             Lookup::Fresh("{\"a\":1}".into())
@@ -182,7 +191,13 @@ mod tests {
     #[test]
     fn config_hash_change_invalidates() {
         let cache = MemoryCache::new(4);
-        cache.set(CacheClass::Metadata, "k", "v".into(), Duration::from_secs(60), 1);
+        cache.set(
+            CacheClass::Metadata,
+            "k",
+            "v".into(),
+            Duration::from_secs(60),
+            1,
+        );
         assert_eq!(cache.get(CacheClass::Metadata, "k", 2), Lookup::Miss);
     }
 
@@ -211,10 +226,25 @@ mod tests {
     #[test]
     fn class_invalidation_only_clears_that_class() {
         let cache = MemoryCache::new(8);
-        cache.set(CacheClass::Metadata, "a", "v".into(), Duration::from_secs(60), 0);
-        cache.set(CacheClass::Session, "b", "v".into(), Duration::from_secs(60), 0);
+        cache.set(
+            CacheClass::Metadata,
+            "a",
+            "v".into(),
+            Duration::from_secs(60),
+            0,
+        );
+        cache.set(
+            CacheClass::Session,
+            "b",
+            "v".into(),
+            Duration::from_secs(60),
+            0,
+        );
         cache.invalidate_class(CacheClass::Metadata);
         assert_eq!(cache.get(CacheClass::Metadata, "a", 0), Lookup::Miss);
-        assert!(matches!(cache.get(CacheClass::Session, "b", 0), Lookup::Fresh(_)));
+        assert!(matches!(
+            cache.get(CacheClass::Session, "b", 0),
+            Lookup::Fresh(_)
+        ));
     }
 }

@@ -8,15 +8,15 @@
 
 #![forbid(unsafe_code)]
 
-pub mod channel;
 pub mod captions;
+pub mod channel;
 pub mod common;
 pub mod playlist;
 pub mod search;
 pub mod video;
 
-pub use channel::{ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVideoList};
 pub use captions::CaptionTrackList;
+pub use channel::{ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVideoList};
 pub use common::{
     AttemptOutcome, Availability, CaptionKind, CaptionTrack, Chapter, Count, DeliveryKind,
     LiveState, MediaFormatInfo, Precision, Provenance, SourceAttempt, Thumbnail,

@@ -72,7 +72,9 @@ impl Metrics {
                 "vydra_provider_latency_seconds",
                 "Latency of provider calls in seconds.",
             )
-            .buckets(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
+            .buckets(vec![
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            ]),
             &["provider", "capability"],
         )
         .map_err(map_err)?;
@@ -209,7 +211,12 @@ mod tests {
     fn metrics_are_registered_and_render() {
         let metrics = Metrics::new().expect("metrics");
         metrics.set_build_info("0.1.0");
-        metrics.record_provider_attempt("innertube-web", "video_metadata", "ok", Duration::from_millis(12));
+        metrics.record_provider_attempt(
+            "innertube-web",
+            "video_metadata",
+            "ok",
+            Duration::from_millis(12),
+        );
         metrics.record_circuit_state("innertube-web", "open");
         metrics.record_http("/api/v1/search", "GET", 200);
         metrics.record_quota_denied("rate_limited");
@@ -226,8 +233,17 @@ mod tests {
 
     #[test]
     fn sensitive_headers_are_redacted() {
-        assert_eq!(redacted_header_value("Authorization", "Bearer x"), "<redacted>");
-        assert_eq!(redacted_header_value("X-Goog-Visitor-Id", "abc"), "<redacted>");
-        assert_eq!(redacted_header_value("Accept", "application/json"), "application/json");
+        assert_eq!(
+            redacted_header_value("Authorization", "Bearer x"),
+            "<redacted>"
+        );
+        assert_eq!(
+            redacted_header_value("X-Goog-Visitor-Id", "abc"),
+            "<redacted>"
+        );
+        assert_eq!(
+            redacted_header_value("Accept", "application/json"),
+            "application/json"
+        );
     }
 }

@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use vydra_cache::{Cache, CacheClass, Lookup};
 use vydra_common::{CursorCodec, PageParams, VideoId};
 use vydra_domain::{
-    CaptionTrackList, Chapter, Provenance, SearchItem, SearchResults, VideoChapters,
-    VideoDocument, VideoSummary,
+    CaptionTrackList, Chapter, Provenance, SearchItem, SearchResults, VideoChapters, VideoDocument,
+    VideoSummary,
 };
 use vydra_errors::Error;
 use vydra_provider_registry::{FetchOutcome, ProviderRegistry};
@@ -141,7 +141,10 @@ impl Engines {
         );
 
         if self.cache_search {
-            if let Lookup::Fresh(json) = self.cache.get(CacheClass::Search, &cache_key, self.config_hash) {
+            if let Lookup::Fresh(json) =
+                self.cache
+                    .get(CacheClass::Search, &cache_key, self.config_hash)
+            {
                 if let Ok(mut cached) = serde_json::from_str::<SearchResults>(&json) {
                     cached.provenance.cached = true;
                     cached.provenance.sources.clear();
@@ -164,7 +167,9 @@ impl Engines {
         let outcome = self.registry.fetch(request, &ctx).await?;
         let attempts = outcome.attempts.clone();
         let ProviderResponse::Search(mut results) = outcome.response else {
-            return Err(Error::Internal("provider returned the wrong payload type".into()));
+            return Err(Error::Internal(
+                "provider returned the wrong payload type".into(),
+            ));
         };
 
         // Audit finding A-07: a mixed-search payload can contain channels/playlists even for a
@@ -210,9 +215,9 @@ impl Engines {
         let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
         let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
         let cache_key = format!("video:{}:{}:{}", input.id, hl, gl);
-        if let Lookup::Fresh(json) = self
-            .cache
-            .get(CacheClass::Metadata, &cache_key, self.config_hash)
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Metadata, &cache_key, self.config_hash)
         {
             if let Ok(mut document) = serde_json::from_str::<VideoDocument>(&json) {
                 document.provenance.cached = true;
@@ -231,7 +236,9 @@ impl Engines {
         let outcome = self.registry.fetch(request, &ctx).await?;
         let attempts = outcome.attempts.clone();
         let ProviderResponse::Video(document) = outcome.response else {
-            return Err(Error::Internal("provider returned the wrong payload type".into()));
+            return Err(Error::Internal(
+                "provider returned the wrong payload type".into(),
+            ));
         };
         let mut document = *document;
         document.provenance.sources = attempts;
@@ -356,9 +363,7 @@ mod tests {
     use async_trait::async_trait;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use vydra_cache::MemoryCache;
-    use vydra_providers::{
-        Capability, CapabilitySet, Provider, ProviderId,
-    };
+    use vydra_providers::{Capability, CapabilitySet, Provider, ProviderId};
 
     #[derive(Debug)]
     struct FixedProvider {
@@ -396,8 +401,8 @@ mod tests {
                     estimated_results: None,
                     provenance: provenance_for("fixed", "search"),
                 })),
-                ProviderRequest::Video { id, .. } => Ok(ProviderResponse::Video(Box::new(
-                    VideoDocument {
+                ProviderRequest::Video { id, .. } => {
+                    Ok(ProviderResponse::Video(Box::new(VideoDocument {
                         summary: VideoSummary {
                             id,
                             title: "t".into(),
@@ -421,8 +426,8 @@ mod tests {
                         caption_tracks: vec![],
                         formats: vec![],
                         provenance: provenance_for("fixed", "player"),
-                    },
-                ))),
+                    })))
+                }
                 _ => Err(vydra_errors::ProviderError::Unsupported {
                     capability: "x".into(),
                 }),
@@ -437,8 +442,9 @@ mod tests {
         });
         let registry = Arc::new(ProviderRegistry::new(vec![provider]));
         let cache = Arc::new(MemoryCache::new(64));
-        let cursors = CursorCodec::new("0123456789abcdef0123456789abcdef", Duration::from_secs(600))
-            .expect("codec");
+        let cursors =
+            CursorCodec::new("0123456789abcdef0123456789abcdef", Duration::from_secs(600))
+                .expect("codec");
         (
             Engines::new(
                 registry,
@@ -506,7 +512,11 @@ mod tests {
         assert!(!first.provenance.cached);
         let second = engines.video(input).await.expect("video");
         assert!(second.provenance.cached);
-        assert_eq!(calls.load(Ordering::SeqCst), 1, "cache must avoid a provider call");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "cache must avoid a provider call"
+        );
     }
 
     #[tokio::test]
@@ -525,10 +535,12 @@ mod tests {
             ..search_input()
         };
         let results = engines.search(input).await.expect("search");
-        assert!(results
-            .items
-            .iter()
-            .all(|item| matches!(item, wydra_domain::SearchItem::Video(_))));
+        assert!(
+            results
+                .items
+                .iter()
+                .all(|item| matches!(item, wydra_domain::SearchItem::Video(_)))
+        );
     }
 
     #[tokio::test]

@@ -161,7 +161,10 @@ pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<R
         match node {
             Value::Object(map) => {
                 for (key, value) in map {
-                    if key.ends_with("Renderer") || key == "lockupViewModel" || key == "videoRenderer" {
+                    if key.ends_with("Renderer")
+                        || key == "lockupViewModel"
+                        || key == "videoRenderer"
+                    {
                         if KNOWN_RENDERERS.contains(&key.as_str()) {
                             found.push(Renderer { key, value });
                             // Do not descend into a consumed renderer: its inner renderers belong
@@ -314,7 +317,9 @@ pub fn extract_json_after(source: &str, marker: &str, max_len: usize) -> Option<
     let mut index = start;
 
     // Skip whitespace and an optional '=' / ':' separator.
-    while index < bytes.len() && (bytes[index].is_ascii_whitespace() || bytes[index] == b'=' || bytes[index] == b':') {
+    while index < bytes.len()
+        && (bytes[index].is_ascii_whitespace() || bytes[index] == b'=' || bytes[index] == b':')
+    {
         index += 1;
     }
     if index >= bytes.len() || bytes[index] != b'{' {
@@ -419,7 +424,12 @@ mod tests {
         assert!(keys.contains(&"videoRenderer"));
         assert!(keys.contains(&"channelRenderer"));
         assert_eq!(report.unknown_renderers(), 1);
-        assert!(report.messages().iter().any(|m| m.contains("unknownThingRenderer")));
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|m| m.contains("unknownThingRenderer"))
+        );
     }
 
     #[test]

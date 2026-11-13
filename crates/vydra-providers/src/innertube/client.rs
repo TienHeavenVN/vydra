@@ -9,9 +9,7 @@ use tokio::sync::Mutex;
 use tracing::debug;
 use url::Url;
 
-use super::{
-    ClientProfile, INNERTUBE_BASE, InnertubeProviderConfig, SW_JS_DATA_URL, YOUTUBE_HOME,
-};
+use super::{ClientProfile, INNERTUBE_BASE, InnertubeProviderConfig, SW_JS_DATA_URL, YOUTUBE_HOME};
 use crate::parse::find_json_string_field;
 use crate::transport::{HttpMethod, Transport, TransportError, TransportRequest};
 use crate::{ProviderContext, ProviderError};
@@ -106,10 +104,10 @@ impl InnertubeClient {
         if let Some(value) = self.fetch_json(SW_JS_DATA_URL, ctx).await {
             session.api_key = find_api_key(&value).or(session.api_key);
             session.visitor_data = find_field(&value, "visitorData");
-            session.client_version =
-                find_field(&value, "clientVersion").or(session.client_version);
+            session.client_version = find_field(&value, "clientVersion").or(session.client_version);
         } else if let Some(html) = self.fetch_text(YOUTUBE_HOME, ctx).await {
-            session.api_key = find_json_string_field(&html, "INNERTUBE_API_KEY").or(session.api_key);
+            session.api_key =
+                find_json_string_field(&html, "INNERTUBE_API_KEY").or(session.api_key);
             session.visitor_data = find_json_string_field(&html, "VISITOR_DATA")
                 .or_else(|| find_json_string_field(&html, "visitorData"));
             session.client_version = find_json_string_field(&html, "INNERTUBE_CLIENT_VERSION")
@@ -143,10 +141,7 @@ impl InnertubeClient {
             ),
             ("origin".to_owned(), "https://www.youtube.com".to_owned()),
             ("referer".to_owned(), "https://www.youtube.com/".to_owned()),
-            (
-                "accept-language".to_owned(),
-                format!("{},en;q=0.8", ctx.hl),
-            ),
+            ("accept-language".to_owned(), format!("{},en;q=0.8", ctx.hl)),
         ];
         if let Some(user_agent) = &profile.user_agent {
             headers.push(("user-agent".to_owned(), user_agent.clone()));
@@ -362,9 +357,16 @@ mod tests {
 
     #[test]
     fn finds_nested_values() {
-        let value = json!({"a": [{"b": {"visitorData": "VISITOR"}}], "key": "AIzaABCDEFGHIJKLMNOP"});
-        assert_eq!(find_field(&value, "visitorData").as_deref(), Some("VISITOR"));
-        assert_eq!(find_api_key(&value).as_deref(), Some("AIzaABCDEFGHIJKLMNOP"));
+        let value =
+            json!({"a": [{"b": {"visitorData": "VISITOR"}}], "key": "AIzaABCDEFGHIJKLMNOP"});
+        assert_eq!(
+            find_field(&value, "visitorData").as_deref(),
+            Some("VISITOR")
+        );
+        assert_eq!(
+            find_api_key(&value).as_deref(),
+            Some("AIzaABCDEFGHIJKLMNOP")
+        );
     }
 
     #[tokio::test]

@@ -352,9 +352,9 @@ impl ProviderRequest {
 
     pub fn locale(&self) -> (Option<&str>, Option<&str>) {
         match self {
-            Self::Search { hl, gl, .. } | Self::Video { hl, gl, .. } | Self::CaptionTracks { hl, gl, .. } => {
-                (Some(hl), Some(gl))
-            }
+            Self::Search { hl, gl, .. }
+            | Self::Video { hl, gl, .. }
+            | Self::CaptionTracks { hl, gl, .. } => (Some(hl), Some(gl)),
             Self::Unsupported { .. } => (None, None),
         }
     }

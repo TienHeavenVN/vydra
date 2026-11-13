@@ -34,7 +34,8 @@ fn split_number_and_suffix(input: &str) -> Option<(String, u64)> {
     let mut rest_start = None;
 
     for (idx, ch) in input.char_indices() {
-        let is_numeric = ch.is_ascii_digit() || ch == '.' || ch == ',' || ch == ' ' || ch == '\u{a0}';
+        let is_numeric =
+            ch.is_ascii_digit() || ch == '.' || ch == ',' || ch == ' ' || ch == '\u{a0}';
         if is_numeric {
             if rest_start.is_none() {
                 numeric.push(if ch == '\u{a0}' { ' ' } else { ch });
@@ -303,7 +304,8 @@ mod tests {
     }
 
     fn arbitrary_text() -> impl Strategy<Value = String> {
-        proptest::collection::vec(any::<char>(), 0..40).prop_map(|chars| chars.into_iter().collect())
+        proptest::collection::vec(any::<char>(), 0..40)
+            .prop_map(|chars| chars.into_iter().collect())
     }
 
     proptest! {
