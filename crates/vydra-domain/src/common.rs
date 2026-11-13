@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn availability_serializes_with_reason() {
         let value = Availability::from_reason(UnavailabilityReason::Private);
-        let json = serde_json::to_value(&value).expect("serialize");
+        let json = serde_json::to_value(value).expect("serialize");
         assert_eq!(json["state"], "unavailable");
         assert_eq!(json["reason"], "private");
         assert!(!value.is_available());
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn approximate_counts_preserve_raw_text() {
         let count = Count::approximate(1_200, "1.2K views");
-        let json = serde_json::to_value(&count).expect("serialize");
+        let json = serde_json::to_value(count).expect("serialize");
         assert_eq!(json["precision"], "approximate");
         assert_eq!(json["raw"], "1.2K views");
     }

@@ -23,7 +23,6 @@ edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/TienHeavenVN/vydra"
-categories = ["web-programming::http-server"]
 
 [workspace.dependencies]
 # --- local crates ---

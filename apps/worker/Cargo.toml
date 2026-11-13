@@ -16,3 +16,6 @@ vydra-config = { workspace = true }
 vydra-observability = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+[lints]
+workspace = true
