@@ -11,8 +11,6 @@ repository.workspace = true
 vydra-config = { workspace = true }
 vydra-errors = { workspace = true }
 sqlx = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true }
 tracing = { workspace = true }
 
 [lints]

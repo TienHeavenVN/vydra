@@ -519,6 +519,13 @@ mod tests {
         };
         let first = engines.video(input.clone()).await.expect("video");
         assert!(!first.provenance.cached);
+
+        // The cache stores JSON, so a document that cannot round-trip can never be a cache hit.
+        let json = serde_json::to_string(&first).expect("serialize cached document");
+        let round_tripped: VideoDocument =
+            serde_json::from_str(&json).expect("deserialize cached document");
+        assert_eq!(round_tripped.summary.id, first.summary.id);
+
         let second = engines.video(input).await.expect("video");
         assert!(second.provenance.cached);
         assert_eq!(

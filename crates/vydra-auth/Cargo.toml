@@ -10,10 +10,7 @@ repository.workspace = true
 [dependencies]
 vydra-config = { workspace = true }
 vydra-errors = { workspace = true }
-serde = { workspace = true }
 sha2 = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
 
 [lints]
 workspace = true
