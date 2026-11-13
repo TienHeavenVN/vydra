@@ -95,7 +95,11 @@ async fn search(body: String, cursor: Option<&str>) -> ProviderResponse {
 /// localized-value handling; the global search tree stays inferred, as its `.meta.json` records.
 #[tokio::test]
 async fn recorded_browse_page_maps_every_renderer() {
-    let response = search(fixture("recorded/browse_channel_search_2023-12-06.json"), None).await;
+    let response = search(
+        fixture("recorded/browse_channel_search_2023-12-06.json"),
+        None,
+    )
+    .await;
     let ProviderResponse::Search(results) = response else {
         panic!("expected a search response");
     };
