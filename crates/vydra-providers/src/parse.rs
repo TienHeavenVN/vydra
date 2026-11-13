@@ -283,12 +283,13 @@ pub fn find_continuation(root: &Value) -> Option<String> {
         }
         match node {
             Value::Object(map) => {
-                if let Some(command) = map.get("continuationCommand") {
-                    if let Some(token) = command.get("token").and_then(Value::as_str) {
-                        if !token.is_empty() {
-                            return Some(token.to_owned());
-                        }
-                    }
+                if let Some(token) = map
+                    .get("continuationCommand")
+                    .and_then(|command| command.get("token"))
+                    .and_then(Value::as_str)
+                    && !token.is_empty()
+                {
+                    return Some(token.to_owned());
                 }
                 for value in map.values() {
                     if value.is_object() || value.is_array() {

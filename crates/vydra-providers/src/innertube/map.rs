@@ -583,14 +583,14 @@ pub fn map_player(
         message: "player response without videoDetails".into(),
     })?;
 
-    if let Some(id) = details.video_id.as_deref() {
-        if id != expected_id.as_str() {
-            // Documented upstream behaviour: an outdated client can answer with another video
-            // (`docs/research/EXTRACTION_METHODS.md` §13).
-            return Err(ProviderError::Parse {
-                message: format!("wrong result: requested {expected_id}, got {id}"),
-            });
-        }
+    if let Some(id) = details.video_id.as_deref()
+        && id != expected_id.as_str()
+    {
+        // Documented upstream behaviour: an outdated client can answer with another video
+        // (`docs/research/EXTRACTION_METHODS.md` §13).
+        return Err(ProviderError::Parse {
+            message: format!("wrong result: requested {expected_id}, got {id}"),
+        });
     }
 
     let status = dto
