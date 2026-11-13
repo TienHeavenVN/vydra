@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use vydra_cache::{Cache, CacheClass, Lookup};
 use vydra_common::{CursorCodec, PageParams, VideoId};
 use vydra_domain::{
-    CaptionTrackList, Chapter, Provenance, SearchResults, VideoChapters, VideoDocument,
-    VideoSummary,
+    CaptionTrackList, Chapter, Provenance, SearchItem, SearchResults, VideoChapters,
+    VideoDocument, VideoSummary,
 };
 use vydra_errors::Error;
 use vydra_provider_registry::{FetchOutcome, ProviderRegistry};
@@ -30,6 +30,9 @@ pub struct EnginesConfig {
     pub search_ttl: Duration,
     pub cache_search: bool,
     pub strictness: Strictness,
+    /// Mirrors `providers.enable_unverified_filters`. Enforced here as well as at the HTTP edge so
+    /// non-HTTP callers (worker, tests) cannot bypass the capability gate.
+    pub unverified_filters: bool,
 }
 
 impl Default for EnginesConfig {
@@ -42,6 +45,7 @@ impl Default for EnginesConfig {
             search_ttl: Duration::from_secs(60),
             cache_search: false,
             strictness: Strictness::Lenient,
+            unverified_filters: false,
         }
     }
 }
@@ -111,31 +115,42 @@ impl Engines {
     pub async fn search(&self, input: SearchInput) -> Result<SearchResults, Error> {
         let limit = input.page.effective_limit()?;
         let kind = input.kind;
+        let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
+        let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
+
+        if !self.config.unverified_filters && has_non_default_filters(&input.filters) {
+            return Err(Error::CapabilityUnavailable("search_filters".into()));
+        }
 
         let cursor_token = match input.page.cursor_ref() {
             Some(raw) => Some(self.cursors.decode(raw, kind.cursor_namespace())?.t),
             None => None,
         };
 
+        // Audit finding A-06: the cache key omitted the locale, so a `hl=de` response could be
+        // served to a `hl=en` caller (localized numbers *and* text).
         let cache_key = format!(
-            "{}:{}:{}:{}:{}",
+            "{}:{}:{}:{}:{}:{}:{}",
             kind.cursor_namespace(),
             input.query.trim().to_lowercase(),
             describe_filters(&input.filters),
             cursor_token.as_deref().unwrap_or("-"),
-            limit
+            limit,
+            hl,
+            gl
         );
 
         if self.cache_search {
             if let Lookup::Fresh(json) = self.cache.get(CacheClass::Search, &cache_key, self.config_hash) {
                 if let Ok(mut cached) = serde_json::from_str::<SearchResults>(&json) {
                     cached.provenance.cached = true;
+                    cached.provenance.sources.clear();
                     return Ok(cached);
                 }
             }
         }
 
-        let ctx = self.context(input.hl, input.gl);
+        let ctx = self.context(Some(hl), Some(gl));
         let request = ProviderRequest::Search {
             query: input.query.trim().to_owned(),
             kind,
@@ -147,9 +162,26 @@ impl Engines {
         };
 
         let outcome = self.registry.fetch(request, &ctx).await?;
+        let attempts = outcome.attempts.clone();
         let ProviderResponse::Search(mut results) = outcome.response else {
             return Err(Error::Internal("provider returned the wrong payload type".into()));
         };
+
+        // Audit finding A-07: a mixed-search payload can contain channels/playlists even for a
+        // type-scoped request. Filter here so `/search/videos` cannot return a channel.
+        match kind {
+            SearchKind::Videos => results
+                .items
+                .retain(|item| matches!(item, SearchItem::Video(_))),
+            SearchKind::Channels => results
+                .items
+                .retain(|item| matches!(item, SearchItem::Channel(_))),
+            SearchKind::Playlists => results
+                .items
+                .retain(|item| matches!(item, SearchItem::Playlist(_))),
+            SearchKind::All | SearchKind::Music => {}
+        }
+        results.provenance.sources = attempts;
 
         results.next_cursor = match results.next_cursor.take() {
             Some(token) => Some(self.cursors.encode(
@@ -175,18 +207,21 @@ impl Engines {
 
     /// Full video metadata.
     pub async fn video(&self, input: VideoInput) -> Result<VideoDocument, Error> {
-        let cache_key = format!("video:{}", input.id);
+        let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
+        let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
+        let cache_key = format!("video:{}:{}:{}", input.id, hl, gl);
         if let Lookup::Fresh(json) = self
             .cache
             .get(CacheClass::Metadata, &cache_key, self.config_hash)
         {
             if let Ok(mut document) = serde_json::from_str::<VideoDocument>(&json) {
                 document.provenance.cached = true;
+                document.provenance.sources.clear();
                 return Ok(document);
             }
         }
 
-        let ctx = self.context(input.hl, input.gl);
+        let ctx = self.context(Some(hl), Some(gl));
         let request = ProviderRequest::Video {
             id: input.id.clone(),
             hl: ctx.hl.clone(),
@@ -194,9 +229,12 @@ impl Engines {
         };
 
         let outcome = self.registry.fetch(request, &ctx).await?;
+        let attempts = outcome.attempts.clone();
         let ProviderResponse::Video(document) = outcome.response else {
             return Err(Error::Internal("provider returned the wrong payload type".into()));
         };
+        let mut document = *document;
+        document.provenance.sources = attempts;
 
         // Unavailable content is never cached: availability can change in both directions.
         if document.availability.is_available() {
@@ -209,7 +247,7 @@ impl Engines {
             );
         }
 
-        Ok(*document)
+        Ok(document)
     }
 
     /// Chapters projected from the video document.
@@ -267,6 +305,10 @@ pub fn chapters_of(document: &VideoDocument) -> &[Chapter] {
     &document.chapters
 }
 
+fn has_non_default_filters(filters: &SearchFilters) -> bool {
+    filters != &SearchFilters::default()
+}
+
 fn describe_filters(filters: &SearchFilters) -> String {
     format!(
         "{:?}|{:?}|{:?}|{}",
@@ -304,6 +346,7 @@ pub fn provenance_for(provider: &str, endpoint: &str) -> Provenance {
         fetched_at: time::OffsetDateTime::now_utc(),
         cached: false,
         parse_warnings: 0,
+        sources: Vec::new(),
     }
 }
 
@@ -330,6 +373,9 @@ mod tests {
         fn capabilities(&self) -> CapabilitySet {
             CapabilitySet::from_slice(&[
                 Capability::SearchAll,
+                Capability::SearchVideos,
+                Capability::SearchChannels,
+                Capability::SearchPlaylists,
                 Capability::VideoMetadata,
                 Capability::CaptionsMetadata,
             ])
@@ -469,6 +515,20 @@ mod tests {
         engines.search(search_input()).await.expect("search");
         engines.search(search_input()).await.expect("search");
         assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn type_scoped_search_filters_foreign_item_kinds() {
+        let (engines, _) = engines(false);
+        let input = SearchInput {
+            kind: SearchKind::Videos,
+            ..search_input()
+        };
+        let results = engines.search(input).await.expect("search");
+        assert!(results
+            .items
+            .iter()
+            .all(|item| matches!(item, wydra_domain::SearchItem::Video(_))));
     }
 
     #[tokio::test]

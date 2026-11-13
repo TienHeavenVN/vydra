@@ -45,6 +45,11 @@ pub struct TransportRequest {
 
 impl TransportRequest {
     /// Reject anything that could be used for SSRF or header injection.
+    ///
+    /// Defence in depth: scheme, userinfo, port, fragment, host allowlist, header shape, header
+    /// count and body limits are all checked *before* any DNS resolution happens. See
+    /// `docs/security/PROVIDER_ENGINE_AUDIT.md` §3 for the residual risks (notably DNS rebinding,
+    /// which a hostname allowlist alone cannot eliminate).
     pub fn validate(&self) -> Result<(), TransportError> {
         if self.url.scheme() != "https" {
             return Err(TransportError::BlockedUrl(format!(
@@ -52,12 +57,40 @@ impl TransportRequest {
                 self.url.scheme()
             )));
         }
+        // `https://user:pass@host/` is never legitimate here and is a classic parser-confusion
+        // vector (`https://www.youtube.com@evil.example/`).
+        if !self.url.username().is_empty() || self.url.password().is_some() {
+            return Err(TransportError::BlockedUrl(
+                "url must not contain userinfo".into(),
+            ));
+        }
+        // Only the default HTTPS port is allowed: a non-standard port is either a mistake or an
+        // attempt to reach an internal service through an allowlisted hostname.
+        match self.url.port() {
+            None | Some(443) => {}
+            Some(port) => {
+                return Err(TransportError::BlockedUrl(format!(
+                    "non-default port not allowed: {port}"
+                )));
+            }
+        }
+        if self.url.fragment().is_some() {
+            return Err(TransportError::BlockedUrl(
+                "url must not contain a fragment".into(),
+            ));
+        }
         let host = self
             .url
             .host_str()
             .ok_or_else(|| TransportError::BlockedUrl("url without host".into()))?;
         if !is_allowed_host(host) {
             return Err(TransportError::BlockedUrl(format!("host not allowed: {host}")));
+        }
+        if self.headers.len() > MAX_HEADERS {
+            return Err(TransportError::InvalidHeader(format!(
+                "too many headers ({})",
+                self.headers.len()
+            )));
         }
         for (name, value) in &self.headers {
             let lower = name.to_ascii_lowercase();
@@ -74,9 +107,21 @@ impl TransportRequest {
         if self.max_response_bytes == 0 {
             return Err(TransportError::BodyTooLarge { limit: 0 });
         }
+        if let Some(body) = &self.body {
+            if body.len() > MAX_REQUEST_BODY_BYTES {
+                return Err(TransportError::BodyTooLarge {
+                    limit: MAX_REQUEST_BODY_BYTES,
+                });
+            }
+        }
         Ok(())
     }
 }
+
+/// Maximum number of outbound headers (defensive bound).
+const MAX_HEADERS: usize = 32;
+/// Maximum outbound request body accepted by the transport.
+const MAX_REQUEST_BODY_BYTES: usize = 256 * 1024;
 
 /// Hosts Vydra is permitted to contact. Everything else is a configuration error, not a redirect to
 /// follow.
@@ -393,6 +438,67 @@ mod tests {
 
         let mut req = request("https://www.youtube.com/");
         req.headers.push(("bad header".into(), "value".into()));
+        assert!(matches!(
+            req.validate(),
+            Err(TransportError::InvalidHeader(_))
+        ));
+    }
+
+    #[test]
+    fn rejects_ip_literals_and_userinfo() {
+        // IP literals must never be allowlisted: `is_allowed_host` compares names only, so a
+        // numeric host has to fail here.
+        for bad in [
+            "https://127.0.0.1/youtubei/v1/search",
+            "https://[::1]/youtubei/v1/search",
+            "https://169.254.169.254/latest/meta-data",
+            "https://www.youtube.com@evil.example/x",
+            "https://user:pass@www.youtube.com/x",
+        ] {
+            let result = request(bad).validate();
+            assert!(
+                matches!(result, Err(TransportError::BlockedUrl(_))),
+                "accepted {bad}: {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_default_ports_and_fragments() {
+        assert!(matches!(
+            request("https://www.youtube.com:8443/x").validate(),
+            Err(TransportError::BlockedUrl(_)),
+        ));
+        assert!(matches!(
+            request("https://www.youtube.com/x#frag").validate(),
+            Err(TransportError::BlockedUrl(_)),
+        ));
+        assert!(request("https://www.youtube.com:443/x").validate().is_ok());
+    }
+
+    #[test]
+    fn rejects_other_schemes() {
+        for bad in ["http://www.youtube.com/x", "ftp://www.youtube.com/x"] {
+            assert!(matches!(
+                request(bad).validate(),
+                Err(TransportError::BlockedUrl(_)),
+            ));
+        }
+    }
+
+    #[test]
+    fn rejects_oversized_request_body_and_header_count() {
+        let mut req = request("https://www.youtube.com/x");
+        req.body = Some(Bytes::from(vec![b'x'; MAX_REQUEST_BODY_BYTES + 1]));
+        assert!(matches!(
+            req.validate(),
+            Err(TransportError::BodyTooLarge { .. })
+        ));
+
+        let mut req = request("https://www.youtube.com/x");
+        for index in 0..(MAX_HEADERS + 1) {
+            req.headers.push((format!("x-h{index}"), "v".into()));
+        }
         assert!(matches!(
             req.validate(),
             Err(TransportError::InvalidHeader(_))

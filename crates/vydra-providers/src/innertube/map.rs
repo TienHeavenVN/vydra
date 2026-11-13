@@ -708,6 +708,7 @@ mod tests {
             fetched_at: OffsetDateTime::from_unix_timestamp(1_700_000_000).expect("ts"),
             cached: false,
             parse_warnings: 0,
+            sources: Vec::new(),
         }
     }
 

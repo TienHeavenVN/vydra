@@ -23,6 +23,12 @@ pub struct Provenance {
     pub cached: bool,
     /// Number of non-fatal parse warnings recorded while normalizing.
     pub parse_warnings: u32,
+    /// Every provider attempt that contributed to this document (including failed fallbacks).
+    ///
+    /// Audit finding A-05: the registry tracked attempts but engines discarded them, so the public
+    /// `meta.sources` array was permanently empty. It is now populated end to end.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<SourceAttempt>,
 }
 
 /// How precise a numeric value is.

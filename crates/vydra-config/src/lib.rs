@@ -128,6 +128,10 @@ pub struct ProvidersConfig {
     pub default_hl: String,
     /// Default content country sent to providers.
     pub default_gl: String,
+    /// Opt-in for search filters (sort/since/duration/features). The mapping to InnerTube `sp=`
+    /// parameters is **unverified** (no live-network confirmation is possible from the build
+    /// sandbox), so the filters are refused unless an operator explicitly enables them.
+    pub enable_unverified_filters: bool,
 }
 
 impl Default for ProvidersConfig {
@@ -137,6 +141,7 @@ impl Default for ProvidersConfig {
             max_attempts: 2,
             default_hl: "en".into(),
             default_gl: "US".into(),
+            enable_unverified_filters: false,
         }
     }
 }
@@ -448,6 +453,11 @@ impl Config {
         );
         set_string(vars, "VYDRA__PROVIDERS__DEFAULT_HL", &mut config.providers.default_hl);
         set_string(vars, "VYDRA__PROVIDERS__DEFAULT_GL", &mut config.providers.default_gl);
+        set_bool_opt(
+            vars,
+            "VYDRA__PROVIDERS__ENABLE_UNVERIFIED_FILTERS",
+            &mut config.providers.enable_unverified_filters,
+        );
 
         // --- cache ---
         if let Some(value) = vars.get("VYDRA__CACHE__BACKEND") {

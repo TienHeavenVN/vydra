@@ -1,11 +1,12 @@
 //! Vydra API server binary.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use tokio::net::TcpListener;
 use tracing::info;
-use vydra_api::{router, AppState};
+use vydra_api::{router, AppState, MetricsObserver};
 use vydra_auth::{Authenticator, RateLimiter};
 use vydra_cache::MemoryCache;
 use vydra_common::{BuildInfo, CursorCodec};
@@ -65,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .api_key_override
                 .as_ref()
                 .map(|secret| secret.expose().to_owned()),
-            enable_unverified_filters: false,
+            enable_unverified_filters: config.providers.enable_unverified_filters,
             ..Default::default()
         };
         providers.push(Arc::new(InnertubeProvider::new(
@@ -74,13 +75,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )));
     }
 
-    let registry = Arc::new(ProviderRegistry::with_config(
-        providers,
-        RegistryConfig {
-            max_attempts: config.providers.max_attempts,
-            ..Default::default()
-        },
-    ));
+    let metrics = Arc::new(Metrics::new()?);
+    metrics.set_build_info(build.version);
+
+    let observer: Arc<dyn vydra_provider_registry::ProviderObserver> =
+        Arc::new(MetricsObserver::new(metrics.clone()));
+    let registry = Arc::new(
+        ProviderRegistry::with_config(
+            providers,
+            RegistryConfig {
+                max_attempts: config.providers.max_attempts,
+                ..Default::default()
+            },
+        )
+        .with_observer(observer),
+    );
     info!(
         providers = ?registry.provider_ids(),
         capabilities = %registry.capabilities(),
@@ -105,6 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             search_ttl: Duration::from_secs(config.cache.search_ttl_secs),
             cache_search: config.cache.cache_search,
             strictness: vydra_providers::Strictness::Lenient,
+            unverified_filters: config.providers.enable_unverified_filters,
         },
     ));
 
@@ -116,8 +126,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     let limiter = Arc::new(RateLimiter::new(Duration::from_secs(60), 100_000));
-    let metrics = Arc::new(Metrics::new()?);
-    metrics.set_build_info(build.version);
 
     let state = Arc::new(AppState {
         engines,
@@ -137,7 +145,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "listening"
     );
 
-    axum::serve(listener, app)
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
         .with_graceful_shutdown(shutdown_signal(Duration::from_millis(
             config.server.shutdown_grace_ms,
         )))

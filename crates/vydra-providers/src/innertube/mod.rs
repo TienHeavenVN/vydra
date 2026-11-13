@@ -23,12 +23,14 @@ pub const SW_JS_DATA_URL: &str = "https://www.youtube.com/sw.js_data";
 /// HTML fallback used when `sw.js_data` does not answer.
 pub const YOUTUBE_HOME: &str = "https://www.youtube.com/";
 
-/// Public web API key used as a last-resort fallback.
-///
-/// Value observed in `MediaServiceCore/youtubeapi/src/main/java/com/liskovsoft/youtubeapi/innertube/utils/Constants.kt`
-/// (`CLIENTS.WEB.API_KEY`). It is operator-overridable
-/// (`VYDRA__PROVIDERS__INNERTUBE__API_KEY`) because such literals rotate.
-pub const FALLBACK_WEB_API_KEY: &str = "REDACTED-PUBLIC-WEB-KEY";
+// NOTE (audit 2026-11-13): the reference projects hardcode a public YouTube web API key.
+// Vydra deliberately does **not** ship one:
+//   * a shared key literal is a credential-hygiene problem and trips secret scanning,
+//   * it silently ties every deployment to one quota identity,
+//   * its presence cannot be verified from here, so shipping it would imply a guarantee we cannot make.
+// The key is therefore obtained at runtime (session bootstrap) or supplied by the operator via
+// `VYDRA__PROVIDERS__INNERTUBE__API_KEY`. Absence of a key is logged, not fatal
+// (see docs/security/PROVIDER_ENGINE_AUDIT.md, finding A-01).
 
 /// InnerTube client family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,7 +95,7 @@ impl ClientProfile {
                     .to_owned(),
             ),
             platform: Some("DESKTOP"),
-            api_key: Some(FALLBACK_WEB_API_KEY.to_owned()),
+            api_key: None,
         }
     }
 
@@ -110,7 +112,7 @@ impl ClientProfile {
                     .to_owned(),
             ),
             platform: None,
-            api_key: Some(FALLBACK_WEB_API_KEY.to_owned()),
+            api_key: None,
         }
     }
 
@@ -125,7 +127,7 @@ impl ClientProfile {
                 "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version".to_owned(),
             ),
             platform: None,
-            api_key: Some(FALLBACK_WEB_API_KEY.to_owned()),
+            api_key: None,
         }
     }
 

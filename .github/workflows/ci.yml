@@ -8,6 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  CARGO_INCREMENTAL: 0
 
 jobs:
   fmt:
@@ -17,7 +18,60 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: cargo fmt --all -- --check
+      - name: cargo fmt --check
+        run: |
+          set -o pipefail
+          cargo fmt --all -- --check 2>&1 | tee fmt.log
+      - name: annotate
+        if: failure()
+        run: |
+          cargo metadata --no-deps --format-version 1 > /dev/null 2> metadata.log || true
+          bash scripts/ci/annotate.sh metadata.log 0 10
+          bash scripts/ci/annotate.sh fmt.log 0 10
+
+  # Temporary formatting bot: the development sandbox for this branch has no Rust toolchain, so the
+  # only way to obtain rustfmt output is to let CI apply it and push the result back. Removed once
+  # the tree is formatted (see docs/security/PROVIDER_ENGINE_AUDIT.md).
+  fmt-apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: apply rustfmt
+        run: cargo fmt --all
+      - name: push formatting commit
+        run: |
+          if git diff --quiet; then
+            echo "already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: apply rustfmt [skip ci]"
+          git push
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check --workspace --all-targets
+        run: |
+          set -o pipefail
+          cargo check --workspace --all-targets --message-format=short 2>&1 | tee check.log
+      - name: annotate
+        if: failure()
+        run: |
+          for offset in 0 10 20 30 40; do
+            bash scripts/ci/annotate.sh check.log "$offset" 10
+          done
 
   clippy:
     runs-on: ubuntu-latest
@@ -27,7 +81,16 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: cargo clippy
+        run: |
+          set -o pipefail
+          cargo clippy --workspace --all-targets --all-features --message-format=short -- -D warnings 2>&1 | tee clippy.log
+      - name: annotate
+        if: failure()
+        run: |
+          for offset in 0 10 20 30 40; do
+            bash scripts/ci/annotate.sh clippy.log "$offset" 10
+          done
 
   test:
     runs-on: ubuntu-latest
@@ -35,17 +98,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: check
-        run: cargo check --workspace --all-targets
       - name: unit + fixture tests (offline, deterministic)
-        run: cargo test --workspace --all-features -- --nocapture
-      - name: integration tests
-        run: cargo test --workspace --all-features --test '*' -- --nocapture
+        run: |
+          set -o pipefail
+          cargo test --workspace --all-features --message-format=short 2>&1 | tee test.log
+      - name: annotate
+        if: failure()
+        run: |
+          for offset in 0 10 20 30 40; do
+            bash scripts/ci/annotate.sh test.log "$offset" 10
+          done
 
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # rustsec/audit-check requires a lock file; the repository deliberately does not commit one
+      # (see docs/security/PROVIDER_ENGINE_AUDIT.md), so it is generated here.
+      - name: generate lock file
+        run: cargo generate-lockfile
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,6 +127,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
 
   secrets:
     runs-on: ubuntu-latest

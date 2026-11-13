@@ -4,10 +4,11 @@
 
 #![forbid(unsafe_code)]
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderValue, Request, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -22,12 +23,15 @@ use tracing::Instrument;
 use uuid::Uuid;
 use vydra_common::{BuildInfo, PageParams, PaginationMeta, VideoId};
 use vydra_config::Config;
-use vydra_domain::{Provenance, SearchResults, SourceAttempt, VideoDocument};
+use vydra_domain::{AttemptOutcome, Provenance, SearchResults, SourceAttempt, VideoDocument};
 use vydra_engines::{Engines, SearchInput, VideoInput};
 use vydra_errors::{Error, ErrorBody};
 use vydra_observability::Metrics;
-use vydra_provider_registry::ProviderRegistry;
-use vydra_providers::{Capability, SearchKind};
+use vydra_provider_registry::{CircuitState, ProviderObserver, ProviderRegistry};
+use vydra_providers::{
+    Capability, ProviderId, SearchDate, SearchDuration, SearchFeature, SearchFilters, SearchKind,
+    SearchSort,
+};
 use vydra_auth::{Authenticator, RateLimiter};
 
 /// Request identifier attached by middleware.
@@ -79,7 +83,7 @@ impl Meta {
         Self {
             request_id: request_id.to_owned(),
             provider: Some(provenance.provider.clone()),
-            sources: Vec::new(),
+            sources: provenance.sources.clone(),
             cached: provenance.cached,
             fetched_at: provenance.fetched_at,
             warnings: Vec::new(),
@@ -139,10 +143,20 @@ pub struct SearchQuery {
     pub cursor: Option<String>,
     pub hl: Option<String>,
     pub gl: Option<String>,
+    pub sort: Option<String>,
+    pub since: Option<String>,
+    pub duration: Option<String>,
+    /// Comma-separated feature list (`live,hd,subtitles`).
+    pub filter: Option<String>,
 }
 
 impl SearchQuery {
-    fn into_input(self, kind: SearchKind) -> vydra_errors::Result<SearchInput> {
+    /// Translate the HTTP query into a typed engine input.
+    ///
+    /// Audit finding A-10: `sort/since/duration/filter` were accepted by the OpenAPI document but
+    /// silently dropped. They are now parsed strictly, rejected when the deployment has not opted
+    /// into unverified filters, and rejected with `capability_unavailable` instead of being ignored.
+    fn into_input(self, kind: SearchKind, filters_allowed: bool) -> vydra_errors::Result<SearchInput> {
         let query = self.q.trim().to_owned();
         if query.is_empty() {
             return Err(Error::validation("q", "required"));
@@ -153,18 +167,96 @@ impl SearchQuery {
         if query.chars().any(char::is_control) {
             return Err(Error::validation("q", "invalid_characters"));
         }
+
+        let hl = normalise_locale("hl", self.hl)?;
+        let gl = normalise_locale("gl", self.gl)?;
+
+        let filters = SearchFilters {
+            sort: match self.sort.as_deref() {
+                None => SearchSort::Relevance,
+                Some("relevance") => SearchSort::Relevance,
+                Some("upload_date") => SearchSort::UploadDate,
+                Some("view_count") => SearchSort::ViewCount,
+                Some("rating") => SearchSort::Rating,
+                Some(_) => return Err(Error::validation("sort", "unsupported")),
+            },
+            uploaded: match self.since.as_deref() {
+                None => None,
+                Some("hour") => Some(SearchDate::Hour),
+                Some("day") => Some(SearchDate::Day),
+                Some("week") => Some(SearchDate::Week),
+                Some("month") => Some(SearchDate::Month),
+                Some("year") => Some(SearchDate::Year),
+                Some(_) => return Err(Error::validation("since", "unsupported")),
+            },
+            duration: match self.duration.as_deref() {
+                None => None,
+                Some("short") => Some(SearchDuration::Short),
+                Some("medium") => Some(SearchDuration::Medium),
+                Some("long") => Some(SearchDuration::Long),
+                Some(_) => return Err(Error::validation("duration", "unsupported")),
+            },
+            features: parse_features(self.filter.as_deref())?,
+        };
+
+        let non_default = filters.sort != SearchSort::Relevance
+            || filters.uploaded.is_some()
+            || filters.duration.is_some()
+            || !filters.features.is_empty();
+        if non_default && !filters_allowed {
+            return Err(Error::CapabilityUnavailable("search_filters".into()));
+        }
+
         Ok(SearchInput {
             query,
             kind,
-            filters: Default::default(),
+            filters,
             page: PageParams {
                 limit: self.limit,
                 cursor: self.cursor,
             },
-            hl: self.hl,
-            gl: self.gl,
+            hl,
+            gl,
         })
     }
+}
+
+/// Locales are interpolated into provider query strings and cache keys, so they are validated here
+/// (finding A-11): ASCII letters/digits plus `-`, 2..=10 chars, lowercased.
+fn normalise_locale(field: &'static str, raw: Option<String>) -> vydra_errors::Result<Option<String>> {
+    let Some(value) = raw else { return Ok(None) };
+    let trimmed = value.trim();
+    let valid = (2..=10).contains(&trimmed.len())
+        && trimmed
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-');
+    if !valid {
+        return Err(Error::validation(field, "invalid_locale"));
+    }
+    Ok(Some(trimmed.to_ascii_lowercase()))
+}
+
+fn parse_features(raw: Option<&str>) -> vydra_errors::Result<Vec<SearchFeature>> {
+    let Some(raw) = raw else { return Ok(Vec::new()) };
+    let mut features = Vec::new();
+    for part in raw.split(',').map(str::trim).filter(|part| !part.is_empty()) {
+        let feature = match part {
+            "live" => SearchFeature::Live,
+            "hd" => SearchFeature::Hd,
+            "4k" => SearchFeature::Uhd4k,
+            "subtitles" => SearchFeature::Subtitles,
+            "creative_commons" => SearchFeature::CreativeCommons,
+            "3d" => SearchFeature::ThreeD,
+            "360" => SearchFeature::ThreeSixty,
+            "vr180" => SearchFeature::Vr180,
+            "hdr" => SearchFeature::Hdr,
+            _ => return Err(Error::validation("filter", "unsupported")),
+        };
+        if !features.contains(&feature) {
+            features.push(feature);
+        }
+    }
+    Ok(features)
 }
 
 // --- handlers -------------------------------------------------------------------------------
@@ -259,7 +351,10 @@ async fn search_impl(
     kind: SearchKind,
 ) -> ApiResult<Json<Envelope<SearchResults>>> {
     let limit = query.limit;
-    let input = query.into_input(kind).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let filters_allowed = state.config.providers.enable_unverified_filters;
+    let input = query
+        .into_input(kind, filters_allowed)
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
     let results = state
         .engines
         .search(input)
@@ -381,17 +476,66 @@ async fn auth_middleware(
         Err(error) => return ApiError::new(error, &request_id).into_response(),
     };
 
+    // Anonymous callers are bucketed per peer IP when the socket address is available, so one
+    // client cannot exhaust the shared anonymous budget (finding A-09). Behind a reverse proxy all
+    // traffic appears to come from the proxy unless the proxy is trusted to inject the peer
+    // address; see docs/security/PROVIDER_ENGINE_AUDIT.md "unsolvable limitations".
     let bucket = if principal.anonymous {
-        "anonymous".to_owned()
+        match request.extensions().get::<ConnectInfo<SocketAddr>>() {
+            Some(ConnectInfo(addr)) => format!("ip:{}", addr.ip()),
+            None => "anonymous".to_owned(),
+        }
     } else {
         format!("key:{}", principal.key_id)
     };
     if let Err(error) = state.limiter.check(&bucket, state.config.auth.per_key_rpm) {
+        state.metrics.record_quota_denied("per_key_rpm");
         return ApiError::new(error, &request_id).into_response();
     }
 
     request.extensions_mut().insert(principal);
     next.run(request).await
+}
+
+// --- metrics bridge -------------------------------------------------------------------------
+
+/// Bridges provider lifecycle events into Prometheus counters.
+#[derive(Debug)]
+pub struct MetricsObserver {
+    metrics: Arc<Metrics>,
+}
+
+impl MetricsObserver {
+    pub fn new(metrics: Arc<Metrics>) -> Self {
+        Self { metrics }
+    }
+}
+
+impl ProviderObserver for MetricsObserver {
+    fn on_attempt(
+        &self,
+        provider: ProviderId,
+        capability: Capability,
+        outcome: AttemptOutcome,
+        latency: Duration,
+    ) {
+        let outcome = match outcome {
+            AttemptOutcome::Ok => "ok",
+            AttemptOutcome::Failed => "failed",
+            AttemptOutcome::Skipped => "skipped",
+        };
+        self.metrics
+            .record_provider_attempt(provider.as_str(), capability.as_str(), outcome, latency);
+    }
+
+    fn on_circuit_change(&self, provider: ProviderId, state: CircuitState) {
+        let label = match state {
+            CircuitState::Closed => "closed",
+            CircuitState::HalfOpen => "half_open",
+            CircuitState::Open { .. } => "open",
+        };
+        self.metrics.record_circuit_state(provider.as_str(), label);
+    }
 }
 
 // --- router ---------------------------------------------------------------------------------
@@ -423,29 +567,29 @@ pub fn router(state: Arc<AppState>) -> Router {
         api = api.route("/videos/{id}/captions", get(captions_handler));
     }
 
-    let mut router = Router::new()
+    // Ops endpoints stay reachable without an API key so orchestrators can probe the service
+    // (finding A-12: previously every route, including /health, required authentication).
+    let ops = Router::new()
         .route("/health", get(health))
         .route("/ready", get(ready))
-        .route("/api/v1/health", get(health))
-        .route("/api/v1/ready", get(ready))
-        .route("/api/v1/status", get(status))
-        .route("/api/v1/metrics", get(metrics))
         .route("/status", get(status))
-        .route("/metrics", get(metrics))
-        .nest("/api/v1", api)
-        .layer(middleware::from_fn_with_state(
-            state.clone(),
-            auth_middleware,
-        ))
+        .route("/metrics", get(metrics));
+
+    let authed = api.layer(middleware::from_fn_with_state(
+        state.clone(),
+        auth_middleware,
+    ));
+
+    Router::new()
+        .merge(ops.clone())
+        .nest("/api/v1", authed.merge(ops))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::new(Duration::from_millis(
             state.config.server.request_timeout_ms,
         )))
         .layer(RequestBodyLimitLayer::new(state.config.server.body_limit_bytes))
-        .with_state(state);
-
-    router
+        .with_state(state)
 }
 
 #[cfg(test)]
@@ -469,9 +613,13 @@ mod tests {
             cursor: None,
             hl: None,
             gl: None,
+            sort: None,
+            since: None,
+            duration: None,
+            filter: None,
         };
         assert!(matches!(
-            query.into_input(SearchKind::All),
+            query.into_input(SearchKind::All, false),
             Err(Error::Validation(_))
         ));
     }
@@ -484,8 +632,83 @@ mod tests {
             cursor: None,
             hl: None,
             gl: None,
+            sort: None,
+            since: None,
+            duration: None,
+            filter: None,
         };
-        assert!(query.into_input(SearchKind::All).is_err());
+        assert!(query.into_input(SearchKind::All, false).is_err());
+    }
+
+    fn simple_query() -> SearchQuery {
+        SearchQuery {
+            q: "rust".into(),
+            limit: None,
+            cursor: None,
+            hl: None,
+            gl: None,
+            sort: None,
+            since: None,
+            duration: None,
+            filter: None,
+        }
+    }
+
+    #[test]
+    fn filters_require_opt_in() {
+        let query = SearchQuery {
+            sort: Some("view_count".into()),
+            ..simple_query()
+        };
+        assert!(matches!(
+            query.into_input(SearchKind::Videos, false),
+            Err(Error::CapabilityUnavailable(_))
+        ));
+
+        let query = SearchQuery {
+            sort: Some("view_count".into()),
+            ..simple_query()
+        };
+        let input = query.into_input(SearchKind::Videos, true).expect("input");
+        assert_eq!(input.filters.sort, SearchSort::ViewCount);
+    }
+
+    #[test]
+    fn malformed_filter_values_are_rejected() {
+        for query in [
+            SearchQuery { sort: Some("views".into()), ..simple_query() },
+            SearchQuery { since: Some("decade".into()), ..simple_query() },
+            SearchQuery { duration: Some("eternal".into()), ..simple_query() },
+            SearchQuery { filter: Some("live,teleport".into()), ..simple_query() },
+        ] {
+            assert!(query.into_input(SearchKind::All, true).is_err());
+        }
+    }
+
+    #[test]
+    fn feature_lists_are_deduplicated() {
+        let query = SearchQuery {
+            filter: Some("live, hd,live".into()),
+            ..simple_query()
+        };
+        let input = query.into_input(SearchKind::All, true).expect("input");
+        assert_eq!(
+            input.filters.features,
+            vec![SearchFeature::Live, SearchFeature::Hd]
+        );
+    }
+
+    #[test]
+    fn locales_are_validated_and_normalised() {
+        let query = SearchQuery { hl: Some("EN-us".into()), ..simple_query() };
+        assert_eq!(
+            query.into_input(SearchKind::All, false).expect("input").hl.as_deref(),
+            Some("en-us")
+        );
+        let query = SearchQuery { hl: Some("en us".into()), ..simple_query() };
+        assert!(query.into_input(SearchKind::All, false).is_err());
+        let query = SearchQuery { gl: Some("x".into()), ..simple_query() };
+        assert!(query.into_input(SearchKind::All, false).is_err());
     }
 
     #[test]
@@ -497,6 +720,7 @@ mod tests {
             fetched_at: OffsetDateTime::now_utc(),
             cached: false,
             parse_warnings: 0,
+            sources: Vec::new(),
         };
         let meta = Meta::from_provenance("rid", &provenance, None);
         assert_eq!(meta.request_id, "rid");

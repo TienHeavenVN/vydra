@@ -94,6 +94,7 @@ impl InnertubeProvider {
             fetched_at,
             cached: false,
             parse_warnings: report.count(),
+            sources: Vec::new(),
         }
     }
 
