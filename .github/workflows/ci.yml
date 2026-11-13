@@ -43,9 +43,12 @@ jobs:
         with:
           components: rustfmt
       - name: apply rustfmt
-        run: cargo fmt --all
+        run: |
+          set -o pipefail
+          cargo fmt --all 2>&1 | tee fmt-apply.log
       - name: push formatting commit
         run: |
+          set -o pipefail
           if git diff --quiet; then
             echo "already formatted"
             exit 0
@@ -54,7 +57,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "style: apply rustfmt [skip ci]"
-          git push
+          git push 2>&1 | tee push.log
+      - name: annotate
+        if: failure()
+        run: |
+          bash scripts/ci/annotate.sh fmt-apply.log 0 10
+          bash scripts/ci/annotate.sh push.log 0 10
 
   check:
     runs-on: ubuntu-latest
