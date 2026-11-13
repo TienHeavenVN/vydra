@@ -191,12 +191,12 @@ impl ProviderState {
     }
 
     fn refresh(&mut self, now: Instant) -> Option<CircuitState> {
-        if let CircuitState::Open { until } = self.state {
-            if now >= until {
-                self.state = CircuitState::HalfOpen;
-                self.probe_in_flight = false;
-                return Some(self.state);
-            }
+        if let CircuitState::Open { until } = self.state
+            && now >= until
+        {
+            self.state = CircuitState::HalfOpen;
+            self.probe_in_flight = false;
+            return Some(self.state);
         }
         None
     }
@@ -456,14 +456,13 @@ impl ProviderRegistry {
                 continue;
             }
 
-            if let Ok(mut gates) = self.gates.lock() {
-                if let Some(bucket) = gates.get_mut(&provider.id()) {
-                    if !bucket.try_take(now) {
-                        throttled += 1;
-                        tracing::debug!(provider = %provider.id(), "skipped: provider rate limit");
-                        continue;
-                    }
-                }
+            if let Ok(mut gates) = self.gates.lock()
+                && let Some(bucket) = gates.get_mut(&provider.id())
+                && !bucket.try_take(now)
+            {
+                throttled += 1;
+                tracing::debug!(provider = %provider.id(), "skipped: provider rate limit");
+                continue;
             }
 
             eligible.push(provider.clone());

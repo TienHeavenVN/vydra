@@ -119,6 +119,8 @@ jobs:
         run: |
           grep -A6 '^error' test.log | head -50 > test-errors.log || true
           bash scripts/ci/annotate.sh test-errors.log -1 40
+          grep -B3 -A8 'panicked at' test.log | head -80 > test-failures.log || true
+          bash scripts/ci/annotate.sh test-failures.log -1 60
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh test.log "$offset" 10
           done
