@@ -442,9 +442,12 @@ mod tests {
 
     #[test]
     fn depth_budget_stops_pathological_nesting() {
+        // A linear 200-deep chain is already four times `MAX_DEPTH`. The previous version fed
+        // `value` into two siblings per iteration, so building the fixture itself was
+        // exponential (2^200 nodes) and hung the test binary instead of the parser.
         let mut value = json!({"leaf": true});
         for _ in 0..200 {
-            value = json!({ "nestedRendererDepth": { "child": value }, "plain": { "x": value } });
+            value = json!({ "nestedRendererDepth": { "child": value } });
         }
         let mut report = ParseReport::new();
         let _ = collect_renderers(&value, &mut report);

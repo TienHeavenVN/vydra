@@ -130,7 +130,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo test -p ${{ matrix.package }}
         env:
-          # Temporary: locate the test that hangs in this package.
           DIAGNOSE_HANGS: ${{ matrix.package == 'vydra-providers' && '1' || '0' }}
         run: |
           bash scripts/ci/test-package.sh "${{ matrix.package }}" test.log
