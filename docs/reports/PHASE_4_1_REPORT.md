@@ -115,9 +115,10 @@ npx @redocly/cli lint docs/api/openapi.yaml
 
 ## 7. CI run URL / status
 
-**Green**: commit `68d1416`, run **43449726141** —
-<https://github.com/TienHeavenVN/vydra/actions/runs/43449726141> — status `completed`, conclusion
-`success`, 22/22 jobs.
+**Green**: commit `8f82286` (head of `arena/06c8b7fc-vydra`), run **43450513810** —
+<https://github.com/TienHeavenVN/vydra/actions/runs/43450513810> — status `completed`, conclusion
+`success`, 22/22 jobs. The two previous heads (`68d1416` run 43449726141, `19d504e` run 43448947831)
+were also fully green.
 First fully green run of the suite: commit `524b0d7`, run **43448221721** (23 jobs, including the
 temporary `fmt-apply` job that has since been retired).
 
