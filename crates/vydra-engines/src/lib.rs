@@ -152,17 +152,15 @@ impl Engines {
             gl
         );
 
-        if self.config.cache_search {
-            if let Lookup::Fresh(json) =
-                self.cache
-                    .get(CacheClass::Search, &cache_key, self.config_hash)
-            {
-                if let Ok(mut cached) = serde_json::from_str::<SearchResults>(&json) {
-                    cached.provenance.cached = true;
-                    cached.provenance.sources.clear();
-                    return Ok(cached);
-                }
-            }
+        if self.config.cache_search
+            && let Lookup::Fresh(json) = self
+                .cache
+                .get(CacheClass::Search, &cache_key, self.config_hash)
+            && let Ok(mut cached) = serde_json::from_str::<SearchResults>(&json)
+        {
+            cached.provenance.cached = true;
+            cached.provenance.sources.clear();
+            return Ok(cached);
         }
 
         let ctx = self.context(Some(hl), Some(gl));
@@ -230,12 +228,11 @@ impl Engines {
         if let Lookup::Fresh(json) =
             self.cache
                 .get(CacheClass::Metadata, &cache_key, self.config_hash)
+            && let Ok(mut document) = serde_json::from_str::<VideoDocument>(&json)
         {
-            if let Ok(mut document) = serde_json::from_str::<VideoDocument>(&json) {
-                document.provenance.cached = true;
-                document.provenance.sources.clear();
-                return Ok(document);
-            }
+            document.provenance.cached = true;
+            document.provenance.sources.clear();
+            return Ok(document);
         }
 
         let ctx = self.context(Some(hl), Some(gl));

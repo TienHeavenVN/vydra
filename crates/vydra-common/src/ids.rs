@@ -134,10 +134,16 @@ id_newtype!(
     /// A channel handle such as `@somebody`.
     ChannelHandle,
     "handle",
-    |v: &str| v.len() > 1
-        && v.len() <= 40
-        && v.starts_with('@')
-        && check_charset(v, is_bare_id_char)
+    |v: &str| {
+        // The '@' sigil is part of the handle, so it is allowed at position 0 only; the remainder
+        // uses the same charset as bare ids plus '.', which YouTube permits in handles.
+        let rest = v.strip_prefix('@').unwrap_or("");
+        !rest.is_empty()
+            && v.len() <= 40
+            && rest
+                .chars()
+                .all(|c| is_bare_id_char(c) || c == '.')
+    }
 );
 
 /// Either a channel id (`UC…`) or a handle (`@…`).
