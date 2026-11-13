@@ -349,7 +349,7 @@ fn looks_like_api_key(text: &str) -> bool {
     let Some(rest) = text.strip_prefix("AIza") else {
         return false;
     };
-    (16..=60).contains(&rest.len())
+    (12..=60).contains(&rest.len())
         && rest
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
