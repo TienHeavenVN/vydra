@@ -142,7 +142,7 @@ pub struct Renderer<'a> {
 ///
 /// The walk is breadth-first over objects/arrays with explicit depth and node budgets so that a
 /// hostile response cannot exhaust the process.
-pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<Renderer<'a>> {
+pub fn collect_renderers(root: &Value, report: &mut ParseReport) -> Vec<Renderer<'_>> {
     let mut found = Vec::new();
     let mut stack: Vec<(&'a Value, usize)> = vec![(root, 0)];
     let mut visited = 0usize;

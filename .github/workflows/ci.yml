@@ -130,7 +130,8 @@ jobs:
           cargo install cargo-audit --locked --quiet 2>&1 | tee install.log
           # Ignored advisories mirror deny.toml; the rationale lives in
           # docs/security/PROVIDER_ENGINE_AUDIT.md §7 (accepted third-party risk).
-          cargo audit --ignore RUSTSEC-2024-0437 --ignore RUSTSEC-2026-0459 2>&1 | tee audit.log
+          cargo audit --ignore RUSTSEC-2024-0437 --ignore RUSTSEC-2026-0459 \
+            --ignore RUSTSEC-2023-0071 2>&1 | tee audit.log
       - name: annotate
         if: failure()
         run: |
@@ -155,6 +156,10 @@ jobs:
         if: failure()
         run: |
           bash scripts/ci/annotate.sh install.log 0 5
+          grep -A6 'error\[rejected\]' deny.log | head -60 > deny-rejected.log || true
+          bash scripts/ci/annotate.sh deny-rejected.log -1 40
+          grep -B2 -A6 'error\[vulnerability\]' deny.log | head -40 > deny-vuln.log || true
+          bash scripts/ci/annotate.sh deny-vuln.log -1 30
           bash scripts/ci/annotate.sh deny.log -1 40
           for offset in 0 10 20; do
             bash scripts/ci/annotate.sh deny.log "$offset" 10

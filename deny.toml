@@ -43,4 +43,8 @@ ignore = [
     # reported even though the crate is never compiled. Follow-up: pin/upgrade sqlx, or drop it until
     # the repository layer lands.
     "RUSTSEC-2026-0459",
+    # rsa is an optional MySQL-auth dependency of sqlx. Vydra links the PostgreSQL backend only and
+    # never performs RSA operations, so the Marvin timing oracle has no attack surface here.
+    # Follow-up: as above, upgrade or drop sqlx until the repository layer lands.
+    "RUSTSEC-2023-0071",
 ]

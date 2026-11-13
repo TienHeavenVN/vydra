@@ -19,7 +19,7 @@ use vydra_errors::{ProviderError, UnavailabilityReason};
 
 use crate::parse::{ParseReport, Renderer, find_continuation, number_of, text_of, thumbnails_of};
 
-fn first_text<'a>(value: &'a Value, keys: &[&str]) -> Option<String> {
+fn first_text(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(field) = value.get(*key) {
             if let Some(text) = text_of(field) {

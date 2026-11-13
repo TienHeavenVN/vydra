@@ -26,8 +26,8 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use vydra_domain::{AttemptOutcome, SourceAttempt};
 use vydra_errors::{Error, ProviderError};
 use vydra_providers::{
-    Capability, CapabilitySet, Provider, ProviderContext, ProviderId, ProviderRequest,
-    ProviderResponse, SharedProvider,
+    Capability, CapabilitySet, ProviderContext, ProviderId, ProviderRequest, ProviderResponse,
+    SharedProvider,
 };
 
 /// Registry tuning.
@@ -455,14 +455,12 @@ impl ProviderRegistry {
                 continue;
             }
 
-            if !self.gates.is_empty() {
-                if let Ok(mut gates) = self.gates.lock() {
-                    if let Some(bucket) = gates.get_mut(&provider.id()) {
-                        if !bucket.try_take(now) {
-                            throttled += 1;
-                            tracing::debug!(provider = %provider.id(), "skipped: provider rate limit");
-                            continue;
-                        }
+            if let Ok(mut gates) = self.gates.lock() {
+                if let Some(bucket) = gates.get_mut(&provider.id()) {
+                    if !bucket.try_take(now) {
+                        throttled += 1;
+                        tracing::debug!(provider = %provider.id(), "skipped: provider rate limit");
+                        continue;
                     }
                 }
             }
@@ -627,6 +625,7 @@ mod tests {
 
     use async_trait::async_trait;
     use vydra_common::VideoId;
+    use vydra_providers::Provider;
     use vydra_domain::Provenance;
     use vydra_errors::UnavailabilityReason;
     use vydra_providers::Strictness;
