@@ -53,6 +53,13 @@ robustness defect, **S3** = hygiene/maintainability.
 | A-18 | S1 | **The Docker image could not build**: `COPY Cargo.lock` referenced a file that is intentionally not committed. | CI run 43419351202, job `docker`: `"/Cargo.lock": not found` | **Fixed**: `Dockerfile` builds from `rust:1-slim`, resolves dependencies at build time, and no longer copies a lock file or `rust-toolchain.toml`. |
 | A-19 | S2 | The **audit job could not run** for the same reason (`cargo audit` requires a lock file), and `cargo-deny`'s failure was undiagnosable because the action swallows output. | CI run 43419351202, jobs `audit`/`deny` | **Fixed**: both jobs generate a lock file first and run the tools directly with `tee` + annotation. |
 | A-20 | S3 | The OpenAPI document had no `security` scheme, so every operation failed `security-defined`; `/search/videos|channels|playlists` and `/videos/{id}/metadata` were served but undocumented; filters were undocumented. | `docs/api/openapi.yaml`; CI job `openapi` failed on run 43420474500 | **Fixed**: schemes + per-operation security, all mounted paths documented, filters marked opt-in; `npx @redocly/cli lint` is clean locally. |
+| A-21 | S1 | **The cache could never hit.** Domain models omit unset optional fields (`skip_serializing_if`) but their `Deserialize` demanded them, so re-reading a cached document failed with `missing field published_at`. Every "cache hit" silently fell through to a fresh provider call — the cache was pure overhead, and the stored entry was re-serialized on every request. | CI run 43432463005, job `test`: `deserialize cached document: Error("missing field published_at", line: 1, column: 43)` at `vydra-engines` `video_metadata_is_cached_and_flagged` | **Fixed**: `#[serde(default)]` on all 56 `Option`/`Vec` fields that skip serialization, including the two multi-line `time::serde::rfc3339::option` attributes, plus a round-trip assertion in the caching test. |
+| A-22 | S1 | **No channel handle could ever parse.** `ChannelHandle` applied the bare-id charset to the whole string, and `@` is not a bare-id character, so `ChannelRef::parse("@rustlang")` returned `Validation([handle: invalid_format])` for every input. Channel routing by handle was dead code that looked implemented. | CI run 43430663406, job `test`: `ids::tests::channel_ref_dispatches_on_prefix` panicked at `ids.rs:223` | **Fixed**: the sigil is stripped before charset validation (`@` + 1–39 URL-safe characters plus `.`, which YouTube permits). |
+| A-23 | S2 | **The scraped API key was always discarded.** `find_api_key` required `len() > 20`, so the key it had just downloaded from `sw.js_data` failed the check, `or(session.api_key)` kept the configured override, and the "session bootstrap" step was decorative. A 20-character key (the documented shape `AIza` + 16) was rejected; real keys are 39. | CI runs 43444806970 / 43445452262, job `test`: `left: Some("AIzaTESTKEY")`, `right: Some("AIzaSWKEY0123456789")` | **Fixed**: `looks_like_api_key` = `AIza` + 12..=60 URL-safe characters, shared by both bootstrap paths. |
+| A-24 | S2 | **Search results were returned in reverse document order.** `collect_renderers` pushed children onto a LIFO stack in source order, so the last sibling was visited first: a response whose first result was a video produced a playlist first. Ordering is user-visible (and the pagination cursor assumption of "append at the end" breaks). | CI run 43446155668, job `test`: `unexpected first item: Playlist(PlaylistSummary { id: PlaylistId("PLabcdefghijkl") … })` | **Fixed**: children are pushed in reverse, giving pre-order traversal in document order; asserted by `search_maps_mixed_items_and_skips_broken_ones`. |
+| A-25 | S2 | **Layout-only renderers were counted as unknown content.** `twoColumnSearchResultsRenderer`, `sectionListRenderer` and `itemSectionRenderer` wrap every InnerTube response, so `ParseReport::unknown_renderers` — the signal meant to identify content Vydra cannot map yet — reported structure. One small fixture reported four "unknown" renderers, of which one was real, and the noise would swamp the metric in production. | CI run 43447524439, job `test`: `assert_eq!(report.unknown_renderers(), 1)` failed with `left: 4` | **Fixed**: `STRUCTURAL_RENDERERS` documents the containers that are traversed but not counted. |
+| A-26 | S2 | **A test fixture hung the whole test job for 20 minutes.** The depth-budget test fed the previous value into *two* siblings per iteration, so building the fixture was exponential (2^200 nodes) and the test binary never returned. Because a hang publishes nothing, the CI job reported an opaque cancellation and hid every other result. | CI run 43439144664 (`test (vydra-providers)` in progress for 20 min, no output); located by the per-test probe in run 43444806970 (`exit 137, cap 20s`) | **Fixed**: a linear 200-deep chain (still 4× `MAX_DEPTH`) replaces the exponential one. CI now runs one job per package, caps each package at 240 s and names any test that exceeds the cap. |
+| A-27 | S3 | **Dependencies that no code referenced were build failures.** `cargo` reports unused crate dependencies (workspace and crate level), and `clippy -D warnings` turns that into an error: `tokio`/`tower` in `vydra-api`, `serde`/`tokio`/`tracing` in `vydra-auth` and `vydra-cache`, `thiserror`/`tokio` in `vydra-database`, `vydra-config`/`serde`/`tracing` in `vydra-engines`, `serde_json` in `vydra-errors`, plus the `criterion`, `http`, `http-body-util`, `tower` and `vydra-database` workspace pins, `vydra-config`'s `tracing`, and `workspace.package` fields (`authors`, `keywords`, `categories`) that no member inherits. Both apps also lacked `[lints] workspace = true`. | CI runs 027d39b…8296c26, job `clippy` (`warning: unused dependency`, then `could not compile`) | **Fixed**: removed; every crate now inherits the workspace lint set. |
 
 ### What was *not* found (positive results worth recording)
 
@@ -141,20 +148,21 @@ Residual, **unsolvable by an allowlist** (documented rather than hidden):
 
 | Command | Where | Result |
 | --- | --- | --- |
-| `cargo fmt --all -- --check` | CI job `fmt` | see §6 |
-| `cargo check --workspace --all-targets` | CI job `check` | see §6 |
-| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | CI job `clippy` | see §6 |
-| `cargo test --workspace --all-features` | CI job `test` | see §6 |
-| `cargo audit`, `cargo deny check` | CI jobs `audit`, `deny` | see §6 |
+| `cargo fmt --all -- --check` | CI job `fmt` | **passing** (run 43448221721) |
+| `cargo check --workspace --all-targets` | CI job `check` | **passing** (run 43448221721) |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | CI job `clippy` | **passing** (run 43448221721) |
+| `cargo test --package <each>` (14 packages, one CI job each) | CI jobs `test (…)` | **passing**, 14/14 (run 43448221721) |
+| `cargo audit`, `cargo deny check` | CI jobs `audit`, `deny` | **passing** (run 43448221721) |
 | `gitleaks` | CI job `secrets` | **passing** after A-01 (run 43420663966) |
 | `npx @redocly/cli lint docs/api/openapi.yaml` | local + CI job `openapi` | **passing** (local: 0 errors; CI green on run 43420663966) |
-| `docker build` | CI job `docker` | see §6 |
+| `docker build` | CI job `docker` | **passing** (run 43448221721) |
 
 ## 6. Remaining blockers
 
 Tracked honestly, with the reason each one cannot be closed from this sandbox:
 
-1. **Full green CI run** — requires iterating against GitHub Actions; the sandbox cannot compile.
+1. ~~Full green CI run~~ — **closed**: run 43448221721 is green for all ten workflows jobs
+   (22 after the temporary `fmt-apply` job was retired). See §5.
 2. **`Cargo.lock` policy** — see ADR-019; resolving it needs one real `cargo generate-lockfile`.
 3. **Live InnerTube verification** — needs egress to YouTube; blocked by the sandbox and by the
    deliberate refusal to bypass anti-bot measures.

@@ -153,6 +153,15 @@ HalfOpen --(probe fails)------------------------------------> Open (cooldown *= 
 Cache hits set `provenance.cached = true` and clear `provenance.sources` (the attempts describe the
 fetch that filled the cache, not this request).
 
+Two invariants keep the cache honest:
+
+* **Everything cached is JSON, so everything cached must round-trip.** Any domain field that skips
+  serialization when unset carries `#[serde(default)]`; without it the reader rejects the writer's
+  own output (`missing field published_at`) and every lookup misses while the entry is still stored.
+  `video_metadata_is_cached_and_flagged` asserts the round-trip, not just the hit.
+* **Unavailable content is never cached.** Availability moves in both directions (private → public,
+  upcoming → available), so a negative document is never a durable fact.
+
 ---
 
 ## 6. Configuration surface (provider engine only)
@@ -172,6 +181,20 @@ fetch that filled the cache, not this request).
 No credential is compiled into the binary (ADR-018).
 
 ---
+
+## 6a. Parser ordering and diagnostics
+
+* **Document order is preserved.** `collect_renderers` walks breadth-first in document order
+  (children are pushed onto the stack in reverse so the LIFO pop restores source order). A search
+  response whose first item is a video yields a video first; anything else is a bug, because the
+  caller sees a reordered result list and cursor pagination stops being append-only.
+* **Unknown-renderer accounting means content, not layout.** `KNOWN_RENDERERS` are mapped;
+  `STRUCTURAL_RENDERERS` (`sectionListRenderer`, `itemSectionRenderer`, …) are traversed but never
+  counted; anything else ending in `Renderer` is reported through `ParseReport::unknown_renderer`
+  and shows up in `provenance.parse_warnings`. That counter is the to-do list for future content
+  types, so it must not be polluted by containers that appear in every response.
+* **Budgets.** `MAX_DEPTH = 48`, `MAX_NODES = 100_000`, `MAX_WARNINGS = 24`. Exceeding them emits a
+  warning and stops descending; it never truncates silently.
 
 ## 7. Adding a provider (the whole checklist)
 

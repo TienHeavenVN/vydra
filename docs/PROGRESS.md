@@ -35,15 +35,45 @@ Consequences, stated plainly:
 | Phase | State | Evidence |
 |---|---|---|
 | 1 — Multi-repository research | complete | 5 documents in `docs/research/`, 12 repositories cloned and read |
-| 2 — Architecture design | complete | `ARCHITECTURE.md`, `PROVIDER_INTERFACE.md`, `API_CONTRACTS.md`, 16 ADRs |
-| 3 — Rust foundation | written, uncompiled | 12 crates, workspace manifests, CI, Docker, migrations |
+| 2 — Architecture design | complete | `ARCHITECTURE.md`, `PROVIDER_INTERFACE.md`, `API_CONTRACTS.md`, 19 ADRs (`docs/research/IMPLEMENTATION_DECISIONS.md`) |
+| 3 — Rust foundation | compiles in CI | 12 crates, workspace manifests, CI, Docker, migrations |
 | 4 — Provider engine | **audited, remediated, verification in CI** | contract, transport, InnerTube search/player/captions, registry, fixtures; 20 findings closed (see `docs/security/PROVIDER_ENGINE_AUDIT.md`) |
-| 4.1 — Provider engine audit | in progress | `PROVIDER_ENGINE_AUDIT.md` + `PROVIDER_ENGINE.md`; remaining blockers are CI-only |
+| 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video + chapters + captions metadata | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 4.1 — compile stabilisation (what CI actually proved)
+
+Run `43448221721` on commit `524b0d7`: **every job green** — `fmt`, `check`, `clippy`
+(`-D warnings`), `test` (14 packages, one job each), `audit`, `deny`, `secrets`, `openapi`,
+`docker` (23 jobs including the temporary `fmt-apply`; 22/22 on every run since). Every `cargo`
+command behind that result ran on a GitHub runner, not in this sandbox.
+
+The loop took eighteen pushes; each failing run exposed a real defect rather than a CI quirk.
+Bugs found by first executing the tests (`docs/security/PROVIDER_ENGINE_AUDIT.md` has the detail):
+
+| Finding | What it meant in production |
+| --- | --- |
+| A-21 | The metadata cache could never hit — unset optional fields were skipped on write and required on read. |
+| A-22 | Every channel handle was rejected, so handle-based channel lookup never worked. |
+| A-23 | The session bootstrap discarded the API key it had just downloaded. |
+| A-24 | Search results came back in reverse document order. |
+| A-25 | The "unknown renderer" counter reported layout containers instead of unmapped content. |
+| A-26 | A test fixture that doubled per iteration (2^200 nodes) hung the test job for 20 minutes. |
+| A-27 | Unused dependencies at crate and workspace level failed the build under `-D warnings`. |
+
+CI itself needed three fixes to be usable as a compiler of record: `cargo` was run with
+`--message-format=short`, so diagnostics never start with `error` and every `grep '^error'`
+matched nothing (now `scripts/ci/report.sh`); annotations were emitted from a *separate* step,
+which the runner skips when the build step is killed; and a workspace-wide `cargo test` was killed
+after ~3 minutes, so the suite now runs as a fail-fast:false matrix of one job per package with a
+240 s cap and a per-test probe (`scripts/ci/test-package.sh`) that names a hanging test.
+
+The temporary `fmt-apply` job (which pushed rustfmt commits to the branch) is retired now that
+`fmt` has been green for nine consecutive runs.
 
 ## Implemented (code exists)
 

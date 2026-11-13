@@ -229,9 +229,11 @@ exhaustion on parsing); every fixed `time` release (≥ 0.3.46) requires 1.88. M
 `cargo msrv verify`-style job using `cargo-hack`). Dependencies are pinned by caret ranges; an
 `xtask`-free `deny.toml` enforces license allowlist (MIT/Apache-2.0/BSD/ISC/Unicode/MPL-2.0) and
 bans copyleft **runtime** dependencies, which also prevents accidental reuse of AGPL/GPL code.
-**Caveat:** this sandbox has no Rust toolchain and no access to `crates.io`, so no build was
-compiled during Phases 1–3. See `docs/PROGRESS.md` §"Blocked verification". CI is the first place
-this will be compiled.
+**Caveat (updated 2026-11-13):** this sandbox still has no Rust toolchain and no `crates.io`
+access, so nothing is compiled locally. The workspace *has* now been compiled: GitHub Actions run
+43448221721 is green for `fmt`, `check`, `clippy -D warnings`, `test` (14 packages), `audit`,
+`deny`, `secrets`, `openapi` and `docker`. See `docs/PROGRESS.md` §"Phase 4.1". The 1.88 floor is
+therefore a verified constraint, not a guess: `time` 0.3.55 is the version that resolves under it.
 
 ---
 
@@ -314,3 +316,61 @@ failure mode: it renders localized strings into numbers with locale heuristics a
 4. Timestamps are RFC 3339 UTC; durations are integer seconds; counts are `u64`; money/ratings are
    absent rather than guessed.
 5. `unavailable` reasons are enumerated, never free-form, and never conflated with 404.
+
+---
+
+## ADR-017 — CI is the compiler of record, and it must be observable
+
+**Status:** accepted (Phase 4.1)
+**Context:** No Rust toolchain exists in the development sandbox and `crates.io` is unreachable, so
+`cargo` only runs on GitHub Actions. Job logs cannot be downloaded from the sandbox either — the
+only retrievable channel is the check-run API. That combination made three failures invisible for
+several runs: diagnostics were grepped as `^error` although `cargo --message-format=short` prints
+`path:line:col: error[...]`; annotations were emitted from a step the runner skips when the build
+step is killed; and a workspace-wide `cargo test` was killed after ~3 minutes with nothing printed.
+**Decision:**
+
+1. Every CI step that can fail runs `cargo` through `tee` and calls `scripts/ci/report.sh` **in the
+   same step**, so annotations survive a nonzero exit.
+2. `report.sh` matches real short-format diagnostics, panics and `could not compile` context, and
+   falls back to the log tail rather than publishing nothing.
+3. Tests run as a `fail-fast: false` matrix of one job per package, each capped at 240 s, with
+   `scripts/ci/test-package.sh` naming any test that exceeds the cap (opt-in `DIAGNOSE_HANGS=1`
+   probes every test individually).
+4. No result is reported as passing unless a run id is attached.
+**Consequences:** an eleven-minute green run instead of a five-minute opaque one; failing tests are
+now named by the CI system itself. The trade-off is more jobs (14) and a longer run.
+
+---
+
+## ADR-018 — No upstream credentials compiled into the binary
+
+**Status:** accepted (Phase 4.1, closes finding A-01)
+**Context:** The first implementation shipped a hardcoded web API key literal
+(`FALLBACK_WEB_API_KEY`). A shared key baked into a public binary is a credential leak with an
+attribution problem: every deployment shares one quota identity, and rotating the key requires a
+release.
+**Decision:** every `ClientProfile` carries `api_key: None`. A key may only arrive from
+(a) the session bootstrap (`sw.js_data` or the watch page, at runtime, per deployment) or
+(b) `VYDRA__PROVIDERS__INNERTUBE__API_KEY` as an operator override. The literal was purged from
+the working tree *and* from history; `secrets` (gitleaks) fails the build if one returns.
+**Consequences:** a cold start now performs one bootstrap request before the first content request;
+if the bootstrap fails and no override is set, provider calls fail closed with
+`provider_unauthorized` rather than silently using somebody else's quota.
+
+---
+
+## ADR-019 — `Cargo.lock` is not committed; CI and Docker resolve it
+
+**Status:** accepted, with a recorded follow-up
+**Context:** The repository intentionally does not commit a lock file (it cannot be generated in the
+sandbox — `index.crates.io` is unreachable), but `cargo audit`, `cargo deny` and the Docker build
+all require one; the original `Dockerfile` did `COPY Cargo.lock` and could not build at all
+(finding A-18).
+**Decision:** `audit`/`deny` jobs run `cargo generate-lockfile` first; the `Dockerfile` builds from
+`rust:1-slim` and resolves dependencies during the build. Caret ranges in the workspace manifests,
+`deny.toml` for licences/advisories, and `cargo audit` in CI are the compensating controls.
+**Follow-up:** committing a generated `Cargo.lock` is the correct end state for a deployed binary —
+reproducible builds and a lock that `cargo audit` can check without a network resolve. Doing it
+requires one real `cargo generate-lockfile` run, which this sandbox cannot perform. Until then the
+lock policy is a known, documented limitation rather than a silent one.
