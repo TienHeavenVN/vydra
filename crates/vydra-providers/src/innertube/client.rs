@@ -341,9 +341,23 @@ fn find_field(value: &Value, key: &str) -> Option<String> {
     }
 }
 
+/// Shape of a browser key as it appears in `sw.js_data` or the watch page.
+///
+/// The previous bound (`len() > 20`) rejected the very keys the fixtures and the documented
+/// shape use: `AIza` plus a 16-character suffix is a valid test key and 20 characters long.
+fn looks_like_api_key(text: &str) -> bool {
+    let Some(rest) = text.strip_prefix("AIza") else {
+        return false;
+    };
+    (16..=60).contains(&rest.len())
+        && rest
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 fn find_api_key(value: &Value) -> Option<String> {
     match value {
-        Value::String(text) if text.starts_with("AIza") && text.len() > 20 => Some(text.clone()),
+        Value::String(text) if looks_like_api_key(text) => Some(text.clone()),
         Value::Object(map) => map.values().find_map(find_api_key),
         Value::Array(items) => items.iter().find_map(find_api_key),
         _ => None,
