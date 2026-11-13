@@ -7,6 +7,7 @@
 //! Providers construct them; `vydra-api` serializes them; nothing else may change them.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 pub mod captions;
 pub mod channel;

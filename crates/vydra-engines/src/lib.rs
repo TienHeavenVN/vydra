@@ -3,6 +3,7 @@
 //! Engines own no HTTP and no `axum` types, so they are reusable by the API, the worker and tests.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -70,13 +71,24 @@ pub struct VideoInput {
 }
 
 /// The engine facade.
-#[derive(Debug)]
+///
+/// `Debug` is implemented by hand because the cache is a `dyn Cache` and is deliberately opaque.
 pub struct Engines {
     registry: Arc<ProviderRegistry>,
     cache: Arc<dyn Cache>,
     cursors: CursorCodec,
     config: EnginesConfig,
     config_hash: u64,
+}
+
+impl std::fmt::Debug for Engines {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Engines")
+            .field("registry", &self.registry)
+            .field("config", &self.config)
+            .field("config_hash", &self.config_hash)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Engines {
@@ -140,7 +152,7 @@ impl Engines {
             gl
         );
 
-        if self.cache_search {
+        if self.config.cache_search {
             if let Lookup::Fresh(json) =
                 self.cache
                     .get(CacheClass::Search, &cache_key, self.config_hash)
@@ -197,7 +209,7 @@ impl Engines {
             None => None,
         };
 
-        if self.cache_search {
+        if self.config.cache_search {
             self.cache.set(
                 CacheClass::Search,
                 &cache_key,

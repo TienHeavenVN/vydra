@@ -1,6 +1,7 @@
 //! PostgreSQL access for durable state (API keys, worker leases).
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;

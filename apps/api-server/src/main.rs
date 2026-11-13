@@ -1,4 +1,5 @@
 //! Vydra API server binary.
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::net::SocketAddr;
 use std::sync::Arc;

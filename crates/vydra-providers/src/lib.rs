@@ -9,6 +9,7 @@
 //!   deterministic and SSRF/timeout/size limits cannot be bypassed.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 pub mod innertube;
 pub mod parse;

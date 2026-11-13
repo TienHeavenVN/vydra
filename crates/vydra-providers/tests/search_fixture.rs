@@ -4,6 +4,8 @@
 //! payloads replayed through `ReplayTransport`, so a regression is caught without network access.
 //! Fixture provenance is declared next to each file (see `fixtures/*.meta.json`).
 
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+
 use std::sync::Arc;
 use std::time::Duration;
 

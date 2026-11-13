@@ -8,6 +8,7 @@
 //!
 //! Core invariant: a *content* fact (`Unavailable`, `NotFound`) never becomes a retryable transport
 //! error and never becomes a generic 500.
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::time::Duration;
 

@@ -3,6 +3,7 @@
 //! Phase 8 scope: cache warming and quota snapshotting. For now the worker is a supervised loop with
 //! explicit, observable ticks so that the deployment shape (one replica, Postgres lease) exists and
 //! can be validated before any background behaviour is added.
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::time::Duration;
 

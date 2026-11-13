@@ -9,6 +9,7 @@
 //! A file layer can be added without changing the public getters.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::collections::HashMap;
 use std::fmt;

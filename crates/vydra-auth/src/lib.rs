@@ -1,6 +1,7 @@
 //! API keys, quotas and rate limiting.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::collections::HashMap;
 use std::sync::Mutex;

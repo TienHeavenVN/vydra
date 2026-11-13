@@ -15,6 +15,7 @@
 //!    probe re-opens with a doubled cooldown.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(test, allow(clippy::expect_used, clippy::unwrap_used, clippy::panic))]
 
 use std::collections::HashMap;
 use std::fmt;
