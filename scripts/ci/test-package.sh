@@ -15,6 +15,28 @@ test_timeout="${TEST_PROBE_SECONDS:-20}"
 
 trap '' TERM
 
+# DIAGNOSE_HANGS=1 runs every test on its own and stops at the first offender, publishing its
+# name as an annotation. Used to locate a test that hangs without ever printing anything.
+if [ "${DIAGNOSE_HANGS:-0}" = "1" ]; then
+  names="$(cargo test --package "$pkg" --all-features -- --list --format terse 2>>"$log" \
+    | sed -n 's/^\(.*\): test$/\1/p')"
+  total="$(printf '%s\n' "$names" | grep -c . || true)"
+  echo "$pkg: probing $total tests individually" >>"$log"
+  for name in $names; do
+    timeout --kill-after=5 "$test_timeout" \
+      cargo test --package "$pkg" --all-features -- --exact "$name" --test-threads=1 \
+      >>"$log" 2>&1
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "::error title=probe failed::$pkg :: $name (exit $rc, cap ${test_timeout}s)"
+      bash scripts/ci/report.sh "$log" || true
+      exit "$rc"
+    fi
+  done
+  echo "::notice title=probe complete::$pkg :: $total tests all pass individually"
+  exit 0
+fi
+
 : >"$log"
 printf '===== %s =====\n' "$pkg" >>"$log"
 timeout --kill-after=10 "$package_timeout" \
