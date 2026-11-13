@@ -105,7 +105,7 @@ jobs:
     # One job per package. A single workspace-wide run took long enough to be killed by the
     # runner (exit 143 / "operation was canceled") before any diagnostic could be published,
     # and a hang in one package took every other package with it.
-    timeout-minutes: 20
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
@@ -130,12 +130,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo test -p ${{ matrix.package }}
         run: |
-          set +e
-          set -o pipefail
-          cargo test --package "${{ matrix.package }}" --all-features --message-format=short 2>&1 | tee test.log
-          status=$?
-          bash scripts/ci/report.sh test.log
-          exit $status
+          bash scripts/ci/test-package.sh "${{ matrix.package }}" test.log
 
   audit:
     runs-on: ubuntu-latest
