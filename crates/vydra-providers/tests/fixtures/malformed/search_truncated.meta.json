@@ -1,6 +1,6 @@
 {
   "class": "derived_malformed",
-  "derived_from": "recorded/search_web_2023-12-06.json",
+  "derived_from": "recorded/browse_channel_search_2023-12-06.json",
   "operation": "truncated at 50% of its bytes, producing invalid JSON",
   "purpose": "TransportResponse::json must return a decode error, and the provider must map it to provider_parse"
 }

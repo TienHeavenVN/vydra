@@ -82,15 +82,20 @@ async fn search(body: String, cursor: Option<&str>) -> ProviderResponse {
 }
 
 // --------------------------------------------------------------------------------------------
-// Recorded search page (MediaServiceCore, chrome channel search tab, 2023-12-06)
+// Recorded browse page carrying search-tab renderers (MediaServiceCore, chrome channel search tab,
+// 2023-12-06)
 // --------------------------------------------------------------------------------------------
 
 /// Every renderer in the recording maps, in document order, with the localized values preserved
 /// verbatim. The page contains no continuation token, so `next_cursor` must stay `None` rather than
 /// being invented.
+///
+/// Scope warning: the capture is a **browse** document (`twoColumnBrowseResultsRenderer`), not a
+/// `/youtubei/v1/search` response. It proves the `videoRenderer`/`playlistRenderer` mapping and the
+/// localized-value handling; the global search tree stays inferred, as its `.meta.json` records.
 #[tokio::test]
-async fn recorded_search_page_maps_every_item() {
-    let response = search(fixture("recorded/search_web_2023-12-06.json"), None).await;
+async fn recorded_browse_page_maps_every_renderer() {
+    let response = search(fixture("recorded/browse_channel_search_2023-12-06.json"), None).await;
     let ProviderResponse::Search(results) = response else {
         panic!("expected a search response");
     };
@@ -117,7 +122,7 @@ async fn recorded_search_page_maps_every_item() {
     );
     assert_eq!(first.duration_seconds, Some(185));
     // `"25 399 352 просмотра"` — NBSP-separated thousands and a localized noun.
-    let views = first.view_count.expect("view count");
+    let views = first.view_count.as_ref().expect("view count");
     assert_eq!(views.value, 25_399_352);
     assert_eq!(views.precision, Precision::Exact);
     assert_eq!(first.published_text.as_deref(), Some("6 лет назад"));

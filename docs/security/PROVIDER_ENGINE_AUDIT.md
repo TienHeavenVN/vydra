@@ -61,6 +61,12 @@ robustness defect, **S3** = hygiene/maintainability.
 | A-26 | S2 | **A test fixture hung the whole test job for 20 minutes.** The depth-budget test fed the previous value into *two* siblings per iteration, so building the fixture was exponential (2^200 nodes) and the test binary never returned. Because a hang publishes nothing, the CI job reported an opaque cancellation and hid every other result. | CI run 43439144664 (`test (vydra-providers)` in progress for 20 min, no output); located by the per-test probe in run 43444806970 (`exit 137, cap 20s`) | **Fixed**: a linear 200-deep chain (still 4× `MAX_DEPTH`) replaces the exponential one. CI now runs one job per package, caps each package at 240 s and names any test that exceeds the cap. |
 | A-27 | S3 | **Dependencies that no code referenced were build failures.** `cargo` reports unused crate dependencies (workspace and crate level), and `clippy -D warnings` turns that into an error: `tokio`/`tower` in `vydra-api`, `serde`/`tokio`/`tracing` in `vydra-auth` and `vydra-cache`, `thiserror`/`tokio` in `vydra-database`, `vydra-config`/`serde`/`tracing` in `vydra-engines`, `serde_json` in `vydra-errors`, plus the `criterion`, `http`, `http-body-util`, `tower` and `vydra-database` workspace pins, `vydra-config`'s `tracing`, and `workspace.package` fields (`authors`, `keywords`, `categories`) that no member inherits. Both apps also lacked `[lints] workspace = true`. | CI runs 027d39b…8296c26, job `clippy` (`warning: unused dependency`, then `could not compile`) | **Fixed**: removed; every crate now inherits the workspace lint set. |
 
+| A-28 | S1 | **DNS rebinding was open.** The allowlist was checked on the hostname and `reqwest` resolved afterwards, so a hostile or poisoned answer for an allowlisted name (the list contains wildcard suffixes such as `.youtube.com`) could return `127.0.0.1` or `169.254.169.254` and Vydra would connect to it, sending a JSON body and returning up to 4 MiB of the response. | `crates/vydra-providers/src/transport.rs` (pre-fix: no resolver hook) | **Fixed**: `GuardedResolver` implements `reqwest::dns::Resolve`; resolution happens before the socket exists, every prohibited address is dropped (IPv4, IPv6, and IPv4 wrapped in IPv6), an empty survivor set is `BlockedUrl`, and exactly the surviving `SocketAddr`s are handed to the connector, so the validated resolution *is* the connection. TLS hostname verification is untouched. Analysis + test table: `docs/security/DNS_REBINDING_ANALYSIS.md`. |
+| A-29 | S1 | **The api key was never sent.** Session bootstrap downloaded the key into `SessionData.api_key` and every endpoint call then went out keyless (`…?prettyPrint=false`). Both reference clients transmit it (yt-dlp `youtube/_base.py:858-866` as the `key` query parameter; MediaServiceCore stores it in `Session.apiKey`). | `crates/vydra-providers/src/innertube/client.rs::post_json` (pre-fix) | **Fixed**: `endpoint_url` appends `&key=…` after `looks_like_api_key` validation (no interpolation of a hostile value), never as a header and never in a log line; asserted by three unit tests and by `tests/request_contract.rs`. |
+| A-30 | S2 | **Ambient proxy support defeated the DNS guard.** The builder never called `.no_proxy()`, so `HTTPS_PROXY` would have made the proxy resolve the target itself, bypassing `GuardedResolver` — while the transport's own doc comment claimed "no ambient proxy". | `transport.rs::ReqwestTransport::new` | **Fixed**: `.no_proxy()`, with the trade-off documented in `DNS_REBINDING_ANALYSIS.md` §6. |
+| A-31 | S2 | **Two robustness signals did not count.** A renderer-less search document and a player response without `playabilityStatus` were recorded with `ParseReport::warn`, which does not increment `ParseReport::count()`; `provenance.parse_warnings` therefore stayed `0` and strict mode accepted both documents. | `provider.rs::search`, `map.rs::map_player` | **Fixed**: `structural_problem("no_renderers")` and `missing_field("playabilityStatus", "status")`; covered by `tests/recorded_fixture.rs` and a `map.rs` unit test. |
+| A-32 | S3 | **A fixture was named after an endpoint it never saw**: `recorded/search_web_2023-12-06.json` is a channel *browse* capture (`twoColumnBrowseResultsRenderer`), so the name implied a `/youtubei/v1/search` response that no source had. | `crates/vydra-providers/tests/fixtures/recorded/` | **Fixed**: renamed to `browse_channel_search_2023-12-06.json`, test renamed, `not_verified` list states the search container path stays inferred. |
+
 ### What was *not* found (positive results worth recording)
 
 * No path where a **content fact triggers fallback**: `is_fallback_eligible()` is the single gate and
@@ -92,11 +98,13 @@ Controls, in the order they run (all **before** DNS resolution):
 
 Residual, **unsolvable by an allowlist** (documented rather than hidden):
 
-* **DNS rebinding**: the allowlist is checked on the hostname, and reqwest resolves DNS afterwards.
-  A hostile resolver could return a private address for an allowlisted name. Mitigations are
-  layered (https only, no redirects, response caps, no attacker-controlled hostnames) but a
-  truly airtight fix needs a resolver hook that pins the resolved IP to a public range — not
-  implemented, listed in §5.
+* ~~**DNS rebinding**~~ — **closed (A-28)**: `GuardedResolver` is installed via
+  `ClientBuilder::dns_resolver`, validates every resolved address against a prohibited-range policy
+  (IPv4, IPv6, and IPv4 wrapped in IPv6), fails closed when nothing survives, and returns exactly the
+  addresses the connector dials. Ambient proxies, the other way to move the connection, are refused
+  (`no_proxy()`, A-30). Redirects were already refused. Residual, unavoidable points (pooled
+  connections, a mutually-trusted host answering hostilely, an explicitly configured proxy) are listed
+  in `docs/security/DNS_REBINDING_ANALYSIS.md` §6.
 * **TLS trust** relies on the platform trust store (`rustls-tls`); there is no certificate pinning.
 * **Upstream-side quota** is invisible to us: a 429 is observed, a shadow-ban is not.
 * **Fixture authenticity**: the recorded fixtures are *synthetic schema references*, not captured
@@ -163,11 +171,16 @@ Tracked honestly, with the reason each one cannot be closed from this sandbox:
 
 1. ~~Full green CI run~~ — **closed**: run 43448221721 is green for all ten workflows jobs
    (22 after the temporary `fmt-apply` job was retired). See §5.
-2. **`Cargo.lock` policy** — see ADR-019; resolving it needs one real `cargo generate-lockfile`.
+2. ~~**`Cargo.lock` policy**~~ — **decided and executed (Phase 4.2)**: the lockfile is generated by a
+   one-shot CI job, validated with `cargo check --locked`, and committed. ADR-019 records the decision
+   and the evidence.
 3. **Live InnerTube verification** — needs egress to YouTube; blocked by the sandbox and by the
    deliberate refusal to bypass anti-bot measures.
-4. **DNS-rebinding hardening** — needs a resolver hook (design, not debugging).
-5. **Fixture capture** — needs a recorded, legally usable payload set; current fixtures are synthetic.
+4. ~~**DNS-rebinding hardening**~~ — **closed (A-28)**, see `docs/security/DNS_REBINDING_ANALYSIS.md`.
+5. ~~**Fixture capture**~~ — **closed (Phase 4.2)** for the player and browse surfaces: three reduced
+   subsets of MIT-licensed third-party captures, with provenance sidecars, plus three derived malformed
+   documents. The global `/youtubei/v1/search` response and a search continuation remain unrecorded and
+   are marked *inferred* everywhere they are used.
 
 The authoritative, always-current statement of CI state is the Actions run for the head commit of
 `arena/06c8b7fc-vydra`:

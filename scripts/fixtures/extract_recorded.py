@@ -10,7 +10,7 @@ Usage:
     python3 scripts/fixtures/extract_recorded.py <MediaServiceCore-checkout> <fixtures-root>
 
 Outputs (fixtures-root is `crates/vydra-providers/tests/fixtures`):
-    recorded/search_web_2023-12-06.json          <- browse/chrome/2023.12.06_channel_search.json
+    recorded/browse_channel_search_2023-12-06.json          <- browse/chrome/2023.12.06_channel_search.json
     recorded/continuation_browse_2023-02-23.json <- browse/chrome/2023.02.23_what_to_watch_continuation.json
     recorded/player_web_2025-11-10.json          <- player/web/2025.11.10_player_regular.json
     malformed/*.json                       <- derived deletions, documented in each meta file
@@ -396,7 +396,7 @@ def main() -> None:
     malformed.mkdir(parents=True, exist_ok=True)
 
     search = build_search(root / "browse/chrome/2023.12.06_channel_search.json")
-    (recorded / "search_web_2023-12-06.json").write_text(json.dumps(search, indent=2) + "\n")
+    (recorded / "browse_channel_search_2023-12-06.json").write_text(json.dumps(search, indent=2) + "\n")
 
     continuation = build_continuation(
         root / "browse/chrome/2023.02.23_what_to_watch_continuation.json"
@@ -419,7 +419,7 @@ def main() -> None:
     truncated = json.dumps(search, indent=2)
     (malformed / "search_truncated.json").write_text(truncated[: len(truncated) // 2] + "\n")
 
-    print("search fixture bytes:", (recorded / "search_web_2023-12-06.json").stat().st_size)
+    print("search fixture bytes:", (recorded / "browse_channel_search_2023-12-06.json").stat().st_size)
     print("continuation fixture bytes:", (recorded / "continuation_browse_2023-02-23.json").stat().st_size)
     print("player fixture bytes:", (recorded / "player_web_2025-11-10.json").stat().st_size)
 

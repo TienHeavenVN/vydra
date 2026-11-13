@@ -1,4 +1,5 @@
 {
+  "class": "synthetic",
   "provenance": "synthetic_schema_reference",
   "note": "Hand-built fixture shaped after the InnerTube search renderer tree documented in docs/research/EXTRACTION_METHODS.md §5.2. It is NOT a captured live response and must not be described as one.",
   "endpoint": "search",

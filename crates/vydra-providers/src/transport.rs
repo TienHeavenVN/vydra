@@ -234,6 +234,12 @@ impl ReqwestTransport {
             .pool_idle_timeout(Duration::from_secs(90))
             .tcp_keepalive(Duration::from_secs(60))
             .connect_timeout(Duration::from_secs(3))
+            // A.30: `reqwest` honours `HTTPS_PROXY` by default, and a proxy resolves the target
+            // itself — which would silently disable the resolver guard below and let the proxy reach
+            // an internal address on Vydra's behalf. Proxies are refused, not inherited from the
+            // environment; a deployment that needs one must say so explicitly (and then the guard no
+            // longer covers the hop, see docs/security/DNS_REBINDING_ANALYSIS.md §5).
+            .no_proxy()
             // Redirects are **refused**, not followed. A 3xx is returned to the caller as an
             // ordinary non-success response, so there is no hop that could bypass the allowlist
             // and no code path that silently trusts a `Location` header.
