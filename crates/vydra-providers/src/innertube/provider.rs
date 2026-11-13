@@ -156,12 +156,8 @@ impl InnertubeProvider {
         if renderers.is_empty() {
             report.warn("no_renderers");
         }
-        let mut results = map_search(
-            &payload,
-            renderers,
-            &mut report,
-            self.provenance("search", &report, OffsetDateTime::now_utc()),
-        );
+        let provenance = self.provenance("search", &report, OffsetDateTime::now_utc());
+        let mut results = map_search(&payload, renderers, &mut report, provenance);
         results.provenance.parse_warnings = report.count();
 
         // Respect the caller's page size without pretending the upstream honoured it.
@@ -189,12 +185,8 @@ impl InnertubeProvider {
         let (payload, _) = self.client.post_json("player", body, ctx).await?;
 
         let mut report = ParseReport::new();
-        let mut document = map_player(
-            &payload,
-            &id,
-            &mut report,
-            self.provenance("player", &report, OffsetDateTime::now_utc()),
-        )?;
+        let provenance = self.provenance("player", &report, OffsetDateTime::now_utc());
+        let mut document = map_player(&payload, &id, &mut report, provenance)?;
         document.provenance.parse_warnings = report.count();
         report.check(ctx.strictness)?;
         Ok(document)

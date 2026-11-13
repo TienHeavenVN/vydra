@@ -61,6 +61,11 @@ for raw in lines:
             )
         )
         continue
+    if re.search(r"RUSTSEC-\d{4}-\d{4}", line) or re.match(
+        r"^(Package|Crate|ID|Version|License|crate)\b", line
+    ):
+        annotations.append("::error title=advisory::" + line[:900])
+        continue
     match = arrow.match(line)
     if match:
         annotations.append(

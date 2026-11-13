@@ -191,10 +191,13 @@ impl InnertubeClient {
             max_response_bytes: self.config.max_response_bytes,
         };
 
-        self.transport
+        let started = Instant::now();
+        let response = self
+            .transport
             .execute(request)
             .await
-            .map_err(|err| map_transport_error(err, self.config.request_timeout))
+            .map_err(|err| map_transport_error(err, self.config.request_timeout))?;
+        Ok((response, started.elapsed()))
     }
 
     async fn fetch_json(&self, url: &str, ctx: &ProviderContext) -> Option<Value> {
