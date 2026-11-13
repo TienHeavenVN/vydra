@@ -1,0 +1,32 @@
+{
+  "class": "recorded_upstream_subset",
+  "note": "Subset of a recorded continuation (page 2) response. No request was made by Vydra.",
+  "upstream": {
+    "repository": "https://github.com/yuliskov/MediaServiceCore",
+    "commit": "b3d561f53cedca04d642b6e7f914f19b4536ce69",
+    "path": "youtubeapi/src/test/resources/browse/chrome/2023.02.23_what_to_watch_continuation.json",
+    "license": "MIT",
+    "recorded_by_upstream_on": "2023-02-23"
+  },
+  "acquired": "2026-11-13",
+  "acquired_by": "scripts/fixtures/extract_recorded.py",
+  "endpoint": "browse (home feed continuation) \u2014 NOT search",
+  "locale_observed": "ru",
+  "reduction": [
+    "kept the appendContinuationItemsAction wrapper and the first five content items",
+    "kept the trailing continuationItemRenderer so the next-page token survives",
+    "projected each richItemRenderer.content to the fields the parser reads",
+    "removed every URL query string"
+  ],
+  "removed": [
+    "responseContext",
+    "trackingParams",
+    "clickTrackingParams",
+    "commandMetadata",
+    "the remaining 19 items"
+  ],
+  "not_verified": [
+    "that a search continuation is answered by the same tree (this token belongs to the browse endpoint: its apiUrl is /youtubei/v1/browse)",
+    "token validity: the token in this file expired years ago and is not usable against YouTube"
+  ]
+}

@@ -60,7 +60,7 @@ fn provider_with_fixture(body: String) -> InnertubeProvider {
 
 #[tokio::test]
 async fn mixed_search_fixture_maps_to_domain_items() {
-    let provider = provider_with_fixture(fixture("search_mixed.json"));
+    let provider = provider_with_fixture(fixture("synthetic/search_mixed.json"));
     let request = ProviderRequest::Search {
         query: "rick astley".into(),
         kind: SearchKind::All,

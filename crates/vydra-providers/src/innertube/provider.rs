@@ -154,7 +154,10 @@ impl InnertubeProvider {
         let mut report = ParseReport::new();
         let renderers = collect_renderers(&payload, &mut report);
         if renderers.is_empty() {
-            report.warn("no_renderers");
+            // A renderer-less document is not "a page with nothing on it" — it is a shape we do not
+            // recognise. Recording it as structural means `parse_warnings` reflects it and strict
+            // mode refuses it, instead of handing back an empty page that looks like a valid answer.
+            report.structural_problem("no_renderers");
         }
         let provenance = self.provenance("search", &report, OffsetDateTime::now_utc());
         let mut results = map_search(&payload, renderers, &mut report, provenance);

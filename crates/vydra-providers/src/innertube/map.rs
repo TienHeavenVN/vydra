@@ -583,6 +583,14 @@ pub fn map_player(
         message: "player response without videoDetails".into(),
     })?;
 
+    if dto.playability_status.is_none() {
+        // Tolerance, not an assertion: a player response is expected to state its playability, so
+        // its absence is recorded as a missing field. The document keeps the data it did receive
+        // instead of inventing an availability reason, but `parse_warnings` reflects the gap and
+        // strict mode turns it into an error.
+        report.missing_field("playabilityStatus", "status");
+    }
+
     if let Some(id) = details.video_id.as_deref()
         && id != expected_id.as_str()
     {
@@ -735,6 +743,8 @@ mod tests {
     use serde_json::json;
     use vydra_domain::Precision;
 
+    use crate::Strictness;
+
     fn provenance() -> Provenance {
         Provenance {
             provider: "test".into(),
@@ -745,6 +755,30 @@ mod tests {
             parse_warnings: 0,
             sources: Vec::new(),
         }
+    }
+
+    #[test]
+    fn player_without_playability_records_a_missing_field() {
+        let payload = json!({
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "A video", "lengthSeconds": "10"}
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
+
+        // The status defaults to `OK` (the payload did carry video data) but the gap is never
+        // silent: it is a counted warning, so `parse_warnings` and strict mode both see it.
+        assert_eq!(document.availability, Availability::Available);
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message.contains("playabilityStatus.status")),
+            "messages: {:?}",
+            report.messages()
+        );
+        assert!(report.count() >= 1);
+        assert!(report.check(Strictness::Strict).is_err());
     }
 
     #[test]

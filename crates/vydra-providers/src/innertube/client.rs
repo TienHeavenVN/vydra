@@ -241,6 +241,33 @@ impl InnertubeClient {
         String::from_utf8(response.body.to_vec()).ok()
     }
 
+    /// Endpoint URL, including the session API key when the bootstrap produced one.
+    ///
+    /// InnerTube takes the browser key as a `key` **query parameter** — yt-dlp builds
+    /// `{'key': api_key, 'prettyPrint': 'false'}` as the query (`_base.py:858-866`), and MediaServiceCore
+    /// keeps `Session.apiKey` for the same purpose. It is never a header and never part of the body.
+    ///
+    /// A value that is not shaped like a key is dropped instead of being interpolated: the key comes
+    /// from a response body, and concatenating it blindly would let a hostile bootstrap inject query
+    /// parameters.
+    fn endpoint_url(&self, endpoint: &str, session: &SessionData) -> String {
+        let mut url = format!("{INNERTUBE_BASE}/{endpoint}?prettyPrint=false");
+        match session.api_key.as_deref() {
+            Some(key) if looks_like_api_key(key) => {
+                url.push_str("&key=");
+                url.push_str(key);
+            }
+            Some(_) => {
+                tracing::warn!(
+                    provider = %self.config.provider_id,
+                    "session api key has an unexpected shape; sending a keyless request"
+                );
+            }
+            None => {}
+        }
+        url
+    }
+
     /// POST a JSON body to an InnerTube endpoint and return `(parsed body, elapsed)`.
     pub async fn post_json(
         &self,
@@ -248,13 +275,13 @@ impl InnertubeClient {
         body: Value,
         ctx: &ProviderContext,
     ) -> Result<(Value, Duration), ProviderError> {
-        let url = format!("{INNERTUBE_BASE}/{endpoint}?prettyPrint=false");
         let encoded = serde_json::to_vec(&body).map_err(|err| ProviderError::InvalidRequest {
             field: "body".into(),
             issue: format!("serialize: {err}"),
         })?;
 
         let session = self.session(ctx).await;
+        let url = self.endpoint_url(endpoint, &session);
         let (response, elapsed) = self
             .send(&url, ctx, Some(Bytes::from(encoded)), &session)
             .await?;
@@ -401,6 +428,48 @@ mod tests {
             find_api_key(&value).as_deref(),
             Some("AIzaABCDEFGHIJKLMNOP")
         );
+    }
+
+    #[test]
+    fn endpoint_url_carries_the_session_key_as_a_query_parameter() {
+        let transport = Arc::new(ReplayTransport::new(vec![]));
+        let client = client(transport);
+        let session = SessionData {
+            api_key: Some("AIzaSWKEY0123456789".into()),
+            ..Default::default()
+        };
+        let url = client.endpoint_url("search", &session);
+        assert_eq!(
+            url,
+            "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=AIzaSWKEY0123456789"
+        );
+    }
+
+    #[test]
+    fn endpoint_url_omits_the_key_when_the_session_has_none() {
+        let transport = Arc::new(ReplayTransport::new(vec![]));
+        let client = client(transport);
+        let url = client.endpoint_url("player", &SessionData::default());
+        assert_eq!(
+            url,
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+        );
+        assert!(!url.contains("key="));
+    }
+
+    #[test]
+    fn endpoint_url_refuses_to_interpolate_a_hostile_key() {
+        let transport = Arc::new(ReplayTransport::new(vec![]));
+        let client = client(transport);
+        for hostile in ["x&key=evil", "AIza ok", "AIza/../etc", ""] {
+            let session = SessionData {
+                api_key: Some(hostile.to_owned()),
+                ..Default::default()
+            };
+            let url = client.endpoint_url("search", &session);
+            assert!(!url.contains("evil"), "injected with {hostile:?}");
+            assert!(!url.contains("key="), "appended {hostile:?}");
+        }
     }
 
     #[tokio::test]

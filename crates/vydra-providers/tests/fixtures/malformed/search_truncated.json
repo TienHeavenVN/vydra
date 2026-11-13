@@ -1,0 +1,284 @@
+{
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "expandableTabRenderer": {
+            "content": {
+              "sectionListRenderer": {
+                "contents": [
+                  {
+                    "itemSectionRenderer": {
+                      "contents": [
+                        {
+                          "videoRenderer": {
+                            "ownerText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "videoId": "uAnqcJr389M",
+                            "lengthText": {
+                              "simpleText": "3:05"
+                            },
+                            "shortBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "publishedTimeText": {
+                              "simpleText": "6 \u043b\u0435\u0442 \u043d\u0430\u0437\u0430\u0434"
+                            },
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack - In The Army Now 2017 [Official Video HD]"
+                                }
+                              ]
+                            },
+                            "viewCountText": {
+                              "simpleText": "25\u00a0399\u00a0352 \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u0430"
+                            },
+                            "shortViewCountText": {
+                              "simpleText": "25\u00a0\u043c\u043b\u043d \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u043e\u0432"
+                            },
+                            "thumbnail": {
+                              "thumbnails": [
+                                {
+                                  "url": "https://i.ytimg.com/vi/uAnqcJr389M/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAEnHiZoVNudjhNvQHJ5AzEcEwXyQ",
+                                  "width": 168,
+                                  "height": 94
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/uAnqcJr389M/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLCrgQ7t5-DEvIEit9nBMDl6T860Cg",
+                                  "width": 196,
+                                  "height": 110
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/uAnqcJr389M/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAir8oiJEsP_Ms8dcxFcZc3y3YBLg",
+                                  "width": 246,
+                                  "height": 138
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/uAnqcJr389M/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCc9DyO5fz3sZg-kYvq_VDgd183uw",
+                                  "width": 336,
+                                  "height": 188
+                                }
+                              ]
+                            },
+                            "longBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "thumbnailOverlays": [
+                              {
+                                "thumbnailOverlayTimeStatusRenderer": {
+                                  "style": "DEFAULT"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "itemSectionRenderer": {
+                      "contents": [
+                        {
+                          "videoRenderer": {
+                            "ownerText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "videoId": "0Bb_w7nOBwg",
+                            "lengthText": {
+                              "simpleText": "4:11"
+                            },
+                            "shortBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "publishedTimeText": {
+                              "simpleText": "13 \u043b\u0435\u0442 \u043d\u0430\u0437\u0430\u0434"
+                            },
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack - Captain Jack (Official Video 1995)"
+                                }
+                              ]
+                            },
+                            "viewCountText": {
+                              "simpleText": "10\u00a0285\u00a0955 \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u043e\u0432"
+                            },
+                            "shortViewCountText": {
+                              "simpleText": "10\u00a0\u043c\u043b\u043d \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u043e\u0432"
+                            },
+                            "thumbnail": {
+                              "thumbnails": [
+                                {
+                                  "url": "https://i.ytimg.com/vi/0Bb_w7nOBwg/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLANlI-dMSQZzXwxlEBmLqhycKYCQQ",
+                                  "width": 168,
+                                  "height": 94
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/0Bb_w7nOBwg/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLDz3yQNK8xuFVy9NeA2Qm5WxraIJA",
+                                  "width": 196,
+                                  "height": 110
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/0Bb_w7nOBwg/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDKkGG8pBk_EcmqxDKvCUO02qt83Q",
+                                  "width": 246,
+                                  "height": 138
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/0Bb_w7nOBwg/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLBpbWXxFK7ThQ_ISRv782EZznH2KQ",
+                                  "width": 336,
+                                  "height": 188
+                                }
+                              ]
+                            },
+                            "longBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "thumbnailOverlays": [
+                              {
+                                "thumbnailOverlayTimeStatusRenderer": {
+                                  "style": "DEFAULT"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "itemSectionRenderer": {
+                      "contents": [
+                        {
+                          "videoRenderer": {
+                            "ownerText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "videoId": "SFUo2NPfj2o",
+                            "lengthText": {
+                              "simpleText": "2:45"
+                            },
+                            "shortBylineText": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack Official",
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                      "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "publishedTimeText": {
+                              "simpleText": "7 \u043c\u0435\u0441\u044f\u0446\u0435\u0432 \u043d\u0430\u0437\u0430\u0434"
+                            },
+                            "title": {
+                              "runs": [
+                                {
+                                  "text": "Captain Jack - Livin' on a Prayer [Bon Jovi Cover] - [Official Video 4K]"
+                                }
+                              ]
+                            },
+                            "viewCountText": {
+                              "simpleText": "172\u00a0371 \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440"
+                            },
+                            "shortViewCountText": {
+                              "simpleText": "172\u00a0\u0442\u044b\u0441. \u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u043e\u0432"
+                            },
+                            "thumbnail": {
+                              "thumbnails": [
+                                {
+                                  "url": "https://i.ytimg.com/vi/SFUo2NPfj2o/hqdefault.jpg?sqp=-oaymwEbCKgBEF5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLB0kOsUaGBpDg-7nIsuFnkqNdOO0w",
+                                  "width": 168,
+                                  "height": 94
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/SFUo2NPfj2o/hqdefault.jpg?sqp=-oaymwEbCMQBEG5IVfKriqkDDggBFQAAiEIYAXABwAEG&rs=AOn4CLAZfCmZKlVdjhrPtw8kZMh73o8_bQ",
+                                  "width": 196,
+                                  "height": 110
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/SFUo2NPfj2o/hqdefault.jpg?sqp=-oaymwEcCPYBEIoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCy-JGRbZgaTi_3O8uZkEV3UUSETQ",
+                                  "width": 246,
+                                  "height": 138
+                                },
+                                {
+                                  "url": "https://i.ytimg.com/vi/SFUo2NPfj2o/hqdefault.jpg?sqp=-oaymwEcCNACELwBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLBxqOeuqgfwCSem9ndCvZ9vXO5TWg",
+                                  "width": 336,
+                                  "height": 188
+                                }
+                              ]
+   
