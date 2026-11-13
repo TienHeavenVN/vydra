@@ -27,6 +27,7 @@ pub struct VideoSummary {
     pub published_text: Option<String>,
     /// Absolute publication time when the provider exposes one.
     #[serde(
+        default,
         skip_serializing_if = "Option::is_none",
         with = "time::serde::rfc3339::option"
     )]

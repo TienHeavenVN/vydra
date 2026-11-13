@@ -352,7 +352,7 @@ pub struct ErrorBody {
     pub status: u16,
     pub request_id: String,
     pub retryable: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub details: Vec<FieldIssue>,
