@@ -121,7 +121,10 @@ async fn recorded_search_page_maps_every_item() {
     assert_eq!(views.value, 25_399_352);
     assert_eq!(views.precision, Precision::Exact);
     assert_eq!(first.published_text.as_deref(), Some("6 лет назад"));
-    assert_eq!(first.channel_title.as_deref(), Some("Captain Jack Official"));
+    assert_eq!(
+        first.channel_title.as_deref(),
+        Some("Captain Jack Official")
+    );
     assert_eq!(
         first.channel_id.as_ref().map(|id| id.as_str()),
         Some("UCa8RiU2st_48AA4WscbwYVQ")
@@ -130,10 +133,7 @@ async fn recorded_search_page_maps_every_item() {
     let Some(vydra_domain::SearchItem::Playlist(playlist)) = results.items.get(4) else {
         panic!("fifth item must be a playlist");
     };
-    assert_eq!(
-        playlist.id.as_str(),
-        "PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR"
-    );
+    assert_eq!(playlist.id.as_str(), "PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR");
 }
 
 // --------------------------------------------------------------------------------------------
@@ -219,7 +219,11 @@ async fn recorded_player_page_maps_availability_formats_and_captions() {
     assert_eq!(document.summary.id, id);
     assert_eq!(document.summary.duration_seconds, Some(3537));
     assert_eq!(
-        document.summary.view_count.as_ref().map(|count| count.value),
+        document
+            .summary
+            .view_count
+            .as_ref()
+            .map(|count| count.value),
         Some(31_834)
     );
     assert_eq!(

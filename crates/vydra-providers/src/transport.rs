@@ -389,8 +389,7 @@ fn prohibited_v6(ip: Ipv6Addr) -> Option<&'static str> {
     }
     let segments = ip.segments();
     // Deprecated IPv4-compatible form (::a.b.c.d): first 96 bits zero, last 32 bits an address.
-    if segments[0..6].iter().all(|segment| *segment == 0)
-        && (segments[6] != 0 || segments[7] != 0)
+    if segments[0..6].iter().all(|segment| *segment == 0) && (segments[6] != 0 || segments[7] != 0)
     {
         let embedded = Ipv4Addr::new(
             (segments[6] >> 8) as u8,
