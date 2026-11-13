@@ -12,15 +12,15 @@ use crate::video::VideoSummary;
 pub struct ChannelSummary {
     pub id: ChannelId,
     pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub thumbnails: Vec<Thumbnail>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subscriber_count: Option<Count>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub video_count: Option<Count>,
 }
 
@@ -36,7 +36,7 @@ pub struct ChannelLink {
 pub struct ChannelTab {
     pub title: String,
     /// Stable slug used in the API (`videos`, `playlists`, `shorts`, `live`), when recognized.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slug: Option<String>,
 }
 
@@ -45,20 +45,20 @@ pub struct ChannelTab {
 pub struct ChannelDocument {
     pub summary: ChannelSummary,
     pub availability: Availability,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub banner: Option<Thumbnail>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<ChannelLink>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         with = "time::serde::rfc3339::option"
     )]
     pub joined_at: Option<OffsetDateTime>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub country: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub total_view_count: Option<Count>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tabs: Vec<ChannelTab>,
     pub provenance: Provenance,
 }
@@ -67,7 +67,7 @@ pub struct ChannelDocument {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChannelVideoList {
     pub items: Vec<VideoSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub provenance: Provenance,
 }

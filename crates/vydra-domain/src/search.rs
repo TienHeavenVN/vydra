@@ -32,10 +32,10 @@ impl SearchItem {
 pub struct SearchResults {
     pub items: Vec<SearchItem>,
     /// Signed cursor for the next page; `None` when exhausted.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     /// Upstream-reported result estimate, when exposed (approximate).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub estimated_results: Option<Count>,
     pub provenance: Provenance,
 }

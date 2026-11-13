@@ -11,15 +11,15 @@ use crate::video::VideoSummary;
 pub struct PlaylistSummary {
     pub id: PlaylistId,
     pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel_id: Option<ChannelId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel_title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item_count: Option<Count>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub thumbnails: Vec<Thumbnail>,
 }
 
@@ -27,7 +27,7 @@ pub struct PlaylistSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlaylistItem {
     /// 1-based position when the provider reports one.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<u32>,
     pub video: VideoSummary,
 }
@@ -38,7 +38,7 @@ pub struct PlaylistDocument {
     pub summary: PlaylistSummary,
     pub availability: Availability,
     pub items: Vec<PlaylistItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub provenance: Provenance,
 }

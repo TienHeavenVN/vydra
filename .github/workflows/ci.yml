@@ -98,8 +98,8 @@ jobs:
       - name: annotate
         if: failure()
         run: |
-          grep -A6 '^error' clippy.log | head -50 > clippy-errors.log || true
-          bash scripts/ci/annotate.sh clippy-errors.log -1 40
+          grep -A8 '^error' clippy.log | head -140 > clippy-errors.log || true
+          bash scripts/ci/annotate.sh clippy-errors.log -1 80
           grep -A4 '^warning:' clippy.log | head -60 > clippy-warnings.log || true
           bash scripts/ci/annotate.sh clippy-warnings.log -1 40
           for offset in 0 10 20 30 40; do

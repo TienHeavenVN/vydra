@@ -13,17 +13,17 @@ use crate::common::{
 pub struct VideoSummary {
     pub id: VideoId,
     pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel_id: Option<ChannelId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel_title: Option<String>,
     /// Duration in whole seconds. `None` for live/premiere items and when unknown.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub view_count: Option<Count>,
     /// Verbatim localized relative date (`"3 days ago"`), kept because it is locale-dependent.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub published_text: Option<String>,
     /// Absolute publication time when the provider exposes one.
     #[serde(
@@ -32,13 +32,13 @@ pub struct VideoSummary {
     )]
     pub published_at: Option<OffsetDateTime>,
     /// Ordered smallest → largest.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub thumbnails: Vec<Thumbnail>,
     /// Broadcast state when the provider states it; `None` means "not reported".
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub live_state: Option<LiveState>,
     /// Badge labels as rendered (`"4K"`, `"CC"`, `"New"`).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub badges: Vec<String>,
 }
 
@@ -54,22 +54,22 @@ impl VideoSummary {
 pub struct VideoDocument {
     pub summary: VideoSummary,
     pub availability: Availability,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keywords: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub like_count: Option<Count>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub comment_count: Option<Count>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chapters: Vec<Chapter>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub caption_tracks: Vec<CaptionTrack>,
     /// Format metadata only — never media URLs (ADR-006).
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub formats: Vec<MediaFormatInfo>,
     pub provenance: Provenance,
 }
@@ -78,7 +78,7 @@ pub struct VideoDocument {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelatedVideos {
     pub items: Vec<VideoSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub provenance: Provenance,
 }
