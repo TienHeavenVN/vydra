@@ -102,15 +102,40 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    # The suite runs one package at a time with a per-package cap; this bounds the total.
-    timeout-minutes: 25
+    # One job per package. A single workspace-wide run took long enough to be killed by the
+    # runner (exit 143 / "operation was canceled") before any diagnostic could be published,
+    # and a hang in one package took every other package with it.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "vydra-api-server"
+          - "vydra-worker"
+          - "vydra-api"
+          - "vydra-auth"
+          - "vydra-cache"
+          - "vydra-common"
+          - "vydra-config"
+          - "vydra-database"
+          - "vydra-domain"
+          - "vydra-engines"
+          - "vydra-errors"
+          - "vydra-observability"
+          - "vydra-provider-registry"
+          - "vydra-providers"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: unit + fixture tests (offline, deterministic)
+      - name: cargo test -p ${{ matrix.package }}
         run: |
-          bash scripts/ci/test.sh test.log
+          set +e
+          set -o pipefail
+          cargo test --package "${{ matrix.package }}" --all-features --message-format=short 2>&1 | tee test.log
+          status=$?
+          bash scripts/ci/report.sh test.log
+          exit $status
 
   audit:
     runs-on: ubuntu-latest
