@@ -156,14 +156,14 @@ Residual, **unsolvable by an allowlist** (documented rather than hidden):
 
 | Command | Where | Result |
 | --- | --- | --- |
-| `cargo fmt --all -- --check` | CI job `fmt` | **passing** (run 43448221721) |
-| `cargo check --workspace --all-targets` | CI job `check` | **passing** (run 43448221721) |
-| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | CI job `clippy` | **passing** (run 43448221721) |
-| `cargo test --package <each>` (14 packages, one CI job each) | CI jobs `test (…)` | **passing**, 14/14 (run 43448221721) |
-| `cargo audit`, `cargo deny check` | CI jobs `audit`, `deny` | **passing** (run 43448221721) |
+| `cargo fmt --all -- --check` | CI job `fmt` | **passing** (run 43457728940) |
+| `cargo check --workspace --all-targets` | CI job `check` | **passing** (run 43457728940) |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | CI job `clippy` | **passing** (run 43457728940) |
+| `cargo test --package <each>` (14 packages, one CI job each) | CI jobs `test (…)` | **passing**, 14/14 (run 43457728940) |
+| `cargo audit`, `cargo deny check` | CI jobs `audit`, `deny` | **passing** (run 43457728940) |
 | `gitleaks` | CI job `secrets` | **passing** after A-01 (run 43420663966) |
 | `npx @redocly/cli lint docs/api/openapi.yaml` | local + CI job `openapi` | **passing** (local: 0 errors; CI green on run 43420663966) |
-| `docker build` | CI job `docker` | **passing** (run 43448221721) |
+| `docker build` | CI job `docker` | **passing** (run 43457728940) |
 
 ## 6. Remaining blockers
 

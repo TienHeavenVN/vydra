@@ -3,7 +3,8 @@
 Branch `arena/06c8b7fc-vydra`, PR [#1](https://github.com/TienHeavenVN/vydra/pull/1). Baseline for
 this phase: `157bdb7` (22/22 green, run
 [43451265548](https://github.com/TienHeavenVN/vydra/actions/runs/43451265548)). Head of the phase:
-`PHASE_HEAD_PLACEHOLDER`.
+`ee077e4` (the commit whose run validated the code; the head of the branch
+additionally removes the two temporary CI jobs described in §6).
 
 **The one sentence that governs this report:** Vydra has never sent a request to YouTube. Every
 statement below about upstream behaviour is either read out of Vydra's own code, read out of a
@@ -98,7 +99,29 @@ A-30 and A-31 were found by this phase; A-29 and A-32 are pre-existing.
 
 Authority is GitHub Actions only; nothing was compiled in the sandbox.
 
-`CI_EVIDENCE_PLACEHOLDER`
+Run [43457728940](https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) on `ee077e4`: **24/24 jobs success** — `fmt`, `check`
+(`--all-targets`), `clippy` (`-D warnings`), `audit`, `deny`, `secrets`, `openapi`, `docker`, and one
+`test (<package>)` job per package (14/14), plus the two temporary jobs this branch added
+(`fmt-apply`, `lockfile`). Removing those two returns the workflow to the 22-job baseline that the
+Phase 4.1 runs established; the branch head is exactly that removal plus documentation.
+
+| Job | Result |
+| --- | --- |
+| `fmt` | success (after the temporary `fmt-apply` bot pushed one `style: apply rustfmt` commit; the tree is now formatted, and the bot is removed) |
+| `check` (`--workspace --all-targets`) | success — the new tests compile |
+| `clippy` (`-D warnings`) | success |
+| `test (vydra-providers)` | success — `request_contract` (6), `recorded_fixture` (6), the filters/capability tests, and the new unit tests |
+| `test (<other 13 packages>)` | success |
+| `audit`, `deny` | success (against the newly committed `Cargo.lock`) |
+| `secrets` | success (no key literal anywhere) |
+| `openapi`, `docker` | success — the image now builds `--locked` against the committed lockfile |
+| `lockfile` (temporary) | `resolve and validate` success; the first `commit lockfile` attempt lost a push race, the retried job committed `Cargo.lock` as `5276f7c` |
+| `fmt-apply` (temporary) | success; pushed `f0da4f5`/`b6d64e0`, then reported "already formatted" |
+
+Failures found and fixed during the phase (each one is a real defect the first CI run exposed):
+`E0507` moving `Option<Count>` out of a shared reference; a wrong expected duration (`9152` for a
+`2:32:20` clock — the file says `9140`); and a `ReplayTransport` queue that ran dry because the second
+`fetch` needed its own response even though the session was cached.
 
 Test inventory added by this phase:
 
@@ -116,7 +139,8 @@ committed; their removal is part of the head commit.
 
 ## 7. CI run
 
-`CI_URL_PLACEHOLDER`
+https://github.com/TienHeavenVN/vydra/actions/runs/43457728940 (24/24, commit `ee077e4`). The pull request's live check
+list is <https://github.com/TienHeavenVN/vydra/pull/1/checks>.
 
 ## 8. Remaining upstream limitations
 
