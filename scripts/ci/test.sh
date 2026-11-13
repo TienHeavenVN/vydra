@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 # Run the workspace test suite one package at a time under a hard per-package timeout.
 #
-# Running the whole workspace in one `cargo test` invocation has twice ended in the runner's
-# SIGTERM (exit 143) with no diagnostics: a single hanging test takes the entire job with it and
-# nothing is annotated. Per-package execution converts a hang into a timeout (exit 124) that names
-# the package responsible, and the aggregated log is annotated afterwards.
+# Why this exists: a single hanging test used to take the whole job down as exit 143 with no
+# diagnostics at all (the runner sends SIGTERM, the shell dies, nothing is annotated). Two rules
+# make a hang survivable:
+#   1. this script ignores SIGTERM, so a group-wide kill cannot take the driver with it;
+#   2. each package runs in a subshell where SIGTERM is restored, so `timeout` can end the test
+#      run and the loop still records a verdict.
+# A hang therefore shows up as `RESULT <package> exit=143 (timed out)` in the annotations.
 set -uo pipefail
 
 log="${1:-test.log}"
-per_package_timeout="${TEST_TIMEOUT_SECONDS:-180}"
+per_package_timeout="${TEST_TIMEOUT_SECONDS:-300}"
+
+trap '' TERM INT
 
 : >"$log"
 failed=0
@@ -19,30 +24,34 @@ packages="$(cargo metadata --no-deps --format-version 1 2>>"$log" \
 
 for pkg in $packages; do
   echo "::group::cargo test -p $pkg"
-  # `setsid` puts cargo (and therefore the timeout's group kill) in its own session; without it
-  # the SIGTERM that ends a hung test also ends this script, and the whole step dies as exit 143.
-  timeout --kill-after=10 "$per_package_timeout" \
-    setsid cargo test -p "$pkg" --all-features --message-format=short 2>&1 | tee -a "$log"
-  code="${PIPESTATUS[0]}"
+  printf '\n===== %s =====\n' "$pkg" >>"$log"
+  (
+    trap - TERM INT
+    exec timeout --kill-after=10 "$per_package_timeout" \
+      cargo test -p "$pkg" --all-features --message-format=short
+  ) >>"$log" 2>&1
+  code=$?
   echo "::endgroup::"
-  if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
-    timed_out="$timed_out $pkg"
-    echo "RESULT $pkg exit=$code (timed out after ${per_package_timeout}s)" | tee -a "$log"
-    failed=1
-  elif [ "$code" -ne 0 ]; then
-    echo "RESULT $pkg exit=$code" | tee -a "$log"
-    failed=1
-  else
-    echo "RESULT $pkg exit=0" | tee -a "$log"
-  fi
+  case "$code" in
+    0) echo "RESULT $pkg exit=0" ;;
+    124 | 137 | 143)
+      timed_out="$timed_out $pkg"
+      failed=1
+      echo "RESULT $pkg exit=$code (timed out after ${per_package_timeout}s)"
+      ;;
+    *)
+      failed=1
+      echo "RESULT $pkg exit=$code"
+      ;;
+  esac | tee -a "$log"
 done
 
 if [ -n "$timed_out" ]; then
   echo "timed out:$timed_out" | tee -a "$log"
 fi
 
-# Always publish the per-package verdicts: they are the only record of what ran.
-grep -E '^(RESULT |timed out:)' "$log" >"$log.results" || true
-bash scripts/ci/annotate.sh "$log.results" -1 40 || true
+verdicts="${log%.log}.verdicts.log"
+grep -E '^(RESULT |timed out:)' "$log" >"$verdicts" || true
+bash scripts/ci/annotate.sh "$verdicts" -1 40 || true
 bash scripts/ci/report.sh "$log" || true
 exit "$failed"

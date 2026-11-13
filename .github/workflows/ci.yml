@@ -102,6 +102,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    # The suite runs one package at a time with a per-package cap; this bounds the total.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
