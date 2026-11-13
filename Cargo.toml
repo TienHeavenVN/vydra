@@ -1,0 +1,125 @@
+[workspace]
+resolver = "3"
+members = [
+    "apps/api-server",
+    "apps/worker",
+    "crates/vydra-common",
+    "crates/vydra-errors",
+    "crates/vydra-config",
+    "crates/vydra-domain",
+    "crates/vydra-providers",
+    "crates/vydra-provider-registry",
+    "crates/vydra-engines",
+    "crates/vydra-auth",
+    "crates/vydra-cache",
+    "crates/vydra-database",
+    "crates/vydra-observability",
+    "crates/vydra-api",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/TienHeavenVN/vydra"
+authors = ["Vydra contributors"]
+keywords = ["youtube", "api", "innertube", "metadata"]
+categories = ["web-programming::http-server"]
+
+[workspace.dependencies]
+# --- local crates ---
+vydra-common = { path = "crates/vydra-common" }
+vydra-errors = { path = "crates/vydra-errors" }
+vydra-config = { path = "crates/vydra-config" }
+vydra-domain = { path = "crates/vydra-domain" }
+vydra-providers = { path = "crates/vydra-providers" }
+vydra-provider-registry = { path = "crates/vydra-provider-registry" }
+vydra-engines = { path = "crates/vydra-engines" }
+vydra-auth = { path = "crates/vydra-auth" }
+vydra-cache = { path = "crates/vydra-cache" }
+vydra-database = { path = "crates/vydra-database" }
+vydra-observability = { path = "crates/vydra-observability" }
+vydra-api = { path = "crates/vydra-api" }
+
+# --- third party ---
+async-trait = "0.1.83"
+axum = { version = "0.8.4", features = ["macros", "http2"] }
+base64 = "0.22.1"
+bytes = "1.10"
+criterion = { version = "0.5.1", features = ["async_tokio"] }
+hmac = "0.12.1"
+http = "1.3"
+http-body-util = "0.1"
+prometheus = "0.13.4"
+proptest = "1.6"
+reqwest = { version = "0.12.12", default-features = false, features = [
+    "json",
+    "gzip",
+    "brotli",
+    "rustls-tls",
+    "http2",
+    "charset",
+] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sha2 = "0.10.9"
+sqlx = { version = "0.8.3", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "time",
+    "migrate",
+] }
+thiserror = "2.0.12"
+time = { version = "0.3.41", features = [
+    "serde-well-known",
+    "formatting",
+    "parsing",
+    "macros",
+] }
+tokio = { version = "1.44", features = [
+    "rt-multi-thread",
+    "macros",
+    "signal",
+    "sync",
+    "time",
+    "net",
+    "fs",
+] }
+tower = { version = "0.5.2", features = ["util", "timeout", "limit"] }
+tower-http = { version = "0.6.2", features = [
+    "trace",
+    "timeout",
+    "limit",
+    "request-id",
+    "catch-panic",
+    "compression-gzip",
+] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "fmt"] }
+url = "2.5.4"
+uuid = { version = "1.16", features = ["v7", "fast-rng"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+large_enum_variant = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
+
+[profile.bench]
+lto = "thin"

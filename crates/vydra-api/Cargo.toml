@@ -1,0 +1,30 @@
+[package]
+name = "vydra-api"
+description = "HTTP edge: routing, handlers, middleware and the public response envelope"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vydra-auth = { workspace = true }
+vydra-common = { workspace = true }
+vydra-config = { workspace = true }
+vydra-domain = { workspace = true }
+vydra-engines = { workspace = true }
+vydra-errors = { workspace = true }
+vydra-observability = { workspace = true }
+vydra-provider-registry = { workspace = true }
+vydra-providers = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Vydra API
+  version: 0.1.0
+  description: |
+    Backend-only YouTube data API. Responses use a common envelope (`data` + `meta`) and a closed
+    error-code set. Only endpoints whose capability is implemented and tested are described here;
+    `docs/PROGRESS.md` is authoritative for implementation state.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Liveness probe
+      responses:
+        '200': {description: Process is alive}
+  /ready:
+    get:
+      operationId: ready
+      summary: Readiness probe
+      responses:
+        '200': {description: Ready to serve}
+  /status:
+    get:
+      operationId: status
+      summary: Build info, capabilities and provider health
+      responses:
+        '200':
+          description: Status document
+          content:
+            application/json:
+              schema: {type: object}
+  /metrics:
+    get:
+      operationId: metrics
+      summary: Prometheus exposition
+      responses:
+        '200':
+          description: Metrics in text exposition format
+          content:
+            text/plain: {schema: {type: string}}
+  /search:
+    get:
+      operationId: search
+      summary: Mixed search
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+        - {name: cursor, in: query, schema: {type: string}}
+        - {name: hl, in: query, schema: {type: string}}
+        - {name: gl, in: query, schema: {type: string, minLength: 2, maxLength: 2}}
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /videos/{id}:
+    get:
+      operationId: video
+      summary: Video metadata
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+      responses:
+        '200':
+          description: Video document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VideoEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/chapters:
+    get:
+      operationId: videoChapters
+      summary: Chapter markers derived from the description
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+      responses:
+        '200': {description: Chapter list}
+  /videos/{id}/captions:
+    get:
+      operationId: videoCaptions
+      summary: Caption track metadata (no transcript download)
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+      responses:
+        '200': {description: Caption tracks}
+components:
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    RateLimited:
+      description: Rate limited or quota exhausted
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    Unavailable:
+      description: No provider can serve the capability
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    ContentUnavailable:
+      description: Content exists but is unavailable (not a 404)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, status, request_id, retryable]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, validation_failed, invalid_cursor, unauthorized, forbidden,
+                     not_found, content_unavailable, quota_exceeded, rate_limited,
+                     provider_rate_limited, capability_unavailable, provider_unavailable,
+                     provider_circuit_open, timeout, internal_error]
+            message: {type: string}
+            status: {type: integer}
+            request_id: {type: string}
+            retryable: {type: boolean}
+            retry_after_ms: {type: integer}
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: {type: string}
+                  issue: {type: string}
+    Meta:
+      type: object
+      properties:
+        request_id: {type: string}
+        provider: {type: string}
+        cached: {type: boolean}
+        fetched_at: {type: string, format: date-time}
+        warnings: {type: array, items: {type: string}}
+        parse_warnings: {type: integer}
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              provider: {type: string}
+              endpoint: {type: string}
+              attempt: {type: integer}
+              latency_ms: {type: integer}
+              outcome: {type: string, enum: [ok, empty, skipped, failed]}
+        pagination:
+          type: object
+          properties:
+            next_cursor: {type: [string, 'null']}
+            prev_cursor: {type: [string, 'null']}
+            limit: {type: integer}
+            returned: {type: integer}
+    SearchEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          properties:
+            items: {type: array, items: {type: object}}
+            next_cursor: {type: [string, 'null']}
+            estimated_results: {type: object}
+            provenance: {type: object}
+        meta: {$ref: '#/components/schemas/Meta'}
+    VideoEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {type: object}
+        meta: {$ref: '#/components/schemas/Meta'}

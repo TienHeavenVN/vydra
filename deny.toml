@@ -1,0 +1,33 @@
+# cargo-deny configuration. Enforced in CI (.github/workflows/ci.yml).
+# ADR-011: copyleft licenses are banned for runtime dependencies so that no GPL/AGPL code
+# from the reference projects studied in docs/research/ can be linked into Vydra by accident.
+[graph]
+targets = [{ triple = "x86_64-unknown-linux-gnu" }]
+
+[licenses]
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "Unlicense",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+deny = [
+    { name = "openssl-sys", use-instead = "rustls" },
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []

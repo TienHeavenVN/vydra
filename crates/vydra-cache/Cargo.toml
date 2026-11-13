@@ -1,0 +1,16 @@
+[package]
+name = "vydra-cache"
+description = "Cache contract, in-memory implementation and cache classes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

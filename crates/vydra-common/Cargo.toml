@@ -1,0 +1,22 @@
+[package]
+name = "vydra-common"
+description = "Validated identifiers, localized text parsing, signed cursors and pagination primitives"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vydra-errors = { workspace = true }
+base64 = { workspace = true }
+hmac = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true
