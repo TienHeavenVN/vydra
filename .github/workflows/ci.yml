@@ -65,6 +65,41 @@ jobs:
           bash scripts/ci/annotate.sh fmt-apply.log 0 10
           bash scripts/ci/annotate.sh push.log 0 10
 
+  # One-shot: ADR-019 requires a committed Cargo.lock for deployable binaries. The sandbox cannot run
+  # cargo, so CI resolves the graph, proves it still compiles (`--locked`), and only then commits the
+  # lockfile. Removed in the same pull request once Cargo.lock is committed.
+  lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: resolve and validate
+        run: |
+          set -o pipefail
+          cargo generate-lockfile 2>&1 | tee lock-gen.log
+          cargo check --workspace --locked --message-format=short 2>&1 | tee lock-check.log
+      - name: commit lockfile
+        run: |
+          set -o pipefail
+          if [ -z "$(git status --porcelain -- Cargo.lock)" ]; then
+            echo "Cargo.lock is already committed and current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "build: commit Cargo.lock (ADR-019)"
+          git push 2>&1 | tee lock-push.log
+      - name: annotate
+        if: always()
+        run: |
+          grep -A6 '^error' lock-check.log | head -50 > lock-errors.log || true
+          bash scripts/ci/annotate.sh lock-errors.log -1 40
+          bash scripts/ci/annotate.sh lock-gen.log 0 10
+
   check:
     runs-on: ubuntu-latest
     steps:
