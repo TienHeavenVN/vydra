@@ -6,6 +6,14 @@ info:
     Backend-only YouTube data API. Responses use a common envelope (`data` + `meta`) and a closed
     error-code set. Only endpoints whose capability is implemented and tested are described here;
     `docs/PROGRESS.md` is authoritative for implementation state.
+
+    Ops endpoints (`/health`, `/ready`, `/status`, `/metrics`) are deliberately unauthenticated so
+    orchestrators and scrapers can reach them. Every content endpoint requires an API key, sent as
+    `x-api-key` or as `Authorization: Bearer <key>`.
+  license:
+    name: MIT OR Apache-2.0
+security:
+  - ApiKeyAuth: []
 servers:
   - url: /api/v1
 paths:
@@ -13,18 +21,22 @@ paths:
     get:
       operationId: health
       summary: Liveness probe
+      security: []
       responses:
         '200': {description: Process is alive}
   /ready:
     get:
       operationId: ready
       summary: Readiness probe
+      security: []
       responses:
         '200': {description: Ready to serve}
+        '503': {description: A dependency is unavailable}
   /status:
     get:
       operationId: status
       summary: Build info, capabilities and provider health
+      security: []
       responses:
         '200':
           description: Status document
@@ -35,6 +47,10 @@ paths:
     get:
       operationId: metrics
       summary: Prometheus exposition
+      description: |
+        Unauthenticated by design. Deployments that expose the service publicly should scrape
+        through an internal listener or block this path at the ingress.
+      security: []
       responses:
         '200':
           description: Metrics in text exposition format
@@ -43,13 +59,17 @@ paths:
   /search:
     get:
       operationId: search
-      summary: Mixed search
+      summary: Mixed search (videos, channels and playlists)
       parameters:
-        - {name: q, in: query, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
-        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
-        - {name: cursor, in: query, schema: {type: string}}
-        - {name: hl, in: query, schema: {type: string}}
-        - {name: gl, in: query, schema: {type: string, minLength: 2, maxLength: 2}}
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Duration'
+        - $ref: '#/components/parameters/Filter'
       responses:
         '200':
           description: Search results
@@ -57,6 +77,71 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/SearchEnvelope'}
         '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/videos:
+    get:
+      operationId: searchVideos
+      summary: Video-only search (mounted only when a provider declares `search_videos`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Duration'
+        - $ref: '#/components/parameters/Filter'
+      responses:
+        '200':
+          description: Search results filtered to videos
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/channels:
+    get:
+      operationId: searchChannels
+      summary: Channel-only search (mounted only when a provider declares `search_channels`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Search results filtered to channels
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/playlists:
+    get:
+      operationId: searchPlaylists
+      summary: Playlist-only search (mounted only when a provider declares `search_playlists`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Search results filtered to playlists
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
         '429': {$ref: '#/components/responses/RateLimited'}
         '503': {$ref: '#/components/responses/Unavailable'}
   /videos/{id}:
@@ -64,7 +149,7 @@ paths:
       operationId: video
       summary: Video metadata
       parameters:
-        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+        - $ref: '#/components/parameters/VideoId'
       responses:
         '200':
           description: Video document
@@ -72,27 +157,119 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/VideoEnvelope'}
         '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/metadata:
+    get:
+      operationId: videoMetadata
+      summary: Alias of `/videos/{id}`
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+      responses:
+        '200':
+          description: Video document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VideoEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
         '409': {$ref: '#/components/responses/ContentUnavailable'}
   /videos/{id}/chapters:
     get:
       operationId: videoChapters
       summary: Chapter markers derived from the description
       parameters:
-        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+        - $ref: '#/components/parameters/VideoId'
       responses:
         '200': {description: Chapter list}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
   /videos/{id}/captions:
     get:
       operationId: videoCaptions
       summary: Caption track metadata (no transcript download)
       parameters:
-        - {name: id, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}}
+        - $ref: '#/components/parameters/VideoId'
       responses:
         '200': {description: Caption tracks}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  parameters:
+    Query:
+      name: q
+      in: query
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque, HMAC-signed cursor minted by a previous response. Never a provider token.
+      schema: {type: string}
+    Hl:
+      name: hl
+      in: query
+      description: Content language, validated as ASCII letters/digits plus `-` (2-10 chars).
+      schema: {type: string, minLength: 2, maxLength: 10}
+    Gl:
+      name: gl
+      in: query
+      schema: {type: string, minLength: 2, maxLength: 2}
+    Sort:
+      name: sort
+      in: query
+      description: |
+        Requires `VYDRA__PROVIDERS__ENABLE_UNVERIFIED_FILTERS=true`. The mapping to upstream search
+        parameters is unverified, so the default deployment answers `capability_unavailable`.
+      schema:
+        type: string
+        enum: [relevance, upload_date, view_count, rating]
+    Since:
+      name: since
+      in: query
+      schema: {type: string, enum: [hour, day, week, month, year]}
+    Duration:
+      name: duration
+      in: query
+      schema: {type: string, enum: [short, medium, long]}
+    Filter:
+      name: filter
+      in: query
+      description: Comma-separated feature list.
+      schema:
+        type: string
+        example: live,hd,subtitles
+    VideoId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}
   responses:
     BadRequest:
       description: Invalid request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    NotFound:
+      description: Content does not exist
       content:
         application/json:
           schema: {$ref: '#/components/schemas/ErrorEnvelope'}
@@ -149,6 +326,7 @@ components:
         parse_warnings: {type: integer}
         sources:
           type: array
+          description: Every provider attempt that contributed to this document, including failures.
           items:
             type: object
             properties:

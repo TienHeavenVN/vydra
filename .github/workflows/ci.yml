@@ -114,21 +114,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      # rustsec/audit-check requires a lock file; the repository deliberately does not commit one
-      # (see docs/security/PROVIDER_ENGINE_AUDIT.md), so it is generated here.
-      - name: generate lock file
-        run: cargo generate-lockfile
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # No Cargo.lock is committed (see docs/security/PROVIDER_ENGINE_AUDIT.md), so it is generated.
+      - run: cargo generate-lockfile
+      - name: cargo audit
+        run: |
+          set -o pipefail
+          cargo install cargo-audit --locked --quiet 2>&1 | tee install.log
+          cargo audit 2>&1 | tee audit.log
+      - name: annotate
+        if: failure()
+        run: |
+          bash scripts/ci/annotate.sh install.log 0 5
+          for offset in 0 10 20; do
+            bash scripts/ci/annotate.sh audit.log "$offset" 10
+          done
 
   deny:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo generate-lockfile
+      - name: cargo deny
+        run: |
+          set -o pipefail
+          cargo install cargo-deny --locked --quiet 2>&1 | tee install.log
+          cargo deny check 2>&1 | tee deny.log
+      - name: annotate
+        if: failure()
+        run: |
+          bash scripts/ci/annotate.sh install.log 0 5
+          for offset in 0 10 20; do
+            bash scripts/ci/annotate.sh deny.log "$offset" 10
+          done
 
   secrets:
     runs-on: ubuntu-latest

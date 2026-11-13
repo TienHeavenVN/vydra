@@ -15,6 +15,7 @@ vydra-errors = { workspace = true }
 vydra-provider-registry = { workspace = true }
 vydra-providers = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

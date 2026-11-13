@@ -14,7 +14,7 @@ use vydra_errors::{Error, Result};
 const MAX_ID_LEN: usize = 64;
 
 fn check_charset(id: &str, allowed: impl Fn(char) -> bool) -> bool {
-    !id.is_empty() && id.len() <= MAX_ID_LEN && id.chars().all(|c| allowed(c))
+    !id.is_empty() && id.len() <= MAX_ID_LEN && id.chars().all(allowed)
 }
 
 fn is_bare_id_char(c: char) -> bool {
