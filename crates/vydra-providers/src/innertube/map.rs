@@ -98,10 +98,9 @@ fn channel_id_of(renderer: &Value, keys: &[&str]) -> Option<ChannelId> {
                 .and_then(|endpoint| endpoint.get("browseEndpoint"))
                 .and_then(|browse| browse.get("browseId"))
                 .and_then(Value::as_str)
+                && let Ok(channel_id) = ChannelId::parse(id)
             {
-                if let Ok(channel_id) = ChannelId::parse(id) {
-                    return Some(channel_id);
-                }
+                return Some(channel_id);
             }
         }
     }
@@ -145,16 +144,17 @@ fn video_summary_from_renderer(renderer: &Value, report: &mut ParseReport) -> Op
         .get("thumbnail")
         .map(thumbnails_of)
         .unwrap_or_default();
-    if thumbnails.is_empty() {
-        if let Some(url) = renderer.get("thumbnail").and_then(|t| t.as_str()) {
-            if let Some(url) = vydra_common::text::normalize_thumbnail_url(url) {
-                thumbnails.push(Thumbnail {
-                    url,
-                    width: None,
-                    height: None,
-                });
-            }
-        }
+    if thumbnails.is_empty()
+        && let Some(url) = renderer
+            .get("thumbnail")
+            .and_then(|t| t.as_str())
+            .and_then(vydra_common::text::normalize_thumbnail_url)
+    {
+        thumbnails.push(Thumbnail {
+            url,
+            width: None,
+            height: None,
+        });
     }
     // Smallest → largest: providers are not guaranteed to be sorted.
     thumbnails.sort_by_key(|thumb| thumb.width.unwrap_or(0));
