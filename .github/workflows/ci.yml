@@ -30,8 +30,41 @@ jobs:
           bash scripts/ci/annotate.sh fmt.log 0 10
 
   # Temporary formatting bot: the development sandbox for this branch has no Rust toolchain, so the
-  # only way to obtain rustfmt output is to let CI apply it and push the result back. Removed once
-  # the tree is formatted (see docs/security/PROVIDER_ENGINE_AUDIT.md).
+  # only way to obtain rustfmt output is to let CI apply it and push the result back. Re-instated for
+  # the Phase 4.2 test additions and removed in the same pull request once the tree is formatted
+  # (see docs/security/PROVIDER_ENGINE_AUDIT.md).
+  fmt-apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: apply rustfmt
+        run: |
+          set -o pipefail
+          cargo fmt --all 2>&1 | tee fmt-apply.log
+      - name: push formatting commit
+        run: |
+          set -o pipefail
+          if git diff --quiet; then
+            echo "already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: apply rustfmt"
+          git push 2>&1 | tee push.log
+      - name: annotate
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh fmt-apply.log 0 10
+          bash scripts/ci/annotate.sh push.log 0 10
+
   check:
     runs-on: ubuntu-latest
     steps:
