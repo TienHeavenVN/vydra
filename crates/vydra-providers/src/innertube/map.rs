@@ -755,7 +755,7 @@ mod tests {
                 {"videoRenderer": {
                     "videoId": "dQw4w9WgXcQ",
                     "title": {"runs": [{"text": "A song"}]},
-                    "ownerText": {"runs": [{"text": "Rick", "navigationEndpoint": {"browseEndpoint": {"browseId": "UCBv7HEHvY6Y0a0dS0R5mQ0wX"}}}]},
+                    "ownerText": {"runs": [{"text": "Rick", "navigationEndpoint": {"browseEndpoint": {"browseId": "UCBv7HEHvY6Y0a0dS0R5mQ0w"}}}]},
                     "lengthText": {"simpleText": "3:33"},
                     "viewCountText": {"simpleText": "1.2B views"},
                     "publishedTimeText": {"simpleText": "15 years ago"},
@@ -766,7 +766,7 @@ mod tests {
                     "badges": [{"metadataBadgeRenderer": {"label": "4K"}}]
                 }},
                 {"channelRenderer": {
-                    "channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0wX",
+                    "channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0w",
                     "title": {"simpleText": "A channel"},
                     "subscriberCountText": {"simpleText": "1.5M subscribers"},
                     "videoCountText": {"simpleText": "120 videos"}
@@ -836,7 +836,7 @@ mod tests {
                 "title": "Song",
                 "lengthSeconds": "213",
                 "viewCount": "100",
-                "channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0wX"
+                "channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0w"
             },
             "playabilityStatus": {"status": "OK"},
             "streamingData": {"adaptiveFormats": [

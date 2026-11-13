@@ -411,7 +411,7 @@ mod tests {
                                 "itemSectionRenderer": {
                                     "contents": [
                                         {"videoRenderer": {"videoId": "dQw4w9WgXcQ"}},
-                                        {"channelRenderer": {"channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0wX"}},
+                                        {"channelRenderer": {"channelId": "UCBv7HEHvY6Y0a0dS0R5mQ0w"}},
                                         {"unknownThingRenderer": {"x": 1}}
                                     ]
                                 }
