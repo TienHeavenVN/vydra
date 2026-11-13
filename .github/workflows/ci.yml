@@ -108,12 +108,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: unit + fixture tests (offline, deterministic)
         run: |
-          set +e
-          set -o pipefail
-          cargo test --workspace --all-features --message-format=short 2>&1 | tee test.log
-          status=$?
-          bash scripts/ci/report.sh test.log
-          exit $status
+          bash scripts/ci/test.sh test.log
 
   audit:
     runs-on: ubuntu-latest
