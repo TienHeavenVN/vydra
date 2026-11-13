@@ -32,6 +32,28 @@ pub const KNOWN_RENDERERS: &[&str] = &[
     "channelVideoPlayerRenderer",
 ];
 
+/// Layout-only renderers: they carry no content of their own, they only group other renderers.
+///
+/// They must not be reported as unknown: `sectionListRenderer`, `itemSectionRenderer` and friends
+/// appear in every single InnerTube response, so counting them turns the `parse_warnings` metric
+/// into noise and hides the renderers that actually need mapping.
+pub const STRUCTURAL_RENDERERS: &[&str] = &[
+    "twoColumnSearchResultsRenderer",
+    "twoColumnBrowseResultsRenderer",
+    "twoColumnWatchNextResults",
+    "sectionListRenderer",
+    "itemSectionRenderer",
+    "shelfRenderer",
+    "horizontalListRenderer",
+    "gridRenderer",
+    "richGridRenderer",
+    "richItemRenderer",
+    "expandedShelfContentsRenderer",
+    "singleColumnBrowseResultsRenderer",
+    "tabRenderer",
+    "sectionListContinuationRenderer",
+];
+
 /// Maximum object depth walked. Guards against pathological/fuzzed payloads.
 const MAX_DEPTH: usize = 48;
 /// Maximum objects visited per parse. Guards against CPU exhaustion.
@@ -177,7 +199,10 @@ pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<R
                             // to a different resource (e.g. channelRenderer inside videoRenderer).
                             continue;
                         }
-                        if key.ends_with("Renderer") && !value.is_null() {
+                        if key.ends_with("Renderer")
+                            && !value.is_null()
+                            && !STRUCTURAL_RENDERERS.contains(&key.as_str())
+                        {
                             report.unknown_renderer(key);
                         }
                     }
