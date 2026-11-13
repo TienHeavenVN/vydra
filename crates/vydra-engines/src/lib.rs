@@ -153,9 +153,9 @@ impl Engines {
         );
 
         if self.config.cache_search
-            && let Lookup::Fresh(json) = self
-                .cache
-                .get(CacheClass::Search, &cache_key, self.config_hash)
+            && let Lookup::Fresh(json) =
+                self.cache
+                    .get(CacheClass::Search, &cache_key, self.config_hash)
             && let Ok(mut cached) = serde_json::from_str::<SearchResults>(&json)
         {
             cached.provenance.cached = true;

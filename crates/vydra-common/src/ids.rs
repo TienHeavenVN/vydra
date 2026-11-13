@@ -138,11 +138,7 @@ id_newtype!(
         // The '@' sigil is part of the handle, so it is allowed at position 0 only; the remainder
         // uses the same charset as bare ids plus '.', which YouTube permits in handles.
         let rest = v.strip_prefix('@').unwrap_or("");
-        !rest.is_empty()
-            && v.len() <= 40
-            && rest
-                .chars()
-                .all(|c| is_bare_id_char(c) || c == '.')
+        !rest.is_empty() && v.len() <= 40 && rest.chars().all(|c| is_bare_id_char(c) || c == '.')
     }
 );
 
