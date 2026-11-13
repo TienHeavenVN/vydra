@@ -136,6 +136,7 @@ impl Authenticator {
     }
 }
 
+#[derive(Debug)]
 struct Bucket {
     window_start: Instant,
     count: u32,

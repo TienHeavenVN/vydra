@@ -46,9 +46,10 @@ pub struct InnertubeClient {
 
 impl std::fmt::Debug for InnertubeClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // `session` is a tokio mutex; `try_lock` keeps `Debug` synchronous and non-blocking.
         let has_session = self
             .session
-            .lock()
+            .try_lock()
             .map(|session| session.is_some())
             .unwrap_or(false);
         f.debug_struct("InnertubeClient")
