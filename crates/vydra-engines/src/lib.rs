@@ -551,7 +551,7 @@ mod tests {
             results
                 .items
                 .iter()
-                .all(|item| matches!(item, wydra_domain::SearchItem::Video(_)))
+                .all(|item| matches!(item, vydra_domain::SearchItem::Video(_)))
         );
     }
 

@@ -551,6 +551,7 @@ impl ProviderObserver for MetricsObserver {
     ) {
         let outcome = match outcome {
             AttemptOutcome::Ok => "ok",
+            AttemptOutcome::Empty => "empty",
             AttemptOutcome::Failed => "failed",
             AttemptOutcome::Skipped => "skipped",
         };
@@ -619,9 +620,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .nest("/api/v1", authed.merge(ops))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
-        .layer(TimeoutLayer::new(Duration::from_millis(
-            state.config.server.request_timeout_ms,
-        )))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::GATEWAY_TIMEOUT,
+            Duration::from_millis(state.config.server.request_timeout_ms),
+        ))
         .layer(RequestBodyLimitLayer::new(
             state.config.server.body_limit_bytes,
         ))

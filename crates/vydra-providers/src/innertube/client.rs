@@ -83,10 +83,10 @@ impl InnertubeClient {
     pub async fn session(&self, ctx: &ProviderContext) -> SessionData {
         {
             let guard = self.session.lock().await;
-            if let Some(session) = guard.as_ref() {
-                if session.is_fresh(self.config.session_ttl) {
-                    return session.clone();
-                }
+            if let Some(session) = guard.as_ref()
+                && session.is_fresh(self.config.session_ttl)
+            {
+                return session.clone();
             }
         }
 
@@ -94,10 +94,10 @@ impl InnertubeClient {
         {
             // Another task may have refreshed while we waited for the lock.
             let guard = self.session.lock().await;
-            if let Some(session) = guard.as_ref() {
-                if session.is_fresh(self.config.session_ttl) {
-                    return session.clone();
-                }
+            if let Some(session) = guard.as_ref()
+                && session.is_fresh(self.config.session_ttl)
+            {
+                return session.clone();
             }
         }
 
@@ -329,10 +329,10 @@ fn map_transport_error(err: TransportError, configured: Duration) -> ProviderErr
 fn find_field(value: &Value, key: &str) -> Option<String> {
     match value {
         Value::Object(map) => {
-            if let Some(found) = map.get(key).and_then(Value::as_str) {
-                if !found.is_empty() {
-                    return Some(found.to_owned());
-                }
+            if let Some(found) = map.get(key).and_then(Value::as_str)
+                && !found.is_empty()
+            {
+                return Some(found.to_owned());
             }
             map.values().find_map(|child| find_field(child, key))
         }
