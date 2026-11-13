@@ -360,9 +360,56 @@ if the bootstrap fails and no override is set, provider calls fail closed with
 
 ---
 
-## ADR-019 — `Cargo.lock` is not committed; CI and Docker resolve it
+## ADR-019 — `Cargo.lock` is committed (superseded decision, Phase 4.2)
 
-**Status:** accepted, with a recorded follow-up
+**Status:** superseded by the decision below (originally: "`Cargo.lock` is not committed; CI and Docker
+resolve it")
+
+### Final decision (Phase 4.2): the lockfile is committed
+
+**Context.** ADR-019 originally declined to commit a lockfile, because the development sandbox cannot
+reach `index.crates.io` and therefore cannot run `cargo generate-lockfile`. `cargo audit`, `cargo deny`
+and the Docker build all need a lock, so CI generated a throwaway one per job and the image resolved
+its graph at build time. That is a *documented* limitation, not a safe one: a deploy could compile a
+dependency graph nobody tested, and an advisory check performed on a different resolution than the one
+that ships is not an advisory check at all. Vydra ships deployable binaries (`apps/api-server`,
+`apps/worker`), which is exactly the case where a lockfile belongs in the repository.
+
+**Evidence.** A one-shot CI job (`lockfile`) did the work the sandbox cannot:
+
+1. `cargo generate-lockfile` resolved the workspace (run
+   [43456657431](https://github.com/TienHeavenVN/vydra/actions/runs/43456657431), job `lockfile`,
+   step `resolve and validate` — **success**).
+2. `cargo check --workspace --locked` then proved the resolved graph still compiles
+   (same step, success). Resolution respected the workspace MSRV: the log records
+   `Adding uuid v1.26.1 (available: v1.29.2, requires Rust 1.89.0)` — the newer version was not taken
+   because `rust-version = "1.88"`.
+3. Only then was the file committed (`Cargo.lock`, 3 172 lines, commit `5276f7c`, author
+   `github-actions[bot]`). The job was removed in the same pull request.
+
+**Decision.** `Cargo.lock` is tracked. Consequences applied here:
+
+* `Dockerfile` copies `Cargo.toml` **and** `Cargo.lock` and builds with `--locked`, so the image builds
+  the graph CI validated.
+* `cargo audit` / `cargo deny` in CI now read the committed lock (the `cargo generate-lockfile` step is
+  still harmless, but the committed file is the reference).
+* Dependency updates are now explicit: bumping a version means changing `Cargo.lock` in a commit that
+  CI validates with `--locked`.
+
+**Rejected alternatives.** (a) Keep resolving at build time — irreproducible, and makes advisory
+results non-transferable. (b) Commit a lockfile generated outside CI — no evidence it compiles, and the
+sandbox cannot run cargo at all. (c) Leave the job in place permanently — a CI job that pushes to the
+branch on every run races with every other push, and the file only needs generating when manifests
+change.
+
+**Residual.** The lockfile was produced by `stable` at the time of the run; a future MSRV bump may
+change it. That is a normal, reviewable diff, not a hidden one.
+
+---
+
+## ADR-019 (historical) — `Cargo.lock` is not committed; CI and Docker resolve it
+
+**Status:** superseded
 **Context:** The repository intentionally does not commit a lock file (it cannot be generated in the
 sandbox — `index.crates.io` is unreachable), but `cargo audit`, `cargo deny` and the Docker build
 all require one; the original `Dockerfile` did `COPY Cargo.lock` and could not build at all

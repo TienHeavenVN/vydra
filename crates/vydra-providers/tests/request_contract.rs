@@ -46,20 +46,30 @@ fn context(strictness: Strictness) -> ProviderContext {
 }
 
 fn replay(bootstrap: &str, payload: &str) -> Arc<ReplayTransport> {
-    Arc::new(ReplayTransport::new(vec![
-        Ok(TransportResponse {
-            status: 200,
-            headers: vec![],
-            body: Bytes::from(bootstrap.to_owned()),
-            elapsed: Duration::from_millis(1),
-        }),
+    replay_many(bootstrap, &[payload])
+}
+
+/// One bootstrap document followed by one response per endpoint call.
+///
+/// The session is cached across calls but every endpoint call still consumes a response, so a test
+/// that fetches twice needs two payloads — a queue that runs dry fails loudly with a transport error
+/// rather than silently reusing the previous body.
+fn replay_many(bootstrap: &str, payloads: &[&str]) -> Arc<ReplayTransport> {
+    let mut queued = vec![Ok(TransportResponse {
+        status: 200,
+        headers: vec![],
+        body: Bytes::from(bootstrap.to_owned()),
+        elapsed: Duration::from_millis(1),
+    })];
+    queued.extend(payloads.iter().map(|payload| {
         Ok(TransportResponse {
             status: 200,
             headers: vec![("content-type".into(), "application/json".into())],
-            body: Bytes::from(payload.to_owned()),
+            body: Bytes::from((*payload).to_owned()),
             elapsed: Duration::from_millis(3),
-        }),
-    ]))
+        })
+    }));
+    Arc::new(ReplayTransport::new(queued))
 }
 
 fn innertube(transport: Arc<ReplayTransport>) -> InnertubeProvider {
@@ -246,7 +256,7 @@ async fn player_posts_the_video_id_with_the_check_flags() {
 /// header — it is only ever a query parameter (yt-dlp `_base.py:858-866`).
 #[tokio::test]
 async fn bootstrap_is_used_once_and_the_key_never_travels_in_a_header() {
-    let transport = replay(BOOTSTRAP, SEARCH_BODY);
+    let transport = replay_many(BOOTSTRAP, &[SEARCH_BODY, SEARCH_BODY]);
     let provider = innertube(transport.clone());
 
     provider

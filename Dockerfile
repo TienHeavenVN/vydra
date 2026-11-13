@@ -2,14 +2,15 @@
 FROM rust:1-slim AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config ca-certificates && rm -rf /var/lib/apt/lists/*
-# No Cargo.lock is committed on purpose (see docs/security/PROVIDER_ENGINE_AUDIT.md), so the image
-# resolves dependencies at build time; rust-toolchain.toml is not copied because the image's
-# toolchain already satisfies `edition = "2024"` / `resolver = "3"`.
-COPY Cargo.toml ./
+# Cargo.lock is committed (ADR-019): the image builds against the exact graph CI validates, so a
+# deploy cannot silently pick up a different dependency set than the one that was tested.
+# rust-toolchain.toml is not copied because the image's toolchain already satisfies
+# `edition = "2024"` / `resolver = "3"`.
+COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY apps ./apps
 COPY migrations ./migrations
-RUN cargo build --release -p vydra-api-server -p vydra-worker
+RUN cargo build --release --locked -p vydra-api-server -p vydra-worker
 
 FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 WORKDIR /app
