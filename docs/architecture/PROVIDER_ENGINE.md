@@ -196,6 +196,19 @@ No credential is compiled into the binary (ADR-018).
 * **Budgets.** `MAX_DEPTH = 48`, `MAX_NODES = 100_000`, `MAX_WARNINGS = 24`. Exceeding them emits a
   warning and stops descending; it never truncates silently.
 
+## 6.1 Request contracts and transport security (Phase 4.2)
+
+What Vydra sends is pinned by `tests/request_contract.rs` and documented, with per-field citations, in
+`docs/research/INNERTUBE_REQUEST_CONTRACTS.md`: endpoint URLs (`?prettyPrint=false&key=…`), headers,
+the shared `context` object, and the exact body keys of search, continuation and player requests. The
+api key is a query parameter obtained from session bootstrap — never a header, never a literal, never
+logged.
+
+The transport boundary resolves the target *before* the socket exists (`GuardedResolver`), refuses
+prohibited IPv4/IPv6 ranges (including IPv4 addresses wrapped in IPv6), fails closed when nothing
+survives, refuses redirects and refuses ambient proxies. The analysis, the address tables and the
+residual risks are in `docs/security/DNS_REBINDING_ANALYSIS.md`.
+
 ## 7. Adding a provider (the whole checklist)
 
 1. Implement `Provider` in a new module of `vydra-providers` (or a new crate depending only on
@@ -203,8 +216,10 @@ No credential is compiled into the binary (ADR-018).
 2. Declare only capabilities you can prove with fixtures; everything else stays undeclared so the
    endpoint is not mounted.
 3. Talk to the network exclusively through the `Transport` trait, so tests can use `ReplayTransport`.
-4. Record fixtures under `tests/fixtures/` plus a `.meta.json` describing provenance
-   (`synthetic_schema_reference` unless a real capture was taken).
+4. Add fixtures under `tests/fixtures/{synthetic,recorded,malformed}/` plus a `.meta.json` sidecar
+   describing provenance and a `not_verified` list — see `docs/research/FIXTURE_PROVENANCE.md`.
+   Vydra has never captured a fixture itself; a recording must come from a project whose licence
+   permits reuse, and it must never be described as live verification.
 5. Register it in `apps/api-server/src/main.rs` (`providers.push(Arc::new(...))`). Nothing else
    changes: no handler, no engine, no domain type.
 6. Add a registry test only if the provider has unusual failure semantics; the shared contract tests

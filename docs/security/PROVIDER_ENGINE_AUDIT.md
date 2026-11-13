@@ -107,9 +107,12 @@ Residual, **unsolvable by an allowlist** (documented rather than hidden):
   in `docs/security/DNS_REBINDING_ANALYSIS.md` §6.
 * **TLS trust** relies on the platform trust store (`rustls-tls`); there is no certificate pinning.
 * **Upstream-side quota** is invisible to us: a 429 is observed, a shadow-ban is not.
-* **Fixture authenticity**: the recorded fixtures are *synthetic schema references*, not captured
-  production payloads (`docs/providers/MEDIA_LIMITATIONS.md`). They prove parser behaviour, not
-  upstream shape.
+* **Fixture authenticity** (updated in Phase 4.2): the corpus is now mixed and labelled. Three
+  reduced subsets of captures published by a third-party project (MIT) sit under `recorded/`, one
+  hand-written document under `synthetic/`, three derived documents under `malformed/`, each with a
+  provenance sidecar. A recording proves the parser agrees with *that recording*; it does not prove
+  upstream shape today, and the global `/youtubei/v1/search` response is still unrecorded
+  (`docs/research/FIXTURE_PROVENANCE.md`).
 * **Sandbox limits**: no local compiler and no egress to YouTube, so "it compiles" and "upstream
   accepts our requests" are answered only by CI and by a deployment, respectively.
 
