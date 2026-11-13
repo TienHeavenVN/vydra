@@ -37,7 +37,7 @@ fn provider_with_fixture(body: String) -> InnertubeProvider {
         Ok(TransportResponse {
             status: 200,
             headers: vec![],
-            body: Bytes::from_static(br#"[[{"visitorData":"VIS"}],"AIzaSYFIXTUREKEY0123456789"]#),
+            body: Bytes::from_static(br#"[[{"visitorData":"VIS"}],"AIzaSYFIXTUREKEY0123456789"]"#),
             elapsed: Duration::from_millis(1),
         }),
         // endpoint payload

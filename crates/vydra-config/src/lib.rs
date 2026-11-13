@@ -352,7 +352,7 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         let vars: HashMap<String, String> = std::env::vars().collect();
         let config = Self::from_map(&vars)?;
-        config.validate()?;
+        config.validate().map_err(ConfigError::into_error)?;
         Ok(config)
     }
 

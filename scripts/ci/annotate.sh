@@ -25,6 +25,7 @@ except FileNotFoundError:
 
 diag = re.compile(r"^(?P<file>[^\s:][^:]*\.rs):(?P<line>\d+):(?P<col>\d+):\s*(?P<msg>.*)$")
 diff = re.compile(r"^Diff in (?P<file>.+?) at line (?P<line>\d+):$")
+arrow = re.compile(r"^\s*-->\s+(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+)$")
 
 annotations = []
 seen = set()
@@ -55,6 +56,16 @@ for raw in lines:
         annotations.append(
             "::error file={file},line={line}::rustfmt would reformat this file".format(
                 file=match.group("file"), line=match.group("line")
+            )
+        )
+        continue
+    match = arrow.match(line)
+    if match:
+        annotations.append(
+            "::error file={file},line={line},col={col}::diagnostic location".format(
+                file=match.group("file"),
+                line=match.group("line"),
+                col=match.group("col"),
             )
         )
         continue
