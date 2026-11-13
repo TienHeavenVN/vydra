@@ -123,7 +123,7 @@ functions (see `docs/architecture/DATA_FLOW.md`).
 `X-Youtube-Client-Name`, `X-GOOG-API-FORMAT-VERSION: 2`, `User-Agent` for Android/iOS, and appends
 `prettyPrint=false&alt=json`. It also processes the JSON body (`processJsonPayload`) before send.
 `innertube/utils/Constants.kt` holds the literal client matrix: `IOS 21.26.4`, `VISIONOS 1.02`,
-`WEB 2.20260907.06.00` + API key `REDACTED-PUBLIC-WEB-KEY`, `MWEB`, `TVHTML5`, etc.
+`WEB 2.20260907.06.00` + a public web API key (value redacted here on purpose: the reference projects hardcode it, Vydra does not ship it), `MWEB`, `TVHTML5`, etc.
 
 **Lesson:** session bootstrap and header rewriting are first-class architecture, not glue. Vydra
 models them as a `SessionProvider` with expiration, single-flight refresh and per-client caching
