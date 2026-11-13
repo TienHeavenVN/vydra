@@ -160,6 +160,9 @@ pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<R
 
         match node {
             Value::Object(map) => {
+                // Children are pushed in reverse so that the LIFO stack pops them in document
+                // order: search results must keep the order the upstream served them in.
+                let mut children: Vec<(&Value, usize)> = Vec::new();
                 for (key, value) in map {
                     if key.ends_with("Renderer")
                         || key == "lockupViewModel"
@@ -179,12 +182,13 @@ pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<R
                         }
                     }
                     if value.is_object() || value.is_array() {
-                        stack.push((value, depth + 1));
+                        children.push((value, depth + 1));
                     }
                 }
+                stack.extend(children.into_iter().rev());
             }
             Value::Array(items) => {
-                for item in items {
+                for item in items.iter().rev() {
                     if item.is_object() || item.is_array() {
                         stack.push((item, depth + 1));
                     }
