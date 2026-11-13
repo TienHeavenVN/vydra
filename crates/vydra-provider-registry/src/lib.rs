@@ -625,9 +625,9 @@ mod tests {
 
     use async_trait::async_trait;
     use vydra_common::VideoId;
-    use vydra_providers::Provider;
     use vydra_domain::Provenance;
     use vydra_errors::UnavailabilityReason;
+    use vydra_providers::Provider;
     use vydra_providers::Strictness;
 
     use super::*;
