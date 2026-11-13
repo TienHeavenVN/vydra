@@ -77,6 +77,8 @@ jobs:
       - name: annotate
         if: failure()
         run: |
+          grep -A6 '^error' check.log | head -50 > check-errors.log || true
+          bash scripts/ci/annotate.sh check-errors.log -1 40
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh check.log "$offset" 10
           done
@@ -96,6 +98,8 @@ jobs:
       - name: annotate
         if: failure()
         run: |
+          grep -A6 '^error' clippy.log | head -50 > clippy-errors.log || true
+          bash scripts/ci/annotate.sh clippy-errors.log -1 40
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh clippy.log "$offset" 10
           done
@@ -113,6 +117,8 @@ jobs:
       - name: annotate
         if: failure()
         run: |
+          grep -A6 '^error' test.log | head -50 > test-errors.log || true
+          bash scripts/ci/annotate.sh test-errors.log -1 40
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh test.log "$offset" 10
           done

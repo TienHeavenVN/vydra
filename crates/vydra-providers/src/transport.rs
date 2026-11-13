@@ -109,12 +109,12 @@ impl TransportRequest {
         if self.max_response_bytes == 0 {
             return Err(TransportError::BodyTooLarge { limit: 0 });
         }
-        if let Some(body) = &self.body {
-            if body.len() > MAX_REQUEST_BODY_BYTES {
-                return Err(TransportError::BodyTooLarge {
-                    limit: MAX_REQUEST_BODY_BYTES,
-                });
-            }
+        if let Some(body) = &self.body
+            && body.len() > MAX_REQUEST_BODY_BYTES
+        {
+            return Err(TransportError::BodyTooLarge {
+                limit: MAX_REQUEST_BODY_BYTES,
+            });
         }
         Ok(())
     }
