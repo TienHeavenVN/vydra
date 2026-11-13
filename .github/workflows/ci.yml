@@ -23,7 +23,7 @@ jobs:
           set -o pipefail
           cargo fmt --all -- --check 2>&1 | tee fmt.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           cargo metadata --no-deps --format-version 1 > /dev/null 2> metadata.log || true
           bash scripts/ci/annotate.sh metadata.log 0 10
@@ -59,7 +59,7 @@ jobs:
           git commit -m "style: apply rustfmt"
           git push 2>&1 | tee push.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           bash scripts/ci/annotate.sh fmt-apply.log 0 10
           bash scripts/ci/annotate.sh push.log 0 10
@@ -75,7 +75,7 @@ jobs:
           set -o pipefail
           cargo check --workspace --all-targets --message-format=short 2>&1 | tee check.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           grep -A6 '^error' check.log | head -50 > check-errors.log || true
           bash scripts/ci/annotate.sh check-errors.log -1 40
@@ -96,12 +96,14 @@ jobs:
           set -o pipefail
           cargo clippy --workspace --all-targets --all-features --message-format=short -- -D warnings 2>&1 | tee clippy.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           grep -A8 '^error' clippy.log | head -140 > clippy-errors.log || true
           bash scripts/ci/annotate.sh clippy-errors.log -1 80
           grep -A4 '^warning:' clippy.log | head -60 > clippy-warnings.log || true
           bash scripts/ci/annotate.sh clippy-warnings.log -1 40
+          grep -B14 -A4 'could not compile' clippy.log | head -120 > clippy-context.log || true
+          bash scripts/ci/annotate.sh clippy-context.log -1 80
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh clippy.log "$offset" 10
           done
@@ -117,12 +119,14 @@ jobs:
           set -o pipefail
           cargo test --workspace --all-features --message-format=short 2>&1 | tee test.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           grep -A6 '^error' test.log | head -50 > test-errors.log || true
           bash scripts/ci/annotate.sh test-errors.log -1 40
           grep -B3 -A8 'panicked at' test.log | head -80 > test-failures.log || true
           bash scripts/ci/annotate.sh test-failures.log -1 60
+          grep -B14 -A4 'could not compile' test.log | head -120 > test-context.log || true
+          bash scripts/ci/annotate.sh test-context.log -1 80
           for offset in 0 10 20 30 40; do
             bash scripts/ci/annotate.sh test.log "$offset" 10
           done
@@ -143,7 +147,7 @@ jobs:
           cargo audit --ignore RUSTSEC-2024-0437 --ignore RUSTSEC-2026-0459 \
             --ignore RUSTSEC-2023-0071 2>&1 | tee audit.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           bash scripts/ci/annotate.sh install.log 0 5
           bash scripts/ci/annotate.sh audit.log -1 40
@@ -163,7 +167,7 @@ jobs:
           cargo install cargo-deny --locked --quiet 2>&1 | tee install.log
           cargo deny check 2>&1 | tee deny.log
       - name: annotate
-        if: failure()
+        if: always()
         run: |
           bash scripts/ci/annotate.sh install.log 0 5
           grep -A6 'error\[rejected\]' deny.log | head -60 > deny-rejected.log || true

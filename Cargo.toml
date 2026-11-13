@@ -38,7 +38,6 @@ vydra-provider-registry = { path = "crates/vydra-provider-registry" }
 vydra-engines = { path = "crates/vydra-engines" }
 vydra-auth = { path = "crates/vydra-auth" }
 vydra-cache = { path = "crates/vydra-cache" }
-vydra-database = { path = "crates/vydra-database" }
 vydra-observability = { path = "crates/vydra-observability" }
 vydra-api = { path = "crates/vydra-api" }
 
@@ -84,7 +83,6 @@ tokio = { version = "1.44", features = [
     "net",
     "fs",
 ] }
-tower = { version = "0.5.2", features = ["util", "timeout", "limit"] }
 tower-http = { version = "0.6.2", features = [
     "trace",
     "timeout",
