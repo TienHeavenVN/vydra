@@ -16,6 +16,8 @@ python3 - "$log" "$offset" "$limit" <<'PY'
 import re
 import sys
 
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
 log, offset, limit = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 try:
     with open(log, errors="replace") as handle:
@@ -30,7 +32,7 @@ arrow = re.compile(r"^\s*-->\s+(?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+)$")
 annotations = []
 seen = set()
 for raw in lines:
-    line = raw.rstrip()
+    line = ANSI.sub("", raw).rstrip()
     if not line.strip() or line.lstrip().startswith("|"):
         continue
     match = diag.match(line)
@@ -70,7 +72,14 @@ for raw in lines:
         )
         continue
     lowered = line.lower()
-    if "error" in lowered or "panicked" in lowered or "failed to" in lowered:
+    # Deliberately narrow: "thiserror", "download" and friends must not be mistaken for failures,
+    # otherwise the annotation budget is consumed by progress lines.
+    if (
+        re.search(r"^\s*error(\[|:|\s)", line)
+        or "could not compile" in lowered
+        or "panicked at" in lowered
+        or lowered.startswith("failed to")
+    ):
         annotations.append("::error title=cargo::" + line[:900])
 
 window = annotations[offset : offset + limit]
