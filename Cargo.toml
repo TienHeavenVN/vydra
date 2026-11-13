@@ -23,8 +23,6 @@ edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/TienHeavenVN/vydra"
-authors = ["Vydra contributors"]
-keywords = ["youtube", "api", "innertube", "metadata"]
 categories = ["web-programming::http-server"]
 
 [workspace.dependencies]

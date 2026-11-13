@@ -93,20 +93,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo clippy
         run: |
+          set +e
           set -o pipefail
           cargo clippy --workspace --all-targets --all-features --message-format=short -- -D warnings 2>&1 | tee clippy.log
-      - name: annotate
-        if: always()
-        run: |
-          grep -A8 '^error' clippy.log | head -140 > clippy-errors.log || true
-          bash scripts/ci/annotate.sh clippy-errors.log -1 80
-          grep -A4 '^warning:' clippy.log | head -60 > clippy-warnings.log || true
-          bash scripts/ci/annotate.sh clippy-warnings.log -1 40
-          grep -B14 -A4 'could not compile' clippy.log | head -120 > clippy-context.log || true
-          bash scripts/ci/annotate.sh clippy-context.log -1 80
-          for offset in 0 10 20 30 40; do
-            bash scripts/ci/annotate.sh clippy.log "$offset" 10
-          done
+          status=$?
+          bash scripts/ci/report.sh clippy.log
+          exit $status
 
   test:
     runs-on: ubuntu-latest
@@ -116,20 +108,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: unit + fixture tests (offline, deterministic)
         run: |
+          set +e
           set -o pipefail
           cargo test --workspace --all-features --message-format=short 2>&1 | tee test.log
-      - name: annotate
-        if: always()
-        run: |
-          grep -A6 '^error' test.log | head -50 > test-errors.log || true
-          bash scripts/ci/annotate.sh test-errors.log -1 40
-          grep -B3 -A8 'panicked at' test.log | head -80 > test-failures.log || true
-          bash scripts/ci/annotate.sh test-failures.log -1 60
-          grep -B14 -A4 'could not compile' test.log | head -120 > test-context.log || true
-          bash scripts/ci/annotate.sh test-context.log -1 80
-          for offset in 0 10 20 30 40; do
-            bash scripts/ci/annotate.sh test.log "$offset" 10
-          done
+          status=$?
+          bash scripts/ci/report.sh test.log
+          exit $status
 
   audit:
     runs-on: ubuntu-latest
