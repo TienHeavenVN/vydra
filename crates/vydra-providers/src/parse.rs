@@ -166,7 +166,10 @@ pub fn collect_renderers(root: &Value, report: &mut ParseReport) -> Vec<Renderer
                         || key == "videoRenderer"
                     {
                         if KNOWN_RENDERERS.contains(&key.as_str()) {
-                            found.push(Renderer { key: key.as_str(), value });
+                            found.push(Renderer {
+                                key: key.as_str(),
+                                value,
+                            });
                             // Do not descend into a consumed renderer: its inner renderers belong
                             // to a different resource (e.g. channelRenderer inside videoRenderer).
                             continue;
