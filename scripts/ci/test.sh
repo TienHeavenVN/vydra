@@ -19,8 +19,10 @@ packages="$(cargo metadata --no-deps --format-version 1 2>>"$log" \
 
 for pkg in $packages; do
   echo "::group::cargo test -p $pkg"
+  # `setsid` puts cargo (and therefore the timeout's group kill) in its own session; without it
+  # the SIGTERM that ends a hung test also ends this script, and the whole step dies as exit 143.
   timeout --kill-after=10 "$per_package_timeout" \
-    cargo test -p "$pkg" --all-features --message-format=short 2>&1 | tee -a "$log"
+    setsid cargo test -p "$pkg" --all-features --message-format=short 2>&1 | tee -a "$log"
   code="${PIPESTATUS[0]}"
   echo "::endgroup::"
   if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
@@ -39,5 +41,8 @@ if [ -n "$timed_out" ]; then
   echo "timed out:$timed_out" | tee -a "$log"
 fi
 
+# Always publish the per-package verdicts: they are the only record of what ran.
+grep -E '^(RESULT |timed out:)' "$log" >"$log.results" || true
+bash scripts/ci/annotate.sh "$log.results" -1 40 || true
 bash scripts/ci/report.sh "$log" || true
 exit "$failed"
