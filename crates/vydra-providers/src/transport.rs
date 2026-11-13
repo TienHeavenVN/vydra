@@ -7,10 +7,12 @@
 //!
 //! Every request that leaves Vydra passes through [`TransportRequest::validate`].
 
-use std::sync::Mutex;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
+use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use serde_json::Value;
 use url::Url;
 
@@ -232,9 +234,13 @@ impl ReqwestTransport {
             .pool_idle_timeout(Duration::from_secs(90))
             .tcp_keepalive(Duration::from_secs(60))
             .connect_timeout(Duration::from_secs(3))
-            // Redirects are followed manually so that every hop is re-validated against the host
-            // allowlist; a redirect is therefore never silently trusted.
+            // Redirects are **refused**, not followed. A 3xx is returned to the caller as an
+            // ordinary non-success response, so there is no hop that could bypass the allowlist
+            // and no code path that silently trusts a `Location` header.
             .redirect(reqwest::redirect::Policy::none())
+            // Resolve, validate, and connect to the *same* addresses: a hostname allowlist on its
+            // own is defeated by a name that resolves to an internal address (DNS rebinding).
+            .dns_resolver(Arc::new(GuardedResolver::new()))
             .build()
             .map_err(|err| TransportError::Connect(err.to_string()))?;
         Ok(Self { client })
@@ -317,6 +323,184 @@ impl Transport for ReqwestTransport {
     }
 }
 
+/// Address families Vydra refuses to connect to, regardless of which hostname resolved there.
+///
+/// The hostname allowlist answers "may we talk to this name?"; this answers "may we connect to this
+/// address?". Both are required: `youtube.com` resolving to `127.0.0.1` or `169.254.169.254` must
+/// fail, and a rebinding resolver can produce exactly that after the name has been approved.
+pub fn prohibited_ip_reason(ip: IpAddr) -> Option<&'static str> {
+    match ip {
+        IpAddr::V4(v4) => prohibited_v4(v4),
+        IpAddr::V6(v6) => prohibited_v6(v6),
+    }
+}
+
+fn prohibited_v4(ip: Ipv4Addr) -> Option<&'static str> {
+    let octets = ip.octets();
+    if ip.is_unspecified() || octets[0] == 0 {
+        return Some("unspecified");
+    }
+    if ip.is_loopback() {
+        return Some("loopback");
+    }
+    if ip.is_private() {
+        return Some("private");
+    }
+    if ip.is_link_local() {
+        return Some("link-local");
+    }
+    if ip.is_broadcast() {
+        return Some("broadcast");
+    }
+    if ip.is_multicast() {
+        return Some("multicast");
+    }
+    // Carrier-grade NAT (RFC 6598): never a legitimate public endpoint.
+    if octets[0] == 100 && (64..128).contains(&octets[1]) {
+        return Some("cgnat");
+    }
+    // Documentation ranges (RFC 5737): must never appear in real DNS answers.
+    if (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)
+        || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
+        || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)
+    {
+        return Some("documentation");
+    }
+    // Benchmarking (RFC 2544) and reserved space (RFC 1112).
+    if (octets[0] == 198 && (18..20).contains(&octets[1])) || octets[0] >= 240 {
+        return Some("reserved");
+    }
+    None
+}
+
+fn prohibited_v6(ip: Ipv6Addr) -> Option<&'static str> {
+    if ip.is_unspecified() {
+        return Some("unspecified");
+    }
+    if ip.is_loopback() {
+        return Some("loopback");
+    }
+    if ip.is_multicast() {
+        return Some("multicast");
+    }
+    // An address that wraps IPv4 is judged as that IPv4 address: `::ffff:127.0.0.1` is loopback.
+    if let Some(v4) = ip.to_ipv4_mapped() {
+        return prohibited_v4(v4).or(Some("ipv4-mapped"));
+    }
+    let segments = ip.segments();
+    // Deprecated IPv4-compatible form (::a.b.c.d): first 96 bits zero, last 32 bits an address.
+    if segments[0..6].iter().all(|segment| *segment == 0)
+        && (segments[6] != 0 || segments[7] != 0)
+    {
+        let embedded = Ipv4Addr::new(
+            (segments[6] >> 8) as u8,
+            segments[6] as u8,
+            (segments[7] >> 8) as u8,
+            segments[7] as u8,
+        );
+        return prohibited_v4(embedded).or(Some("ipv4-compatible"));
+    }
+    if segments[0] & 0xfe00 == 0xfc00 {
+        return Some("unique-local");
+    }
+    if segments[0] & 0xffc0 == 0xfe80 {
+        return Some("link-local");
+    }
+    if segments[0] == 0x2001 && segments[1] == 0x0db8 {
+        return Some("documentation");
+    }
+    // 6to4 (2002::/16) embeds an IPv4 address in segments 1-2: judge the embedded address.
+    if segments[0] == 0x2002 {
+        let embedded = Ipv4Addr::new(
+            (segments[1] >> 8) as u8,
+            segments[1] as u8,
+            (segments[2] >> 8) as u8,
+            segments[2] as u8,
+        );
+        return prohibited_v4(embedded).or(Some("6to4"));
+    }
+    // Teredo (2001::/32) and the discard prefix (100::/64) are tunnel/blackhole space.
+    if segments[0] == 0x2001 && segments[1] == 0 {
+        return Some("teredo");
+    }
+    if segments[0] == 0x0100 && segments[1] == 0 && segments[2] == 0 && segments[3] == 0 {
+        return Some("discard");
+    }
+    None
+}
+
+/// Keep only addresses that may be connected to, and refuse to continue if none survive.
+///
+/// Returning "some of the addresses were fine" is what pins the connection to a verified
+/// resolution: the addresses dropped here cannot be re-offered by a second lookup, because the
+/// resolver below is the only lookup this client performs.
+pub fn guard_resolution<I>(addrs: I) -> Result<Vec<SocketAddr>, TransportError>
+where
+    I: IntoIterator<Item = SocketAddr>,
+{
+    let mut permitted: Vec<SocketAddr> = Vec::new();
+    let mut blocked: u32 = 0;
+    for addr in addrs {
+        match prohibited_ip_reason(addr.ip()) {
+            None => permitted.push(addr),
+            Some(reason) => {
+                blocked = blocked.saturating_add(1);
+                tracing::warn!(ip = %addr.ip(), reason, "blocked resolved address");
+            }
+        }
+    }
+    if permitted.is_empty() {
+        return Err(TransportError::BlockedUrl(format!(
+            "resolution yielded no permitted address ({blocked} blocked)"
+        )));
+    }
+    permitted.sort();
+    permitted.dedup();
+    Ok(permitted)
+}
+
+/// Resolver that validates every address before the socket is opened.
+///
+/// `reqwest` calls this once per connection attempt and connects to the returned addresses
+/// directly, so there is no window in which the name can resolve differently between validation
+/// and connection. TLS hostname verification is unaffected: the URL still carries the hostname, and
+/// the certificate is still checked against it.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct GuardedResolver;
+
+impl GuardedResolver {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+fn boxed_error(err: TransportError) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(err)
+}
+
+impl Resolve for GuardedResolver {
+    fn resolve(&self, name: Name) -> Resolving {
+        let host = name.as_str().to_ascii_lowercase();
+        Box::pin(async move {
+            let hostname = host.trim_end_matches('.').to_owned();
+            if !is_allowed_host(&hostname) {
+                return Err(boxed_error(TransportError::BlockedUrl(format!(
+                    "resolver refused host: {hostname}"
+                ))));
+            }
+            let resolved = tokio::net::lookup_host((hostname.as_str(), 443u16))
+                .await
+                .map_err(|err| {
+                    boxed_error(TransportError::Connect(format!(
+                        "dns resolution failed for {hostname}: {err}"
+                    )))
+                })?;
+            let guarded = guard_resolution(resolved).map_err(boxed_error)?;
+            Ok(Box::new(guarded.into_iter()) as Addrs)
+        })
+    }
+}
+
 /// Deterministic transport for tests: replays a queue of responses and records what was requested.
 #[derive(Debug, Default)]
 pub struct ReplayTransport {
@@ -392,6 +576,119 @@ mod tests {
             timeout: Duration::from_secs(5),
             max_response_bytes: 1024,
         }
+    }
+
+    #[test]
+    fn prohibited_ipv4_ranges_are_rejected() {
+        for text in [
+            "0.0.0.0",
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.5.5",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "192.0.2.5",
+            "198.51.100.7",
+            "203.0.113.9",
+            "198.18.0.1",
+            "224.0.0.1",
+            "239.255.255.250",
+            "255.255.255.255",
+        ] {
+            let ip: IpAddr = text.parse().expect("ip");
+            assert!(
+                prohibited_ip_reason(ip).is_some(),
+                "should have been prohibited: {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_ipv4_addresses_are_permitted() {
+        for text in ["142.250.72.14", "8.8.8.8", "1.1.1.1", "185.199.108.153"] {
+            let ip: IpAddr = text.parse().expect("ip");
+            assert_eq!(prohibited_ip_reason(ip), None, "rejected {text}");
+        }
+    }
+
+    #[test]
+    fn prohibited_ipv6_ranges_are_rejected() {
+        for text in [
+            "::",
+            "::1",
+            "fe80::1",
+            "fc00::1",
+            "fd12:3456::1",
+            "ff02::1",
+            "2001:db8::1",
+            "2001:0:53aa:64c::1",
+            "100::1",
+            // IPv4-mapped: judged as the wrapped IPv4 address.
+            "::ffff:127.0.0.1",
+            "::ffff:10.0.0.1",
+            "::ffff:169.254.169.254",
+            // Deprecated IPv4-compatible form.
+            "::127.0.0.1",
+            // 6to4 wrapping loopback.
+            "2002:7f00:1::1",
+        ] {
+            let ip: IpAddr = text.parse().expect("ip");
+            assert!(
+                prohibited_ip_reason(ip).is_some(),
+                "should have been prohibited: {text}"
+            );
+        }
+    }
+
+    #[test]
+    fn public_ipv6_addresses_are_permitted() {
+        for text in ["2607:f8b0:4005:80b::200e", "2001:4860:4860::8888"] {
+            let ip: IpAddr = text.parse().expect("ip");
+            assert_eq!(prohibited_ip_reason(ip), None, "rejected {text}");
+        }
+    }
+
+    #[test]
+    fn guard_resolution_drops_blocked_addresses_and_keeps_order_independence() {
+        let google = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(142, 250, 72, 14)), 443);
+        let mixed = vec![
+            google,
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(169, 254, 169, 254)), 443),
+            google,
+        ];
+        let guarded = guard_resolution(mixed).expect("one address survives");
+        assert_eq!(guarded, vec![google]);
+    }
+
+    #[test]
+    fn guard_resolution_fails_closed_when_every_address_is_blocked() {
+        let blocked = vec![
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443),
+            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443),
+        ];
+        assert!(matches!(
+            guard_resolution(blocked),
+            Err(TransportError::BlockedUrl(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn resolver_refuses_a_host_that_is_not_allowlisted_without_resolving_it() {
+        let resolver = GuardedResolver::new();
+        let name: reqwest::dns::Name = "rebind.example".parse().expect("name");
+        let result = resolver.resolve(name).await;
+        assert!(result.is_err(), "non-allowlisted host resolved");
+    }
+
+    #[tokio::test]
+    async fn resolver_blocks_a_hostname_that_resolves_to_loopback() {
+        // `localhost` is not allowlisted, so the host gate must reject it before any lookup; this
+        // asserts the gate, not the system resolver.
+        let resolver = GuardedResolver::new();
+        let name: reqwest::dns::Name = "localhost".parse().expect("name");
+        assert!(resolver.resolve(name).await.is_err());
     }
 
     #[test]
