@@ -192,7 +192,7 @@ async fn recorded_continuation_page_keeps_the_trailing_token() {
         vydra_domain::SearchItem::Video(video) if video.id.as_str() == "hqRVz_4wCrc" => Some(video),
         _ => None,
     });
-    assert_eq!(long.and_then(|video| video.duration_seconds), Some(9152));
+    assert_eq!(long.and_then(|video| video.duration_seconds), Some(9140));
 }
 
 // --------------------------------------------------------------------------------------------

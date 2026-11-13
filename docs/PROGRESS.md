@@ -39,6 +39,7 @@ Consequences, stated plainly:
 | 3 — Rust foundation | compiles in CI | 12 crates, workspace manifests, CI, Docker, migrations |
 | 4 — Provider engine | **audited, remediated, verification in CI** | contract, transport, InnerTube search/player/captions, registry, fixtures; 20 findings closed (see `docs/security/PROVIDER_ENGINE_AUDIT.md`) |
 | 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
+| 4.2 — Upstream request contract verification | **complete, CI green** | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video + chapters + captions metadata | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
@@ -74,6 +75,25 @@ after ~3 minutes, so the suite now runs as a fail-fast:false matrix of one job p
 
 The temporary `fmt-apply` job (which pushed rustfmt commits to the branch) is retired now that
 `fmt` has been green for nine consecutive runs.
+
+## Phase 4.2 — request contracts, fixtures, rebinding (what CI actually proved)
+
+Scope: verify what Vydra *sends* and what it *expects back*, before any further engine work. No new
+endpoint, no new capability, no signature/PoToken handling, no live request.
+
+| Item | Result |
+| --- | --- |
+| Request shapes pinned | search `{context, query[, params]}`, continuation `{context, continuation}`, player `{context, videoId, contentCheckOk, racyCheckOk}`, exact URL including `?prettyPrint=false&key=…`, header set, context object — `tests/request_contract.rs` |
+| Fixture corpus | 3 recorded subsets (MIT, `yuliskov/MediaServiceCore` @ `b3d561f`), 1 synthetic, 3 derived malformed, each with a `*.meta.json` sidecar; layout `tests/fixtures/{synthetic,recorded,malformed}/` |
+| Recorded surface coverage | browse page with search-tab renderers, browse continuation (582-char token), web player response (availability, 4 formats, ASR caption) |
+| Still unrecorded | global `/youtubei/v1/search` response, search continuation envelope, current bootstrap document — all marked *inferred* |
+| Defects found | A-29 (api key never sent), A-30 (`reqwest` ambient proxy defeated the DNS guard), A-31 (two parse warnings did not count), A-32 (fixture misnamed after `/search`) |
+| Security | A-28 DNS rebinding closed (`GuardedResolver`), A-30 closed (`no_proxy()`); residual risks listed in `docs/security/DNS_REBINDING_ANALYSIS.md` §6 |
+| `Cargo.lock` | ADR-019 executed: generated in CI, validated with `cargo check --locked`, committed |
+
+What this phase deliberately did **not** establish: that YouTube accepts these requests today, that the
+recordings still match upstream, or that any search-continuation works. Those need a live request or a
+newer recording, and they are listed as such in every document that touches them.
 
 ## Implemented (code exists)
 
