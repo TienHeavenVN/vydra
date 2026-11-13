@@ -34,12 +34,28 @@ impl SessionData {
 }
 
 /// InnerTube request layer. One instance per provider; cheap to clone through an `Arc`.
-#[derive(Debug)]
+///
+/// `Debug` is implemented by hand: the transport is `dyn Transport` and is intentionally opaque, so
+/// it is reported by presence rather than by contents.
 pub struct InnertubeClient {
     transport: Arc<dyn Transport>,
     config: Arc<InnertubeProviderConfig>,
     session: Mutex<Option<SessionData>>,
     refresh_lock: Mutex<()>,
+}
+
+impl std::fmt::Debug for InnertubeClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let has_session = self
+            .session
+            .lock()
+            .map(|session| session.is_some())
+            .unwrap_or(false);
+        f.debug_struct("InnertubeClient")
+            .field("client", &self.config.client)
+            .field("has_session", &has_session)
+            .finish_non_exhaustive()
+    }
 }
 
 impl InnertubeClient {

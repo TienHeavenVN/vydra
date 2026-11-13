@@ -133,6 +133,7 @@ jobs:
         if: failure()
         run: |
           bash scripts/ci/annotate.sh install.log 0 5
+          bash scripts/ci/annotate.sh audit.log -1 25
           for offset in 0 10 20; do
             bash scripts/ci/annotate.sh audit.log "$offset" 10
           done
@@ -152,6 +153,7 @@ jobs:
         if: failure()
         run: |
           bash scripts/ci/annotate.sh install.log 0 5
+          bash scripts/ci/annotate.sh deny.log -1 25
           for offset in 0 10 20; do
             bash scripts/ci/annotate.sh deny.log "$offset" 10
           done

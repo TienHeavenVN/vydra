@@ -68,7 +68,6 @@ sqlx = { version = "0.8.3", default-features = false, features = [
     "runtime-tokio-rustls",
     "postgres",
     "time",
-    "migrate",
 ] }
 thiserror = "2.0.12"
 time = { version = "0.3.41", features = [

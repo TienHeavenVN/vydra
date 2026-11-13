@@ -87,6 +87,14 @@ for raw in lines:
     ):
         annotations.append("::error title=cargo::" + line[:900])
 
+if offset == -1:
+    # raw mode: dump the report verbatim (used for cargo-audit / cargo-deny output)
+    for line in lines[:limit]:
+        stripped = ANSI.sub("", line).strip()
+        if stripped and not stripped.startswith("    Finished"):
+            print("::error title=report::" + stripped[:400])
+    sys.exit(0)
+
 window = annotations[offset : offset + limit]
 for annotation in window:
     print(annotation)
