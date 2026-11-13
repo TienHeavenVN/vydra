@@ -72,6 +72,7 @@ pub trait Cache: Send + Sync {
     }
 }
 
+#[derive(Debug)]
 struct Slot {
     entry: CacheEntry,
     stale_window: Duration,

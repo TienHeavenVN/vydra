@@ -712,10 +712,10 @@ impl Config {
 // --- small typed env helpers -------------------------------------------------------------
 
 fn set_string(vars: &HashMap<String, String>, key: &str, target: &mut String) {
-    if let Some(value) = vars.get(key) {
-        if !value.trim().is_empty() {
-            *target = value.trim().to_owned();
-        }
+    if let Some(value) = vars.get(key)
+        && !value.trim().is_empty()
+    {
+        *target = value.trim().to_owned();
     }
 }
 

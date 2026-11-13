@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+vydra-cache = { workspace = true }
 vydra-common = { workspace = true }
 vydra-config = { workspace = true }
 vydra-domain = { workspace = true }
