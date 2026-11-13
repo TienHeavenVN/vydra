@@ -21,10 +21,8 @@ use crate::parse::{ParseReport, Renderer, find_continuation, number_of, text_of,
 
 fn first_text(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
-        if let Some(field) = value.get(*key) {
-            if let Some(text) = text_of(field) {
-                return Some(text);
-            }
+        if let Some(text) = value.get(*key).and_then(text_of) {
+            return Some(text);
         }
     }
     None
@@ -45,10 +43,12 @@ fn count_from_fields(value: &Value, numeric_key: &str, text_keys: &[&str]) -> Op
         return Some(Count::exact(number));
     }
     for key in text_keys {
-        if let Some(text) = value.get(*key).and_then(text_of) {
-            if let Some(count) = count_from_text(&text) {
-                return Some(count);
-            }
+        if let Some(count) = value
+            .get(*key)
+            .and_then(text_of)
+            .and_then(|text| count_from_text(&text))
+        {
+            return Some(count);
         }
     }
     None
@@ -74,10 +74,9 @@ fn live_state_of(renderer: &Value) -> Option<LiveState> {
                 .get("metadataBadgeRenderer")
                 .and_then(|b| b.get("style"))
                 .and_then(Value::as_str)
+                && label.eq_ignore_ascii_case("LIVE")
             {
-                if label.eq_ignore_ascii_case("LIVE") {
-                    return Some(LiveState::Live);
-                }
+                return Some(LiveState::Live);
             }
         }
     }
