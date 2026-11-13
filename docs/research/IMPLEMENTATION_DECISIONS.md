@@ -223,7 +223,9 @@ invalidated when the provider's config hash changes.
 **Status:** accepted (with a caveat recorded in `docs/PROGRESS.md`)
 **Context:** Mission requires Rust 2024 edition, Tokio, Axum, Tower, Reqwest, Serde, SQLx, Redis,
 OpenAPI. Edition 2024 requires Rust ≥ 1.85.
-**Decision:** `rust-toolchain.toml` pins `stable` with a minimum of 1.85 (MSRV enforced in CI with
+**Decision:** `rust-toolchain.toml` pins `stable`. The MSRV is **1.88** as of Phase 2026-11-13: the
+previous floor (1.85) forced `time` to resolve to 0.3.45, which carries RUSTSEC-2026-0009 (stack
+exhaustion on parsing); every fixed `time` release (≥ 0.3.46) requires 1.88. MSRV enforced in CI with
 `cargo msrv verify`-style job using `cargo-hack`). Dependencies are pinned by caret ranges; an
 `xtask`-free `deny.toml` enforces license allowlist (MIT/Apache-2.0/BSD/ISC/Unicode/MPL-2.0) and
 bans copyleft **runtime** dependencies, which also prevents accidental reuse of AGPL/GPL code.

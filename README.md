@@ -36,7 +36,7 @@ implemented (ADR-006) — format metadata is served instead, with the reason a U
 
 ```bash
 cp .env.example .env 2>/dev/null || true
-cargo run -p vydra-api-server      # requires a Rust toolchain ≥ 1.85
+cargo run -p vydra-api-server      # requires a Rust toolchain ≥ 1.88
 curl localhost:8080/api/v1/health
 curl localhost:8080/api/v1/status
 curl 'localhost:8080/api/v1/search?q=rust&limit=5'

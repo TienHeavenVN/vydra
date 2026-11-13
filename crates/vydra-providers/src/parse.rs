@@ -144,7 +144,7 @@ pub struct Renderer<'a> {
 /// hostile response cannot exhaust the process.
 pub fn collect_renderers(root: &Value, report: &mut ParseReport) -> Vec<Renderer<'_>> {
     let mut found = Vec::new();
-    let mut stack: Vec<(&'a Value, usize)> = vec![(root, 0)];
+    let mut stack: Vec<(&Value, usize)> = vec![(root, 0)];
     let mut visited = 0usize;
 
     while let Some((node, depth)) = stack.pop() {
@@ -166,7 +166,7 @@ pub fn collect_renderers(root: &Value, report: &mut ParseReport) -> Vec<Renderer
                         || key == "videoRenderer"
                     {
                         if KNOWN_RENDERERS.contains(&key.as_str()) {
-                            found.push(Renderer { key, value });
+                            found.push(Renderer { key: key.as_str(), value });
                             // Do not descend into a consumed renderer: its inner renderers belong
                             // to a different resource (e.g. channelRenderer inside videoRenderer).
                             continue;
