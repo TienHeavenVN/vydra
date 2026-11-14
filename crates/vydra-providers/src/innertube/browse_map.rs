@@ -90,7 +90,9 @@ fn thumbnails_from_sources(sources: &Value) -> Vec<Thumbnail> {
 }
 
 fn largest(thumbnails: Vec<Thumbnail>) -> Option<Thumbnail> {
-    thumbnails.into_iter().max_by_key(|thumb| thumb.width.unwrap_or(0))
+    thumbnails
+        .into_iter()
+        .max_by_key(|thumb| thumb.width.unwrap_or(0))
 }
 
 /// `metadata.channelMetadataRenderer`.
@@ -580,7 +582,10 @@ pub fn map_channel(
 
         let avatar = match header {
             Some(header) => avatar_of(header, Some(metadata)),
-            None => metadata.get("avatar").map(thumbnails_of).unwrap_or_default(),
+            None => metadata
+                .get("avatar")
+                .map(thumbnails_of)
+                .unwrap_or_default(),
         };
         let banner = header.and_then(banner_of);
         let verification = header.map(verification_of).unwrap_or_default();
