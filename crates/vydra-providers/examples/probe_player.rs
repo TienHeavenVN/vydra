@@ -570,14 +570,20 @@ async fn main() -> ProbeResult<()> {
 
     // Workflow annotations: short, greppable, no payload content.
     for record in summary["records"].as_array().into_iter().flatten() {
+        // The verdict is the evidence; keep it on the check run so it is visible even if the capture
+        // transport (artifact or branch push) fails.
         println!(
-            "::notice::player probe {} id={} status={} bytes={} json={} verdict={}",
+            "::notice::player probe {} id={} status={} bytes={} json={} verdict={} reason={} formats={} captions={} video_details={}",
             record["label"],
             record["video_id"],
             record["status"],
             record["bytes"],
             record["json"],
-            record["verdict"]["playability"]["status"]
+            record["verdict"]["playability"]["status"],
+            record["verdict"]["playability"]["reason"],
+            record["verdict"]["streaming_data"]["adaptive_formats"],
+            record["verdict"]["captions"]["track_count"],
+            record["verdict"]["video_details"]["channel_id"]
         );
     }
     for (label, mapped) in mapping {

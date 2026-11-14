@@ -221,11 +221,36 @@ jobs:
             --kind player --capture-run "${GITHUB_RUN_ID}" | tee archive.log
       - name: publish on the branch
         if: always()
+        env:
+          CAPTURE_DIR: docs/research/data/player-probe-${{ github.run_id }}
         run: |
-          git add "docs/research/data/player-probe-${GITHUB_RUN_ID}" 2>/dev/null || true
+          set +e
+          git add "$CAPTURE_DIR" 2>/dev/null
           git commit -m "test(evidence): player probe capture ${GITHUB_RUN_ID}" || echo "nothing to publish"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "::notice title=publish::local head $(git log --oneline -3 | tr '\n' '; ')"
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}" || git rebase --abort
+          git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}" 2> push.log
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            # The push failed. The capture is still evidence: ship it through the check-run
+            # annotations, which are readable from the API, and fail loudly.
+            echo "::error title=push-failed::exit=${status} $(tail -c 500 push.log | tr '\n' ' ')"
+            for f in "$CAPTURE_DIR"/*.gz "$CAPTURE_DIR"/manifest.json; do
+              [ -f "$f" ] || continue
+              encoded=$(base64 -w0 "$f")
+              total=$(( (${#encoded} + 2499) / 2500 ))
+              index=1
+              while [ -n "$encoded" ]; do
+                echo "::notice title=capture::$(basename "$f") ${index}/${total} ${encoded:0:2500}"
+                encoded=${encoded:2500}
+                index=$((index + 1))
+              done
+            done
+            exit 1
+          fi
+          echo "::notice title=publish::pushed $(git log --oneline -1)"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
