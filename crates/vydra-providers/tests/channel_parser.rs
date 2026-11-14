@@ -472,3 +472,49 @@ async fn a_truncated_browse_response_fails_closed() {
         other => panic!("expected a parse error, got {other:?}"),
     }
 }
+
+#[test]
+fn lockup_rows_map_into_a_channel_video_listing() {
+    // The live channel Videos tab renders `richItemRenderer > content > lockupViewModel` rows (probe run
+    // 43561555917); the fixture is synthetic but keyed like that sample.
+    let body = payload("synthetic/browse_channel_videos_lockup.json");
+    let mut report = ParseReport::new();
+    let list = map_channel_videos(&body, 50, &mut report, provenance());
+
+    assert_eq!(list.items.len(), 2);
+    assert_eq!(list.items[0].id.as_str(), "lockup00001");
+    assert_eq!(list.items[0].title, "A first lockup row");
+    assert_eq!(list.items[0].duration_seconds, Some(599));
+    assert_eq!(
+        list.items[0].view_count.as_ref().map(|count| count.value),
+        Some(1_200_000)
+    );
+    // "Now playing" is a badge label; it must never be read as a length.
+    assert_eq!(list.items[1].duration_seconds, None);
+    assert_eq!(
+        list.next_cursor.as_deref(),
+        Some("PAGE_TOKEN_LOCKUP_PAGE2_PLACEHOLDER")
+    );
+    // The third row's `contentId` is not a video id, so it is dropped and accounted for.
+    assert!(report.skipped_items() >= 1, "{:?}", report.messages());
+    assert!(!report.messages().is_empty());
+}
+
+#[test]
+fn lockup_rows_survive_a_missing_metadata_block() {
+    // Only the id, title and thumbnails are load-bearing; counts are optional and stay absent.
+    let body = json!({"contents": {"richGridRenderer": {"contents": [
+        {"richItemRenderer": {"content": {"lockupViewModel": {
+            "contentId": "lockup00009",
+            "metadata": {"lockupMetadataViewModel": {"title": {"content": "title only"}}}
+        }}}}
+    ]}}});
+    let mut report = ParseReport::new();
+    let list = map_channel_videos(&body, 50, &mut report, provenance());
+
+    assert_eq!(list.items.len(), 1);
+    assert_eq!(list.items[0].duration_seconds, None);
+    assert!(list.items[0].view_count.is_none());
+    assert!(list.items[0].thumbnails.is_empty());
+    assert!(list.next_cursor.is_none());
+}

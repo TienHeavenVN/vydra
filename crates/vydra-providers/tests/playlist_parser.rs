@@ -341,9 +341,10 @@ async fn a_playlist_continuation_sends_only_the_token() {
 }
 
 #[test]
-fn an_entry_from_a_lockup_view_model_is_counted_as_unmapped() {
-    // The newer `lockupViewModel` row carries neither `index` nor `isPlayable`; mapping it would mean
-    // inventing a position and a verdict, so it is counted instead.
+fn a_lockup_entry_without_a_title_is_reported_instead_of_fabricated() {
+    // The newer `lockupViewModel` row carries neither `index` nor `isPlayable`, so a mapped entry keeps
+    // `position: None` and `availability: Unknown`. This particular row has no readable title either, so
+    // it is dropped with a `missing_field` note rather than emitted as an untitled entry.
     let body = json!({
         "metadata": {"playlistMetadataRenderer": {"title": "Lockups"}},
         "contents": {"playlistVideoListRenderer": {"contents": [
@@ -356,5 +357,32 @@ fn an_entry_from_a_lockup_view_model_is_counted_as_unmapped() {
     let page = map_playlist_videos(&body, 50, &mut report, provenance());
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items[0].source, PlaylistEntrySource::PlaylistVideo);
-    assert!(report.unmapped_results() >= 1);
+    assert!(
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("lockupViewModel") && message.contains("title")),
+        "the unreadable lockup row must be reported: {:?}",
+        report.messages()
+    );
+}
+
+#[test]
+fn lockup_entries_keep_an_unknown_position_and_an_unknown_availability() {
+    // `docs/research/PLAYLIST_CONTRACT.md` §5: a row that states no `index` and no `isPlayable` gets
+    // neither a computed position nor an assumed verdict.
+    let body = payload("synthetic/browse_playlist_entries_lockup.json");
+    let mut report = ParseReport::new();
+    let page = map_playlist_videos(&body, 50, &mut report, provenance());
+
+    assert_eq!(page.items.len(), 2);
+    for item in &page.items {
+        assert_eq!(item.position, None, "a lockup states no position");
+        assert_eq!(item.availability, Availability::Unknown);
+        assert_eq!(item.source, PlaylistEntrySource::Lockup);
+        assert!(!item.is_playable());
+    }
+    assert_eq!(page.items[0].duration_seconds, Some(754));
+    assert_eq!(page.items[1].duration_seconds, Some(3723));
+    assert_eq!(page.items[0].title, "First entry of the uploads playlist");
 }

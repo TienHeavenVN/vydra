@@ -1,0 +1,20 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_from_live_shape_sample",
+  "note": "Hand-built fixture whose *key structure* was copied from the shape sample that the Phase 6 browse probe printed for a live channel videos page (probe run 43561555917: richItemRenderer > content > lockupViewModel with contentId, contentImage.thumbnailViewModel.image.sources, thumbnailBadgeViewModel overlays and contentMetadataViewModel metadataRows). Every value, id, URL, count, duration and token is a placeholder; it is NOT a captured response and must not be described as one.",
+  "endpoint": "browse, WEB client (channel Videos tab)",
+  "created": "2026-11-13",
+  "purpose": "Channel videos page rendered as lockup rows: a duration badge, a live badge, a metadata row pair, one row whose contentId fails video-id validation, and a page continuation token.",
+  "sections_exercised": [
+    "richGridRenderer.contents[].richItemRenderer.content.lockupViewModel",
+    "lockupViewModel.contentImage.thumbnailViewModel.image.sources",
+    "lockupViewModel.contentImage.thumbnailViewModel.overlays[].thumbnailBottomOverlayViewModel.badges[].thumbnailBadgeViewModel",
+    "lockupViewModel.metadata.lockupMetadataViewModel.metadata.contentMetadataViewModel.metadataRows[].metadataParts[]",
+    "continuationItemRenderer.continuationEndpoint.continuationCommand"
+  ],
+  "not_verified": [
+    "that the lockup nesting is identical on every surface; only the channel Videos tab was sampled",
+    "that a lockup row ever states playability (it does not in the sampled page, which is why availability stays Unknown)",
+    "that a lockup row ever states a playlist position (none was observed)"
+  ]
+}

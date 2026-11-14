@@ -1,0 +1,179 @@
+{
+  "trackingParams": "PLACEHOLDER_TRACKING",
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Playlist",
+            "selected": true,
+            "content": {
+              "sectionListRenderer": {
+                "contents": [
+                  {
+                    "itemSectionRenderer": {
+                      "contents": [
+                        {
+                          "richItemRenderer": {
+                            "content": {
+                              "lockupViewModel": {
+                                "contentId": "lockup00003",
+                                "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                                "contentImage": {
+                                  "thumbnailViewModel": {
+                                    "image": {
+                                      "sources": [
+                                        {
+                                          "url": "https://example.invalid/vi/lockup00003/hq720.jpg",
+                                          "width": 360,
+                                          "height": 202
+                                        },
+                                        {
+                                          "url": "https://example.invalid/vi/lockup00003/hq720.jpg",
+                                          "width": 720,
+                                          "height": 404
+                                        }
+                                      ]
+                                    },
+                                    "overlays": [
+                                      {
+                                        "thumbnailBottomOverlayViewModel": {
+                                          "badges": [
+                                            {
+                                              "thumbnailBadgeViewModel": {
+                                                "text": {
+                                                  "content": "12:34"
+                                                },
+                                                "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "metadata": {
+                                  "lockupMetadataViewModel": {
+                                    "title": {
+                                      "content": "First entry of the uploads playlist"
+                                    },
+                                    "metadata": {
+                                      "contentMetadataViewModel": {
+                                        "metadataRows": [
+                                          {
+                                            "metadataParts": [
+                                              {
+                                                "text": {
+                                                  "content": "9.1K views"
+                                                }
+                                              },
+                                              {
+                                                "text": {
+                                                  "content": "1 month ago"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "rendererContext": {
+                                  "accessibilityContext": {
+                                    "label": "First entry of the uploads playlist by Example Channel"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "richItemRenderer": {
+                            "content": {
+                              "lockupViewModel": {
+                                "contentId": "lockup00004",
+                                "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                                "contentImage": {
+                                  "thumbnailViewModel": {
+                                    "image": {
+                                      "sources": [
+                                        {
+                                          "url": "https://example.invalid/vi/lockup00004/hq720.jpg",
+                                          "width": 360,
+                                          "height": 202
+                                        },
+                                        {
+                                          "url": "https://example.invalid/vi/lockup00004/hq720.jpg",
+                                          "width": 720,
+                                          "height": 404
+                                        }
+                                      ]
+                                    },
+                                    "overlays": [
+                                      {
+                                        "thumbnailBottomOverlayViewModel": {
+                                          "badges": [
+                                            {
+                                              "thumbnailBadgeViewModel": {
+                                                "text": {
+                                                  "content": "1:02:03"
+                                                },
+                                                "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "metadata": {
+                                  "lockupMetadataViewModel": {
+                                    "title": {
+                                      "content": "Second entry of the uploads playlist"
+                                    },
+                                    "metadata": {
+                                      "contentMetadataViewModel": {
+                                        "metadataRows": [
+                                          {
+                                            "metadataParts": [
+                                              {
+                                                "text": {
+                                                  "content": "44K views"
+                                                }
+                                              },
+                                              {
+                                                "text": {
+                                                  "content": "2 months ago"
+                                                }
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  }
+                                },
+                                "rendererContext": {
+                                  "accessibilityContext": {
+                                    "label": "Second entry of the uploads playlist by Example Channel"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

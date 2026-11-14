@@ -646,6 +646,220 @@ pub fn map_channel(
     })
 }
 
+// --- lockup rows ------------------------------------------------------------------------------
+//
+// Current channel tabs and playlist pages render their rows as `richItemRenderer.content.lockupViewModel`
+// instead of `videoRenderer`/`playlistVideoRenderer`. This is not a reading of a reference client: the
+// Phase 6 browse probe captured a live channel videos page (run 43561555917) whose rows are exactly
+//
+//   {"content":{"lockupViewModel":{"contentId":"<video id>",
+//      "contentImage":{"thumbnailViewModel":{"image":{"sources":[{"url":…,"width":…,"height":…}]},
+//                     "overlays":[{"thumbnailBottomOverlayViewModel":{"badges":[{"thumbnailBadgeViewModel":…}]}}]}},
+//      "metadata":{…}, …}}}
+//
+// with `contentMetadataViewModel.metadataRows[].metadataParts[]` carrying the counts and dates, and no
+// `isPlayable` and no `index` anywhere in the row. The mapper therefore:
+//
+// * reads the video id from `contentId` and validates it like any other id;
+// * reads the title, thumbnails and metadata parts from the documented members, with a bounded
+//   by-key fallback for the leaves whose nesting has moved between surfaces;
+// * leaves availability `Unknown` — the row states no playability, and inventing `Available` is the
+//   exact mistake the Phase 5A audit found on the player path;
+// * leaves the playlist position `None` — a lockup has no `index`, and a computed position would
+//   disagree with the number the owner sees.
+
+fn first_text_below(root: &Value, key: &str, max_nodes: usize) -> Option<String> {
+    let mut stack = vec![root];
+    let mut visited = 0usize;
+    while let Some(node) = stack.pop() {
+        visited += 1;
+        if visited > max_nodes {
+            return None;
+        }
+        match node {
+            Value::Object(map) => {
+                if let Some(value) = map.get(key)
+                    && let Some(text) = text_of(value)
+                {
+                    return Some(text);
+                }
+                for value in map.values() {
+                    if value.is_object() || value.is_array() {
+                        stack.push(value);
+                    }
+                }
+            }
+            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn collect_key_texts(root: &Value, key: &str, out: &mut Vec<String>, budget: usize) {
+    let mut stack = vec![root];
+    let mut visited = 0usize;
+    while let Some(node) = stack.pop() {
+        visited += 1;
+        if visited > budget || out.len() > 32 {
+            return;
+        }
+        match node {
+            Value::Object(map) => {
+                if let Some(value) = map.get(key)
+                    && let Some(items) = value.as_array()
+                {
+                    for item in items {
+                        if let Some(text) = text_of(item) {
+                            out.push(text);
+                        } else if let Some(parts) = item.get("metadataParts").and_then(Value::as_array)
+                        {
+                            // `metadataRows[].metadataParts[]` — the shape the counts live in.
+                            for part in parts {
+                                if let Some(text) = part.get("text").and_then(text_of) {
+                                    out.push(text);
+                                }
+                            }
+                        }
+                    }
+                }
+                for value in map.values() {
+                    if value.is_object() || value.is_array() {
+                        stack.push(value);
+                    }
+                }
+            }
+            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            _ => {}
+        }
+    }
+}
+
+fn lockup_thumbnails(lockup: &Value) -> Vec<Thumbnail> {
+    let mut out = lockup
+        .get("contentImage")
+        .and_then(|image| image.get("thumbnailViewModel"))
+        .and_then(|view| view.get("image"))
+        .and_then(|image| image.get("sources"))
+        .map(thumbnails_from_sources)
+        .unwrap_or_default();
+    if out.is_empty() {
+        out = lockup
+            .get("contentImage")
+            .and_then(|image| image.get("sources"))
+            .map(thumbnails_from_sources)
+            .unwrap_or_default();
+    }
+    out
+}
+
+/// Duration from the thumbnail badge ("9:59"), never from a label like "Now playing".
+///
+/// The badge is `thumbnailBadgeViewModel` with the duration in `text` (an object with `content`) and,
+/// while a badge animates, in `animatedText`. Only a string that parses as a clock duration is used, so
+/// localized badge labels are ignored rather than misread as a length.
+fn lockup_duration(lockup: &Value) -> Option<u32> {
+    let mut stack = vec![lockup];
+    let mut visited = 0usize;
+    while let Some(node) = stack.pop() {
+        visited += 1;
+        if visited > 5_000 {
+            return None;
+        }
+        match node {
+            Value::Object(map) => {
+                if let Some(badge) = map.get("thumbnailBadgeViewModel").filter(|value| value.is_object())
+                {
+                    for key in ["text", "animatedText", "content"] {
+                        let Some(field) = badge.get(key) else { continue };
+                        let text = text_of(field)
+                            .or_else(|| field.as_str().map(str::to_owned));
+                        if let Some(text) = text
+                            && let Some(seconds) = parse_clock_duration(&text)
+                        {
+                            return Some(seconds);
+                        }
+                    }
+                }
+                for value in map.values() {
+                    if value.is_object() || value.is_array() {
+                        stack.push(value);
+                    }
+                }
+            }
+            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn video_summary_from_lockup(
+    lockup: &Value,
+    report: &mut ParseReport,
+) -> Option<vydra_domain::VideoSummary> {
+    let Some(raw_id) = lockup.get("contentId").and_then(Value::as_str) else {
+        report.skipped_item("lockup_without_content_id");
+        return None;
+    };
+    let id = match VideoId::parse(raw_id) {
+        Ok(id) => id,
+        Err(_) => {
+            report.skipped_item("lockup_content_id_invalid");
+            return None;
+        }
+    };
+    let Some(title) = first_text_below(lockup, "title", 4_000) else {
+        report.missing_field("lockupViewModel", "title");
+        return None;
+    };
+
+    let mut parts = Vec::new();
+    collect_key_texts(lockup, "metadataRows", &mut parts, 4_000);
+    let view_count = parts
+        .iter()
+        .find_map(|text| super::map::count_from_text(text));
+    // A row renders "views" then "published"; the *text* that is not a count is the date, whatever the
+    // locale, so the two are separated by shape rather than by position.
+    let published_text = parts
+        .iter()
+        .find(|text| super::map::count_from_text(text).is_none() && text.len() < 40)
+        .cloned();
+
+    Some(vydra_domain::VideoSummary {
+        id,
+        title,
+        channel_id: None,
+        channel_title: None,
+        duration_seconds: lockup_duration(lockup),
+        view_count,
+        published_text,
+        published_at: None,
+        thumbnails: lockup_thumbnails(lockup),
+        live_state: None,
+        badges: Vec::new(),
+    })
+}
+
+fn playlist_item_from_lockup(
+    lockup: &Value,
+    report: &mut ParseReport,
+) -> Option<PlaylistItem> {
+    let summary = video_summary_from_lockup(lockup, report)?;
+    Some(PlaylistItem {
+        // A lockup carries no `index`: the position is unknown rather than computed.
+        position: None,
+        video_id: Some(summary.id),
+        title: summary.title,
+        channel_id: None,
+        channel_title: None,
+        duration_seconds: summary.duration_seconds,
+        thumbnails: summary.thumbnails,
+        availability: Availability::Unknown,
+        source: PlaylistEntrySource::Lockup,
+    })
+}
+
 fn video_items(
     renderers: Vec<Renderer<'_>>,
     report: &mut ParseReport,
@@ -654,6 +868,16 @@ fn video_items(
     let mut seen: HashSet<String> = HashSet::new();
     let mut duplicates = 0u32;
     for renderer in renderers {
+        if renderer.key == "lockupViewModel" {
+            if let Some(video) = video_summary_from_lockup(renderer.value, report) {
+                if seen.insert(video.id.as_str().to_owned()) {
+                    items.push(video);
+                } else {
+                    duplicates += 1;
+                }
+            }
+            continue;
+        }
         match super::map::search_item_from_renderer(&renderer, report) {
             Some(SearchItem::Video(video)) => {
                 if seen.insert(video.id.as_str().to_owned()) {
@@ -797,9 +1021,11 @@ fn playlist_items(
         match renderer.key {
             "playlistVideoRenderer" => {}
             "lockupViewModel" => {
-                // Readable in principle, but the lockup shape carries neither `isPlayable` nor `index`;
-                // mapping it would mean inventing both. Counted as unmapped content instead.
-                report.unmapped_result("lockupViewModel");
+                // No `index` and no `isPlayable` in this shape, so the entry is emitted with an unknown
+                // position and an `Unknown` availability rather than a guessed pair.
+                if let Some(item) = playlist_item_from_lockup(renderer.value, report) {
+                    items.push(item);
+                }
                 continue;
             }
             _ => continue,
