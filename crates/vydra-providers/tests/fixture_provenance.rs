@@ -80,11 +80,15 @@ fn every_fixture_declares_a_class_from_the_closed_set() {
             "{}: unknown class {class}",
             fixture.display()
         );
-        // The payload itself must be parseable JSON: a corrupt fixture would fail at read time in a
-        // way that looks like a parser bug.
-        let raw = std::fs::read_to_string(&fixture).expect("fixture readable");
-        serde_json::from_str::<Value>(&raw)
-            .unwrap_or_else(|err| panic!("{} is not JSON: {err}", fixture.display()));
+        // A recorded or synthetic payload must be parseable JSON: a corrupt fixture would fail at read
+        // time in a way that looks like a parser bug. `derived_malformed/` is the one class where
+        // invalid JSON is the *point* — those files exist to prove the parser fails closed — so only
+        // their sidecars are checked.
+        if class != "derived_malformed" {
+            let raw = std::fs::read_to_string(&fixture).expect("fixture readable");
+            serde_json::from_str::<Value>(&raw)
+                .unwrap_or_else(|err| panic!("{} is not JSON: {err}", fixture.display()));
+        }
     }
 }
 
