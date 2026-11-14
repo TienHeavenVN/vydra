@@ -159,8 +159,9 @@ Not unit-tested, stated rather than implied: the live path itself (needs egress)
 ## 9. CI
 
 Final state: **22/22 jobs green** on push run
-[43570443829](https://github.com/TienHeavenVN/vydra/actions/runs/43570443829) and pull-request run
-[43570449481](https://github.com/TienHeavenVN/vydra/actions/runs/43570449481), both at HEAD `599ba91f`. Fourteen of
+[43570835565](https://github.com/TienHeavenVN/vydra/actions/runs/43570835565) and pull-request run
+[43570838778](https://github.com/TienHeavenVN/vydra/actions/runs/43570838778), both at HEAD `7db46584`. Every commit
+after that one is documentation-only, so the run above covers all code and tests in this phase. Fourteen of
 the 22 jobs are per-crate test jobs; the rest are `fmt`, `check`, `clippy`, `docker`, `audit`, `deny`, `secrets` and
 `openapi`. The last green run before the documentation-only commits that follow was
 [43569267185](https://github.com/TienHeavenVN/vydra/actions/runs/43569267185) at `78655a01`; the live evidence in §7.1
