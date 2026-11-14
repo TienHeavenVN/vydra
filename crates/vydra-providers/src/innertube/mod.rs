@@ -2,6 +2,7 @@
 
 pub mod browse_map;
 pub mod client;
+pub mod comments;
 pub mod map;
 pub mod params;
 pub mod provider;
@@ -12,8 +13,8 @@ use std::time::Duration;
 pub use client::{InnertubeClient, SessionData};
 pub use provider::InnertubeProvider;
 pub use request::{
-    BrowseRequest, ClientContext, ClientInfo, ContinuationRequest, PlayerRequest, RequestContext,
-    SearchRequest, UserContext,
+    BrowseRequest, ClientContext, ClientInfo, ContinuationRequest, NextRequest, PlayerRequest,
+    RequestContext, SearchRequest, UserContext,
 };
 
 use crate::ProviderId;

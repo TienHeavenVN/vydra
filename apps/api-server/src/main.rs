@@ -115,6 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             search_ttl: Duration::from_secs(config.cache.search_ttl_secs),
             listing_ttl: Duration::from_secs(config.cache.listing_ttl_secs),
             cursor_page_ttl: Duration::from_secs(config.cache.cursor_page_ttl_secs),
+            comments_ttl: Duration::from_secs(config.cache.comments_ttl_secs),
             cache_search: config.cache.cache_search,
             strictness: vydra_providers::Strictness::Lenient,
             unverified_filters: config.providers.enable_unverified_filters,

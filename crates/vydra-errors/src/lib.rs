@@ -41,6 +41,12 @@ pub enum UnavailabilityReason {
     CopyrightBlocked,
     /// DRM protected (movies, premium).
     DrmProtected,
+    /// The video's owner turned comments off (Phase 7).
+    ///
+    /// A content fact, not a transport failure: the video is perfectly available and the comment section
+    /// simply does not exist. It is cached with the same short TTL as other content facts, because an owner
+    /// can turn comments back on.
+    CommentsDisabled,
     /// Upstream reported some other unavailability.
     Other,
 }
@@ -58,6 +64,7 @@ impl UnavailabilityReason {
             Self::NotBroadcasting => "not_broadcasting",
             Self::CopyrightBlocked => "copyright_blocked",
             Self::DrmProtected => "drm_protected",
+            Self::CommentsDisabled => "comments_disabled",
             Self::Other => "other",
         }
     }

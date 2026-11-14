@@ -1,0 +1,15 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube comment renderer trees documented in docs/research/COMMENTS_REQUEST_CONTRACT.md and docs/research/COMMENTS_RESPONSE_ANALYSIS.md. It is NOT a captured response and must not be described as one: every comment, author, id, count and continuation token here is a placeholder.",
+  "endpoint": "next, WEB client",
+  "created": "2026-11-13",
+  "purpose": "A watch (`next`) page with no comment section at all: the shape that must be read as comments-disabled, not as an empty list.",
+  "sections_exercised": [
+    "contents.twoColumnWatchNextResults.results.results.contents[]"
+  ],
+  "not_verified": [
+    "that comments-disabled is always expressed by the complete absence of the section rather than by an alertRenderer",
+    "that a video whose id does not resolve produces this same shape"
+  ]
+}

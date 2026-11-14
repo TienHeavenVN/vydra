@@ -17,6 +17,8 @@ use std::time::Duration;
 use bytes::Bytes;
 use serde_json::Value;
 use vydra_common::VideoId;
+use vydra_domain::CommentSort;
+use vydra_errors::{ProviderError, UnavailabilityReason};
 use vydra_providers::innertube::{
     ClientKind, ClientProfile, InnertubeProvider, InnertubeProviderConfig,
 };
@@ -467,4 +469,187 @@ async fn empty_search_document_is_a_lenient_warning() {
         .await
         .expect_err("strict mode must reject an unparseable page");
     assert_eq!(error.code(), "provider_parse");
+}
+
+// --------------------------------------------------------------------------------------------
+// Comments
+// --------------------------------------------------------------------------------------------
+
+fn comments_fixture(name: &str) -> String {
+    let path = format!(
+        "{}/tests/fixtures/synthetic/{name}.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    std::fs::read_to_string(&path).unwrap_or_else(|err| panic!("read {path}: {err}"))
+}
+
+fn comments_request(cursor: Option<&str>) -> ProviderRequest {
+    ProviderRequest::Comments {
+        id: VideoId::parse("dQw4w9WgXcQ").expect("id"),
+        sort: CommentSort::Top,
+        cursor: cursor.map(str::to_owned),
+        hl: "en".into(),
+        gl: "US".into(),
+        limit: 20,
+    }
+}
+
+/// The comment section is reached in two documented steps and Vydra sends exactly those two bodies.
+///
+/// Step 1 is the watch page (`{context, videoId}`), which is where the section's continuation token is
+/// read; step 2 is that token and nothing else (`{context, continuation}`). Neither body carries `params`,
+/// and the second never repeats `videoId`.
+///
+/// References: `NewPipeExtractor` `YoutubeCommentsExtractor.getComments` (step 1 then step 2, same bodies)
+/// and `LuanRT/YouTube.js` `Comments.getComments` (`{videoId}` for the watch page, then the token).
+#[tokio::test]
+async fn comments_ask_for_the_watch_page_then_post_only_the_relayed_token() {
+    let watch_page = comments_fixture("comments_watch_page_with_section");
+    let page1 = comments_fixture("comments_page1_top");
+    let transport = replay_many(BOOTSTRAP, &[watch_page.as_str(), page1.as_str()]);
+    let provider = innertube(transport.clone());
+
+    let response = provider
+        .fetch(comments_request(None), &context(Strictness::Lenient))
+        .await
+        .expect("comment page");
+    let ProviderResponse::Comments(list) = response else {
+        panic!("expected a comment list");
+    };
+    assert_eq!(list.items.len(), 3);
+
+    let calls = transport.calls();
+    assert_eq!(calls.len(), 3, "bootstrap, watch page, comment page");
+
+    let watch = &calls[1];
+    assert_eq!(
+        watch.url.as_str(),
+        "https://www.youtube.com/youtubei/v1/next?prettyPrint=false&key=AIzaSYFIXTUREKEY0123456789"
+    );
+    let body = body_of(watch);
+    assert_eq!(sorted_keys(&body), vec!["context", "videoId"]);
+    assert_eq!(body["videoId"], "dQw4w9WgXcQ");
+    assert_eq!(body["context"]["client"]["clientName"], "WEB");
+    assert_eq!(body["context"]["client"]["hl"], "en");
+    assert_eq!(body["context"]["client"]["gl"], "US");
+
+    let page = &calls[2];
+    let body = body_of(page);
+    assert_eq!(sorted_keys(&body), vec!["context", "continuation"]);
+    assert_eq!(body["continuation"], "PLACEHOLDER-WATCH-SECTION-TOKEN");
+    assert!(
+        body.get("videoId").is_none(),
+        "a continuation body never repeats the video id"
+    );
+    assert!(
+        body.get("params").is_none(),
+        "no params encoding is ever invented for comments"
+    );
+}
+
+/// A cursor page needs no discovery pass: it is one `next` call with the relayed token.
+#[tokio::test]
+async fn a_comment_cursor_page_is_one_continuation_call() {
+    let page1 = comments_fixture("comments_page1_top");
+    let transport = replay(BOOTSTRAP, page1.as_str());
+    let provider = innertube(transport.clone());
+
+    provider
+        .fetch(
+            comments_request(Some("PLACEHOLDER-COMMENTS-PAGE2")),
+            &context(Strictness::Lenient),
+        )
+        .await
+        .expect("comment page");
+
+    let calls = transport.calls();
+    assert_eq!(calls.len(), 2, "bootstrap and one continuation call");
+    let body = body_of(&calls[1]);
+    assert_eq!(sorted_keys(&body), vec!["context", "continuation"]);
+    assert_eq!(body["continuation"], "PLACEHOLDER-COMMENTS-PAGE2");
+}
+
+/// A token that is not a token is refused before any request is made.
+#[tokio::test]
+async fn a_continuation_that_is_not_a_token_is_refused_before_the_wire() {
+    let page1 = comments_fixture("comments_page1_top");
+    for bad in ["", "has space", "has\nnewline", "tab\there"] {
+        let transport = replay(BOOTSTRAP, page1.as_str());
+        let provider = innertube(transport.clone());
+        let error = provider
+            .fetch(
+                comments_request(Some(bad)),
+                &context(Strictness::Lenient),
+            )
+            .await
+            .expect_err("must refuse");
+        assert!(
+            matches!(error, ProviderError::InvalidRequest { .. }),
+            "expected invalid_request for {bad:?}, got {error:?}"
+        );
+        assert_eq!(
+            transport.calls().len(),
+            1,
+            "only the bootstrap call may have happened"
+        );
+    }
+}
+
+/// Comments turned off is a content fact, not an empty page and not a parse error.
+#[tokio::test]
+async fn a_watch_page_without_a_comment_section_is_unavailable_comments_disabled() {
+    let disabled = comments_fixture("comments_watch_page_without_section");
+    let transport = replay(BOOTSTRAP, disabled.as_str());
+    let provider = innertube(transport.clone());
+
+    let error = provider
+        .fetch(comments_request(None), &context(Strictness::Lenient))
+        .await
+        .expect_err("must not return an empty page");
+    match error {
+        ProviderError::Unavailable { reason, .. } => {
+            assert_eq!(reason, UnavailabilityReason::CommentsDisabled);
+            assert_eq!(reason.as_str(), "comments_disabled");
+        }
+        other => panic!("expected unavailable, got {other:?}"),
+    }
+    assert_eq!(transport.calls().len(), 2, "no comment page was requested");
+}
+
+/// A reply page is reached only through the token the comment page rendered for that thread.
+#[tokio::test]
+async fn replies_scan_for_the_thread_and_then_post_its_token() {
+    let watch_page = comments_fixture("comments_watch_page_with_section");
+    let page1 = comments_fixture("comments_page1_top");
+    let replies = comments_fixture("comments_replies_page1");
+    let transport = replay_many(
+        BOOTSTRAP,
+        &[watch_page.as_str(), page1.as_str(), replies.as_str()],
+    );
+    let provider = innertube(transport.clone());
+
+    let response = provider
+        .fetch(
+            ProviderRequest::CommentReplies {
+                id: VideoId::parse("dQw4w9WgXcQ").expect("id"),
+                parent: vydra_common::CommentId::parse("UgxAAAAAAAAAAAAAAAAAAAA").expect("id"),
+                cursor: None,
+                hl: "en".into(),
+                gl: "US".into(),
+                limit: 20,
+            },
+            &context(Strictness::Lenient),
+        )
+        .await
+        .expect("reply page");
+    let ProviderResponse::CommentReplies(page) = response else {
+        panic!("expected a reply list");
+    };
+    assert_eq!(page.items.len(), 2);
+
+    let calls = transport.calls();
+    assert_eq!(calls.len(), 4, "bootstrap, watch page, comment page, replies");
+    let last = body_of(&calls[3]);
+    assert_eq!(sorted_keys(&last), vec!["context", "continuation"]);
+    assert_eq!(last["continuation"], "PLACEHOLDER-REPLIES-THREAD1");
 }

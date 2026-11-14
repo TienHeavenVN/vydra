@@ -338,6 +338,55 @@ replayed against another, and one minted under a different provider or fingerpri
 Verification boundaries are in `docs/research/CHANNEL_CONTRACT.md` §9 and `PLAYLIST_CONTRACT.md` §8; the fixture
 classes are in `docs/research/CHANNEL_PLAYLIST_FIXTURE_PROVENANCE.md`.
 
+## 6.6 Comments engine (Phase 7, ADR-025)
+
+Two operations on the `next` endpoint, both read-only:
+
+| Operation | Request body | Document |
+| --- | --- | --- |
+| `comments` (page 1) | `{context, videoId}`, then `{context, continuation: <section token>}`, and — when the requested order is not the one the page opened in — `{context, continuation: <that order's menu token>}` | `CommentList` |
+| `comments` (page *n*) | `{context, continuation: <cursor token>}` | `CommentList` |
+| `comment_replies` (page 1) | up to `REPLY_SCAN_PAGES` (3) comment pages, then the thread's own reply token | `ReplyList` |
+| `comment_replies` (page *n*) | `{context, continuation: <cursor token>}` | `ReplyList` |
+
+There is no third body shape: `NextRequest` has no `params` field, cannot express `videoId` and `continuation`
+together, and validates the token (non-empty, ≤ 8 KiB, no whitespace/control characters) before the request is made.
+The section token, the order tokens and the reply token are all **relayed** from a page that rendered them; the only
+way to reach a reply page is the token the comment page carried for that thread (see
+`docs/research/COMMENTS_REQUEST_CONTRACT.md` §1–§5).
+
+Three content rules that the mapping code enforces rather than documents (`crates/vydra-providers/src/innertube/comments.rs`):
+
+* **a count the page did not state is absent, not zero.** `like_count`/`reply_count` are `Option`, and an empty
+  toolbar label is absent. An abbreviated label (`1.2K`) becomes `Count::Approximate` with the rendered text kept.
+* **a relative label is not an instant.** `published_text` keeps what was rendered, in the page's language;
+  `published_at` is always absent for this provider.
+* **a display name is not an identifier.** `CommentAuthor::channel_id` is present only when the page carried a
+  validated `UC…` id; nothing is derived from a name.
+
+A missing comment section is a content fact, not an empty list: `UnavailabilityReason::CommentsDisabled` →
+`409 content_unavailable` with `details[0].issue: "comments_disabled"`. A reply page never restates the thread total.
+
+Cache class and keys reuse the Phase 6 mechanism with one new class:
+
+| Document | TTL | Key |
+| --- | --- | --- |
+| comment page, page 1 | `comments_ttl_secs` (60) | `comments:{video}:{sort}:{token}:{limit}:{hl}:{gl}` |
+| comment page, page *n* | `cursor_page_ttl_secs` (60) | as above, with the page token |
+| reply page, page 1 / page *n* | `comments_ttl_secs` / `cursor_page_ttl_secs` | `comments.replies:{video}:{parent}:{token}:{limit}:{hl}:{gl}` |
+
+Cursor namespaces are `comments:{video}:{sort}` and `comments.replies:{video}:{parent}`, so a cursor minted for one
+order cannot page another, and a reply cursor cannot be replayed against a different parent — both are asserted in
+`vydra-engines` tests (`a_comment_cursor_is_namespaced_by_video_and_order`,
+`a_reply_cursor_is_scoped_to_its_parent_comment`). A cursor page and a page-1 entry differ only by the token and the
+TTL, so a stale cursor page cannot outlive the ordering it was minted under by more than a minute.
+
+Failures are never cached as content: a disabled verdict or a transient upstream error is returned to the caller and
+re-asked on the next request, which is why a video that turns comments back on is visible immediately.
+
+Verification boundaries are in `docs/reports/PHASE_7_REPORT.md` §7; the fixture classes are in
+`docs/research/COMMENTS_FIXTURE_PROVENANCE.md`.
+
 ## 7. Adding a provider (the whole checklist)
 
 1. Implement `Provider` in a new module of `vydra-providers` (or a new crate depending only on

@@ -5,18 +5,21 @@ use std::time::Instant;
 
 use serde::Serialize;
 use time::OffsetDateTime;
-use vydra_common::{ChannelId, ChannelRef, PlaylistId};
+use vydra_common::{ChannelId, ChannelRef, CommentId, PlaylistId, VideoId};
 use vydra_domain::{
-    CaptionTrackList, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
-    Provenance, SearchResults, VideoDocument,
+    CaptionTrackList, ChannelDocument, ChannelVideoList, CommentList, CommentSort, PlaylistDocument,
+    PlaylistVideoList, Provenance, ReplyList, SearchResults, VideoDocument,
 };
 use vydra_errors::ProviderError;
 
 use super::browse_map::{map_channel, map_channel_videos, map_playlist, map_playlist_videos};
 use super::client::InnertubeClient;
+use super::comments;
 use super::map::{map_player, map_search};
 use super::params::encode_search_filters;
-use super::request::{BrowseRequest, ContinuationRequest, PlayerRequest, SearchRequest};
+use super::request::{
+    BrowseRequest, ContinuationRequest, NextRequest, PlayerRequest, SearchRequest,
+};
 use super::{ClientKind, ClientProfile, InnertubeProviderConfig};
 use crate::parse::{ParseReport, collect_renderers};
 use crate::transport::Transport;
@@ -30,6 +33,13 @@ use crate::{
 /// The playlist *document* embeds the first page of entries, so it needs a bound that is independent of
 /// the caller's `limit`; `PlaylistVideoList` is trimmed to the caller's limit afterwards by the engine.
 const PAGE_ROWS: u16 = 100;
+
+/// How many comment pages a reply lookup may scan before giving up.
+///
+/// A reply continuation token exists only inside the comment page that rendered its thread, so the first
+/// call for a thread's replies has to find that thread. Three pages is a cost bound (each page is a real
+/// request), not a claim about where the thread is.
+const REPLY_SCAN_PAGES: usize = 3;
 
 /// InnerTube-backed provider.
 #[derive(Debug)]
@@ -53,14 +63,19 @@ impl InnertubeProvider {
             Capability::VideoFormatsMetadata,
             Capability::VideoSubtitlesMetadata,
             Capability::CaptionsMetadata,
-            // Phase 6. Deliberately *not* declared: `ChannelPlaylists`, `ChannelAbout` (the playlists
-            // and about tabs are not requested yet), `LiveMetadata` and everything comments-related.
-            // Undeclared capabilities keep their endpoints unmounted (`router()`), which is the honest
-            // alternative to serving a page this parser does not read.
+            // Deliberately *not* declared: `ChannelPlaylists` and `ChannelAbout` (those tabs are not
+            // requested yet), `LiveMetadata` and `LiveChatMetadata`. Undeclared capabilities keep their
+            // endpoints unmounted (`router()`), which is the honest alternative to serving a page this
+            // parser does not read.
             Capability::ChannelMetadata,
             Capability::ChannelVideos,
             Capability::PlaylistMetadata,
             Capability::PlaylistItems,
+            // Phase 7. Comments: the section token is relayed from the watch page, the sort tokens from the
+            // page's own sort menu, and the reply tokens from the thread itself — three relayed contracts,
+            // all live-verified by the Phase 7 probe (`docs/research/COMMENTS_REQUEST_CONTRACT.md`).
+            Capability::CommentsThread,
+            Capability::CommentsReplies,
             Capability::CursorPagination,
             Capability::LocaleSensitive,
         ]);
@@ -341,6 +356,200 @@ impl InnertubeProvider {
         Ok(document)
     }
 
+    /// One page of a video's comments.
+    ///
+    /// Request count, stated because it is not one:
+    ///
+    /// * page 1, default order — two calls: the watch page (to find the comment section's continuation
+    ///   token) and the comment section itself;
+    /// * page 1, `newest` — three calls when the page opens in another order, because the token for the
+    ///   requested order exists only in the sort menu of a comment page;
+    /// * page *n* — one call.
+    ///
+    /// The engine caches page 1, which is what keeps the two-call discovery from being paid per request.
+    async fn comments(
+        &self,
+        id: VideoId,
+        sort: CommentSort,
+        cursor: Option<String>,
+        limit: u16,
+        ctx: &ProviderContext,
+    ) -> Result<CommentList, ProviderError> {
+        if !self.capabilities.contains(Capability::CommentsThread) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::CommentsThread.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+
+        let (payload, sort, mut report) = match cursor {
+            Some(token) => {
+                let context = self.client.context(&session, ctx);
+                let (payload, report) = self.next_page(context, token, ctx).await?;
+                (payload, sort, report)
+            }
+            None => {
+                let token = self.comments_section_token(&session, &id, ctx).await?;
+                let (first, mut report) = self.comments_page(&session, token, ctx).await?;
+                let offered = comments::sort_options(&first);
+                let selected = offered
+                    .iter()
+                    .position(|option| option.selected)
+                    .unwrap_or(0);
+                let target = match sort {
+                    CommentSort::Top => 0,
+                    CommentSort::Newest => 1,
+                };
+                if selected == target {
+                    (first, sort, report)
+                } else {
+                    let token = comments::sort_token(&offered, sort)?;
+                    let (page, page_report) = self.comments_page(&session, token, ctx).await?;
+                    report.merge(page_report);
+                    (page, sort, report)
+                }
+            }
+        };
+
+        let provenance = self.provenance("next", &report, OffsetDateTime::now_utc());
+        let mut list = comments::map_comments_page(&payload, sort, limit, &mut report, provenance);
+        list.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(list)
+    }
+
+    /// One page of replies under a comment.
+    ///
+    /// A reply continuation token exists only inside the comment page that rendered the thread, so page 1
+    /// has to find the thread first: Vydra scans the default comment pages (bounded, see
+    /// [`REPLY_SCAN_PAGES`]) and reports `not_found` when the thread is not among them. It never builds a
+    /// token for a comment id, because that encoding is not documented and a wrong token would page some
+    /// other thread.
+    async fn comment_replies(
+        &self,
+        id: VideoId,
+        parent: CommentId,
+        cursor: Option<String>,
+        limit: u16,
+        ctx: &ProviderContext,
+    ) -> Result<ReplyList, ProviderError> {
+        if !self.capabilities.contains(Capability::CommentsReplies) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::CommentsReplies.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+
+        let (payload, mut report) = match cursor {
+            Some(token) => {
+                let context = self.client.context(&session, ctx);
+                self.next_page(context, token, ctx).await?
+            }
+            None => {
+                let token = self
+                    .find_reply_token(&session, &id, &parent, ctx, &mut ParseReport::new())
+                    .await?;
+                let context = self.client.context(&session, ctx);
+                self.next_page(context, token, ctx).await?
+            }
+        };
+
+        let provenance = self.provenance("next", &report, OffsetDateTime::now_utc());
+        let mut page = comments::map_replies_page(&payload, &parent, limit, &mut report, provenance);
+        page.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(page)
+    }
+
+    /// The comment section's continuation token, from the video's watch page.
+    ///
+    /// A watch page with no comment section is how upstream says "comments are turned off": the section is
+    /// absent, not empty. That is a content fact (`Unavailable{CommentsDisabled}`), not a parse failure, and
+    /// it is what the API reports as `409 comments_disabled` rather than an empty list.
+    async fn comments_section_token(
+        &self,
+        session: &super::client::SessionData,
+        id: &VideoId,
+        ctx: &ProviderContext,
+    ) -> Result<String, ProviderError> {
+        let context = self.client.context(session, ctx);
+        let body = serialize_body(&NextRequest::comments_section(context, id))?;
+        let (payload, _) = self.client.post_json("next", body, ctx).await?;
+        match comments::comments_section_token(&payload)? {
+            Some(token) => Ok(token),
+            None => Err(ProviderError::Unavailable {
+                reason: vydra_domain::UnavailabilityReason::CommentsDisabled,
+                message: "watch page has no comment section".to_owned(),
+            }),
+        }
+    }
+
+    /// One `next` continuation page.
+    async fn next_page(
+        &self,
+        context: super::request::ClientContext,
+        token: String,
+        ctx: &ProviderContext,
+    ) -> Result<(Value, ParseReport), ProviderError> {
+        let body = serialize_body(&NextRequest::continuation(context, token)?)?;
+        let started = Instant::now();
+        let (payload, _) = self.client.post_json("next", body, ctx).await?;
+        tracing::debug!(
+            provider = %self.config.provider_id,
+            endpoint = "next",
+            continuation = true,
+            latency_ms = started.elapsed().as_millis() as u64,
+            "innertube next continuation"
+        );
+        Ok((payload, ParseReport::new()))
+    }
+
+    /// One comment page addressed by a relayed token.
+    async fn comments_page(
+        &self,
+        session: &super::client::SessionData,
+        token: String,
+        ctx: &ProviderContext,
+    ) -> Result<(Value, ParseReport), ProviderError> {
+        let context = self.client.context(session, ctx);
+        self.next_page(context, token, ctx).await
+    }
+
+    /// Find the reply continuation token for `parent` by scanning the default comment pages.
+    ///
+    /// Bounded on purpose: every scanned page is a real upstream request, so the constant is a cost limit,
+    /// not a correctness knob. A thread that is not among the scanned pages is `NotFound` with a message
+    /// that says so, which is the honest answer — the alternative would be a token Vydra cannot verify.
+    async fn find_reply_token(
+        &self,
+        session: &super::client::SessionData,
+        id: &VideoId,
+        parent: &CommentId,
+        ctx: &ProviderContext,
+        report: &mut ParseReport,
+    ) -> Result<String, ProviderError> {
+        let mut token = self.comments_section_token(session, id, ctx).await?;
+        for page in 0..REPLY_SCAN_PAGES {
+            let (payload, page_report) = self.comments_page(session, token, ctx).await?;
+            report.merge(page_report);
+            if let Some(token) = comments::replies_token_for(&payload, parent) {
+                return Ok(token);
+            }
+            let Some(next) = comments::next_page_token(&payload) else {
+                break;
+            };
+            if page + 1 < REPLY_SCAN_PAGES {
+                token = next;
+            }
+        }
+        Err(ProviderError::NotFound {
+            id: parent.as_str().to_owned(),
+            message: format!(
+                "comment thread not found on the first {REPLY_SCAN_PAGES} comment pages of {id}"
+            ),
+        })
+    }
+
     async fn playlist_videos(
         &self,
         id: PlaylistId,
@@ -465,6 +674,26 @@ impl Provider for InnertubeProvider {
                 .playlist_videos(id, cursor, limit, ctx)
                 .await
                 .map(ProviderResponse::PlaylistVideos),
+            ProviderRequest::Comments {
+                id,
+                sort,
+                cursor,
+                limit,
+                ..
+            } => self
+                .comments(id, sort, cursor, limit, ctx)
+                .await
+                .map(ProviderResponse::Comments),
+            ProviderRequest::CommentReplies {
+                id,
+                parent,
+                cursor,
+                limit,
+                ..
+            } => self
+                .comment_replies(id, parent, cursor, limit, ctx)
+                .await
+                .map(ProviderResponse::CommentReplies),
             ProviderRequest::Unsupported { resource, .. } => Err(ProviderError::Unsupported {
                 capability: resource.to_owned(),
             }),

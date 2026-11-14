@@ -13,7 +13,7 @@ pub mod pagination;
 pub mod text;
 
 pub use cursor::{CursorCodec, CursorPayload, MIN_SECRET_LEN};
-pub use ids::{ChannelHandle, ChannelId, ChannelRef, PlaylistId, VideoId};
+pub use ids::{ChannelHandle, ChannelId, ChannelRef, CommentId, PlaylistId, VideoId};
 pub use pagination::{DEFAULT_LIMIT, MAX_LIMIT, PageParams, PaginationMeta};
 
 /// Build metadata exposed by `GET /status`.

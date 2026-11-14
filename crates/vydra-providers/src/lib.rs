@@ -20,10 +20,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use vydra_common::{ChannelId, ChannelRef, PlaylistId, VideoId};
+use vydra_common::{ChannelId, ChannelRef, CommentId, PlaylistId, VideoId};
 use vydra_domain::{
-    CaptionTrackList, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
-    SearchResults, VideoDocument,
+    CaptionTrackList, ChannelDocument, ChannelVideoList, CommentList, CommentSort, PlaylistDocument,
+    PlaylistVideoList, ReplyList, SearchResults, VideoDocument,
 };
 use vydra_errors::ProviderError;
 
@@ -357,6 +357,30 @@ pub enum ProviderRequest {
         gl: String,
         limit: u16,
     },
+    /// One page of a video's comments (`GET /api/v1/videos/{id}/comments`).
+    ///
+    /// `cursor` is a provider continuation token, never a sort chip and never an engine cursor: the engine
+    /// unwraps its signed envelope before calling, and the token is relayed from a previous response.
+    Comments {
+        id: VideoId,
+        sort: CommentSort,
+        cursor: Option<String>,
+        hl: String,
+        gl: String,
+        limit: u16,
+    },
+    /// One page of replies under `parent` (`GET /api/v1/videos/{id}/comments/{comment_id}/replies`).
+    ///
+    /// The parent is carried all the way down, because a reply continuation is only meaningful for the
+    /// thread it came from: the engine binds it in the cursor, and the provider re-checks it.
+    CommentReplies {
+        id: VideoId,
+        parent: CommentId,
+        cursor: Option<String>,
+        hl: String,
+        gl: String,
+        limit: u16,
+    },
     /// Placeholder for resources whose providers are not implemented yet. The registry refuses to
     /// route these (no capability declared), so an endpoint is never mounted on a stub.
     Unsupported {
@@ -377,6 +401,8 @@ impl ProviderRequest {
             Self::ChannelVideos { .. } => Capability::ChannelVideos,
             Self::Playlist { .. } => Capability::PlaylistMetadata,
             Self::PlaylistVideos { .. } => Capability::PlaylistItems,
+            Self::Comments { .. } => Capability::CommentsThread,
+            Self::CommentReplies { .. } => Capability::CommentsReplies,
             Self::Unsupported { .. } => Capability::SearchAll,
         }
     }
@@ -390,6 +416,8 @@ impl ProviderRequest {
             // Channels and playlists are both browse calls; the sub-resource is in the cache key.
             Self::Channel { .. } | Self::ChannelVideos { .. } => "browse",
             Self::Playlist { .. } | Self::PlaylistVideos { .. } => "browse",
+            // Comments are the `next` endpoint in both shapes (section discovery and continuation pages).
+            Self::Comments { .. } | Self::CommentReplies { .. } => "next",
             Self::Unsupported { .. } => "unsupported",
         }
     }
@@ -402,7 +430,9 @@ impl ProviderRequest {
             | Self::Channel { hl, gl, .. }
             | Self::ChannelVideos { hl, gl, .. }
             | Self::Playlist { hl, gl, .. }
-            | Self::PlaylistVideos { hl, gl, .. } => (Some(hl), Some(gl)),
+            | Self::PlaylistVideos { hl, gl, .. }
+            | Self::Comments { hl, gl, .. }
+            | Self::CommentReplies { hl, gl, .. } => (Some(hl), Some(gl)),
             Self::Unsupported { .. } => (None, None),
         }
     }
@@ -418,6 +448,8 @@ pub enum ProviderResponse {
     ChannelVideos(ChannelVideoList),
     Playlist(Box<PlaylistDocument>),
     PlaylistVideos(PlaylistVideoList),
+    Comments(CommentList),
+    CommentReplies(ReplyList),
 }
 
 impl ProviderResponse {
@@ -428,6 +460,7 @@ impl ProviderResponse {
             Self::CaptionTracks(_) => "player",
             Self::Channel(_) | Self::ChannelVideos(_) => "browse",
             Self::Playlist(_) | Self::PlaylistVideos(_) => "browse",
+            Self::Comments(_) | Self::CommentReplies(_) => "next",
         }
     }
 
@@ -441,6 +474,9 @@ impl ProviderResponse {
             Self::Channel(_) | Self::Playlist(_) => false,
             Self::ChannelVideos(list) => list.items.is_empty(),
             Self::PlaylistVideos(list) => list.items.is_empty(),
+            // An empty comment page is a fact about the page, and the caller decides what it means; a
+            // document that claims a comment section exists is content even when the section is empty.
+            Self::Comments(_) | Self::CommentReplies(_) => false,
         }
     }
 }

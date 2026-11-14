@@ -23,6 +23,9 @@ pub enum CacheClass {
     Channel,
     /// Playlist documents and playlist entry pages (Phase 6).
     Playlist,
+    /// Comment pages and reply pages (Phase 7). One class for both: they share a lifetime and a churn
+    /// profile, and splitting them would invite a TTL that nobody re-tunes.
+    Comments,
 }
 
 impl CacheClass {
@@ -34,6 +37,7 @@ impl CacheClass {
             Self::Search => "search",
             Self::Channel => "channel",
             Self::Playlist => "playlist",
+            Self::Comments => "comments",
         }
     }
 }

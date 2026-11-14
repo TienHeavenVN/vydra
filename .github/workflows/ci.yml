@@ -53,6 +53,47 @@ jobs:
               print("::error title=fmt-diff::truncated after 50 lines; %d total" % len(kept))
           PY
 
+  # TEMPORARY (Phase 7, remove before the phase is declared done): the development sandbox has no Rust
+  # toolchain, so `cargo fmt --check` is the only source of truth for formatting. This job formats the tree
+  # and republishes the diff as grouped annotations, which is far cheaper than reading ten truncated
+  # `cargo fmt` annotations per round.
+  fmt-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: format and publish the diff
+        run: |
+          cargo fmt --all
+          git diff > fmt.diff
+          if [ ! -s fmt.diff ]; then
+            echo "::notice title=fmt::tree is already formatted"
+            exit 0
+          fi
+          wc -l fmt.diff
+          python3 - <<'PY2'
+          import pathlib
+
+          diff = pathlib.Path("fmt.diff").read_text(errors="replace")
+          # Only the changed lines matter for reproducing the formatting; the file/hunk headers stay.
+          chunks, current = [], ""
+          for line in diff.splitlines():
+              if len(current) + len(line) + 1 > 3000:
+                  chunks.append(current)
+                  current = ""
+              current += line + "\n"
+          if current:
+              chunks.append(current)
+          print("::notice title=fmt::%d chunks" % len(chunks))
+          for index, chunk in enumerate(chunks[:8]):
+              escaped = chunk.replace("%", "%25").replace("\n", "%0A")
+              print("::error title=fmt-%d::%s" % (index, escaped))
+          for index, chunk in enumerate(chunks[8:]):
+              print("::warning title=fmt-tail-%d::%s" % (index, chunk[:200]))
+          PY2
+
   check:
     runs-on: ubuntu-latest
     steps:

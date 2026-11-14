@@ -217,6 +217,92 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/comments:
+    get:
+      operationId: videoComments
+      summary: One page of a video's comments
+      description: |
+        Read-only. Vydra never posts, edits, deletes, likes or subscribes, and never signs in: every request
+        behind this endpoint is a read of a public page.
+
+        **Order.** `sort` accepts the two orders whose request contract is verified — `top` (default) and
+        `newest`. Both are addressed with a continuation token the page's *own* sort menu carried; Vydra
+        never encodes one. Any other value is `400 invalid_request`, and an order the page does not offer is
+        `503 capability_unavailable`: it is never approximated with the default order. A response cannot
+        prove its own order, so `data.sort` states the order that was requested — that is a statement about
+        Vydra's request, not an upstream claim.
+
+        **Empty is not unavailable.** `200` with `data.items: []` means the page was read and contained no
+        comments. Comments that the uploader turned off are `409 content_unavailable` with
+        `details[0].issue: comments_disabled`, and a video that does not exist is `404`.
+
+        **Missing is not zero.** A comment whose row stated no like count has no `like_count`; one whose row
+        stated none has no `reply_count`. Both are omitted rather than reported as `0`.
+
+        **Pagination.** `data.next_cursor` is opaque and signed, bound to the video id, the order, the locale,
+        the provider client profile and the upstream token. Replaying it against another video, another order
+        or another parent comment is `400 invalid_cursor`. An expired cursor is the same error: no upstream
+        request is made for a cursor Vydra cannot verify.
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/CommentSort'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: One page of top-level comments
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommentListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /videos/{id}/comments/{comment_id}/replies:
+    get:
+      operationId: videoCommentReplies
+      summary: One page of replies under a comment
+      description: |
+        A reply page is a separate operation because replies have their own continuation: the token exists
+        only inside the comment page that rendered the thread, and a reply cursor is bound to its parent
+        comment id, so a cursor minted for one thread is `400 invalid_cursor` on another.
+
+        **Loaded is not total.** `data.items` is this page. `data.total_reply_count` is what the *parent*
+        comment claimed and is omitted when the reply page did not restate it — a reply page that carries
+        two of fourteen replies does not claim two. `data.next_cursor` says whether more are available, and
+        the parent's `reply_count` in the comment listing remains the only statement of the total.
+
+        A reply that upstream has deleted is served with `availability.state: unavailable` and
+        `reason: deleted`, keeping its place, rather than being dropped and renumbering the page.
+
+        When the thread is not among the comment pages Vydra is willing to scan (a bounded three), the
+        endpoint answers `404 not_found` with a message saying so. It never constructs a token for a comment
+        id it has not seen.
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - name: comment_id
+          in: path
+          required: true
+          description: The parent comment id, exactly as a comment document carried it.
+          schema: {type: string, minLength: 8, maxLength: 200}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: One page of replies
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReplyListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
   /channels/{id}:
     get:
       operationId: channel
@@ -385,6 +471,17 @@ components:
       schema:
         type: string
         example: live,hd,subtitles
+    CommentSort:
+      name: sort
+      in: query
+      required: false
+      description: |
+        Comment order. Only the two orders with a verified request contract are accepted. An unknown value is
+        `400 invalid_request`; an order the page's own menu does not offer is `503 capability_unavailable`.
+      schema:
+        type: string
+        enum: [top, newest]
+        default: top
     VideoId:
       name: id
       in: path
@@ -686,6 +783,181 @@ components:
           minimum: 0
           description: Repeated ids counted, never dropped.
         provenance: {type: object}
+    CommentListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/CommentList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+      example:
+        data:
+          items:
+            - comment:
+                id: UgxAAAAAAAAAAAAAAAAAAAA
+                text: The pinned comment.
+                author:
+                  channel_id: UCaaaaaaaaaaaaaaaaaaaaaa
+                  display_name: Pinned Author
+                  avatars: [{url: 'https://example.invalid/avatar-pinned.jpg'}]
+                  is_creator: true
+                  is_verified: true
+                published_text: 2 days ago
+                like_count: {value: 1200, precision: approximate, raw: 1.2K}
+                reply_count: 14
+                is_pinned: true
+                is_hearted: true
+                availability: {state: available}
+              total_reply_count: 14
+              loaded_replies:
+                - id: UgxREPLYAAAAAAAAAAAAAAA
+                  text: A loaded reply.
+                  author: {channel_id: UCrrrrrrrrrrrrrrrrrrrrrr, display_name: Reply Author}
+                  published_text: 1 day ago (edited)
+                  like_count: {value: 3, precision: exact}
+                  reply_count: 0
+                  parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+                  availability: {state: available}
+              has_more_replies: true
+          sort: top
+          next_cursor: eyJ2IjoxLCJrIjoiY29tbWVudHM6ZFF3NHc5V2dYY1E6dG9wIn0.c2ln
+          duplicates: 0
+          availability: {state: available}
+          provenance: {provider: innertube-web, endpoint: next, client: web, cached: false, parse_warnings: 0}
+        meta:
+          request_id: 6f1c2a9e-0b7e-4a4a-9d0f-2d3c4b5a6e7f
+          provider: innertube-web
+          cached: false
+          fetched_at: '2026-11-13T09:41:07Z'
+          pagination: {limit: 20, returned: 1, next_cursor: eyJ2IjoxLCJrIjoiY29tbWVudHM6ZFF3NHc5V2dYY1E6dG9wIn0.c2ln}
+    CommentList:
+      type: object
+      required: [items, sort, availability, provenance]
+      description: |
+        One page of top-level comments. Three facts about replies are kept apart on every thread, because
+        conflating them is how "we did not fetch it" becomes "it does not exist":
+        `total_reply_count` is what the row claimed, `loaded_replies` is what this response carried, and
+        `has_more_replies` is whether upstream offered a continuation for the rest.
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CommentThread'}
+        sort:
+          type: string
+          enum: [top, newest]
+          description: The order Vydra requested. A page cannot state its own order, so this is not an upstream claim.
+        next_cursor:
+          type: [string, 'null']
+          description: Opaque, signed, bound to this video id and this order. Omitted when no further page was offered.
+        duplicates:
+          type: integer
+          minimum: 0
+          description: Rows dropped because the same comment id appeared more than once in this page.
+        availability: {$ref: '#/components/schemas/Availability'}
+        provenance: {type: object}
+    CommentThread:
+      type: object
+      required: [comment]
+      properties:
+        comment: {$ref: '#/components/schemas/CommentDocument'}
+        total_reply_count:
+          type: integer
+          minimum: 0
+          description: Replies the row claimed. Omitted when the row stated no count — never `0` for that reason.
+        loaded_replies:
+          type: array
+          items: {$ref: '#/components/schemas/CommentDocument'}
+          description: Replies that came with this page. Not a statement about how many exist.
+        has_more_replies:
+          type: boolean
+          description: Upstream offered a continuation for further replies.
+    CommentDocument:
+      type: object
+      required: [id, text, author, published_text, availability]
+      description: |
+        Provider-neutral comment. Omitted members were not stated by the page:
+        `published_at` is present only when an absolute time was stated (a relative label such as "2 days ago"
+        is kept verbatim in `published_text` and never converted), and an absent `like_count` or `reply_count`
+        is not a zero.
+      properties:
+        id: {type: string, description: Validated comment id. Never derived from an author name.}
+        text:
+          type: string
+          description: |
+            Plain text with line breaks preserved and markup not interpreted. An empty string is how a comment
+            whose body upstream no longer renders is served; its `availability` says `unavailable/deleted`.
+        author: {$ref: '#/components/schemas/CommentAuthor'}
+        published_text: {type: string, description: 'Relative label exactly as rendered and localized, e.g. `2 days ago`, `vor 2 Tagen`.'}
+        published_at: {type: string, format: date-time, description: Present only when the page stated an absolute instant.}
+        like_count: {$ref: '#/components/schemas/Count'}
+        reply_count:
+          type: integer
+          minimum: 0
+          description: The thread's total as the row claimed it — not the number of replies in this document.
+        is_pinned: {type: boolean}
+        is_hearted: {type: boolean}
+        parent_id: {type: string, description: Present on replies; the parent comment id.}
+        availability: {$ref: '#/components/schemas/Availability'}
+    CommentAuthor:
+      type: object
+      required: [display_name]
+      description: |
+        `channel_id` is present only when the page carried a validated `UC…` id. It is never derived from
+        `display_name`, and a name is never parsed as a handle.
+      properties:
+        channel_id: {type: string}
+        display_name: {type: string}
+        avatars:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        is_creator: {type: boolean, description: The author owns the video being commented on.}
+        is_verified: {type: boolean}
+        is_member: {type: boolean, description: The author carries a membership badge.}
+    ReplyListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ReplyList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+      example:
+        data:
+          parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+          items:
+            - id: UgxREPLYAAAAAAAAAAAAAAA
+              text: A loaded reply.
+              author: {channel_id: UCrrrrrrrrrrrrrrrrrrrrrr, display_name: Reply Author}
+              published_text: 1 day ago
+              like_count: {value: 3, precision: exact}
+              reply_count: 0
+              parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+              availability: {state: available}
+          duplicates: 0
+          availability: {state: available}
+          provenance: {provider: innertube-web, endpoint: next, client: web, cached: false, parse_warnings: 0}
+        meta:
+          request_id: 6f1c2a9e-0b7e-4a4a-9d0f-2d3c4b5a6e7f
+          provider: innertube-web
+          cached: false
+          fetched_at: '2026-11-13T09:41:07Z'
+          pagination: {limit: 20, returned: 1}
+    ReplyList:
+      type: object
+      required: [parent_id, items, availability, provenance]
+      properties:
+        parent_id: {type: string, description: Always present. A reply page is never served without knowing its thread.}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CommentDocument'}
+        total_reply_count:
+          type: integer
+          minimum: 0
+          description: Omitted unless the reply page itself restated the parent's total.
+        next_cursor: {type: [string, 'null']}
+        duplicates:
+          type: integer
+          minimum: 0
+          description: Reply ids that repeated within this page.
+        availability: {$ref: '#/components/schemas/Availability'}
+        provenance: {type: object}
     VideoDocument:
       type: object
       required: [summary, availability, provenance]
@@ -852,7 +1124,7 @@ components:
         reason:
           type: string
           enum: [deleted, private, members_only, login_required, age_restricted, geo_restricted,
-                 not_broadcasting, copyright_blocked, drm_protected, other]
+                 not_broadcasting, copyright_blocked, drm_protected, comments_disabled, other]
       example: {state: unavailable, reason: other}
     Publication:
       type: object

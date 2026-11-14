@@ -49,7 +49,8 @@ Consequences, stated plainly:
 | 5B — Video metadata engine | **complete; metadata live-verified, an `OK` verdict still blocked** | domain evidence/conflict model, microformat + broadcast + storyboard mapping, `DocumentCachePolicy`, `hl`/`gl` on the video endpoints; `docs/reports/PHASE_5B_REPORT.md`, `docs/research/{VIDEO_METADATA_CONTRACT,VIDEO_METADATA_FIXTURE_PROVENANCE}.md`; ADR-021, ADR-022 |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Channel & playlist engines | **complete; channel and playlist documents, listings and cursors verified live, playlist paging limited to page 1** | four endpoints, signed cursors, per-resource cache classes, 12 fixtures with sidecars; `docs/reports/PHASE_6_REPORT.md`, `docs/research/{CHANNEL_CONTRACT,PLAYLIST_CONTRACT,CHANNEL_PLAYLIST_FIXTURE_PROVENANCE}.md`; ADR-023, ADR-024. Comments still **not implemented** |
-| 7 — Advanced modules | not started | live, music, trending, related, discovery |
+| **7 — Comments engine** | **written; compile/test verification in CI, live probe pending (see `docs/reports/PHASE_7_REPORT.md`)** | two endpoints, provider-independent comment/thread/reply documents, relayed order tokens, parent-scoped reply cursors, `409 comments_disabled`; `docs/research/{COMMENTS_REQUEST_CONTRACT,COMMENTS_RESPONSE_ANALYSIS,COMMENTS_FIXTURE_PROVENANCE}.md`; ADR-025 |
+| 7b — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
 
@@ -187,9 +188,12 @@ newer recording, and they are listed as such in every document that touches them
 
 ## Not implemented (do not pretend otherwise)
 
-- Channel metadata / videos / playlists / about.
-- Playlist documents and items.
-- Comments (thread + replies) — no provider, no endpoint.
+- Channel `about` tab (links, join date, country, total views) — never requested.
+- Channel and playlist *paging* beyond page 1: the endpoint exists and is honest (`next_cursor: null`) but
+  no live capture has produced a page cursor for a playlist.
+- Absolute comment timestamps (`published_at`): the page renders a relative label, so it is always absent.
+- Comment reply pages for threads that are not on the first three comment pages in the default order.
+- Comment counts derived from the comments header — not served, and not treated as a video total.
 - Related videos (`next` endpoint) — returns `capability_unavailable`.
 - Live metadata and live chat.
 - Trending, categories, recommendations, music search.
@@ -252,6 +256,7 @@ the underlying functionality is implemented and tested").
    every parser.
 3. `params` encoding (search filters) is still unverified; enable it only after a live capture shows the
    server honouring it.
-4. Channels + playlists (browse endpoint), then comments (`next` + continuations).
+4. ~~Channels + playlists (browse endpoint)~~ (done, Phase 6), then ~~comments (`next` + continuations)~~
+   (implemented and unit/fixture-tested in Phase 7; awaiting a live probe run and CI verification).
 5. Redis cache + quota; OpenTelemetry; worker jobs with a Postgres lease.
 6. Benchmarks + load tests; publish measured numbers instead of claims.

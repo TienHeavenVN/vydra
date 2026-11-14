@@ -1,0 +1,252 @@
+{
+  "onResponseReceivedEndpoints": [
+    {
+      "reloadContinuationItemsCommand": {
+        "targetId": "comments-section",
+        "continuationItems": [
+          {
+            "commentsHeaderRenderer": {
+              "countText": {
+                "runs": [
+                  {
+                    "text": "1,234 Comments"
+                  }
+                ]
+              },
+              "commentsCount": {
+                "runs": [
+                  {
+                    "text": "1,234"
+                  }
+                ]
+              },
+              "sortMenu": {
+                "sortFilterSubMenuRenderer": {
+                  "title": "Sort comments",
+                  "subMenuItems": [
+                    {
+                      "title": "Top comments",
+                      "selected": true,
+                      "serviceEndpoint": {
+                        "continuationCommand": {
+                          "token": "PLACEHOLDER-SORT-TOP"
+                        }
+                      }
+                    },
+                    {
+                      "title": "Newest first",
+                      "selected": false,
+                      "serviceEndpoint": {
+                        "continuationCommand": {
+                          "token": "PLACEHOLDER-SORT-NEWEST"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "appendContinuationItemsAction": {
+        "targetId": "comments-section",
+        "continuationItems": [
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentId": "UgxAAAAAAAAAAAAAAAAAAAA",
+                "commentKey": "ENTITY-COMMENT-PINNED",
+                "toolbarStateKey": "ENTITY-TOOLBAR-PINNED",
+                "pinnedText": "Pinned by the channel owner"
+              },
+              "replies": {
+                "commentRepliesRenderer": {
+                  "contents": [
+                    {
+                      "commentViewModel": {
+                        "commentId": "UgxREPLYAAAAAAAAAAAAAAA",
+                        "commentKey": "ENTITY-COMMENT-REPLY1"
+                      }
+                    },
+                    {
+                      "continuationItemRenderer": {
+                        "continuationEndpoint": {
+                          "continuationCommand": {
+                            "token": "PLACEHOLDER-REPLIES-THREAD1"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "comment": {
+                "commentRenderer": {
+                  "commentId": "UgxCCCCCCCCCCCCCCCCCCCC",
+                  "authorText": {
+                    "simpleText": "Classic Renderer Author"
+                  },
+                  "authorEndpoint": {
+                    "browseEndpoint": {
+                      "browseId": "UCcccccccccccccccccccccc"
+                    }
+                  },
+                  "authorThumbnail": {
+                    "thumbnails": [
+                      {
+                        "url": "https://example.invalid/a-s.jpg",
+                        "width": 32,
+                        "height": 32
+                      },
+                      {
+                        "url": "https://example.invalid/a-l.jpg",
+                        "width": 88,
+                        "height": 88
+                      }
+                    ]
+                  },
+                  "contentText": {
+                    "runs": [
+                      {
+                        "text": "A comment in the classic renderer shape."
+                      }
+                    ]
+                  },
+                  "publishedTimeText": {
+                    "runs": [
+                      {
+                        "text": "3 days ago"
+                      }
+                    ]
+                  },
+                  "voteCount": {
+                    "simpleText": "42"
+                  },
+                  "authorIsChannelOwner": false,
+                  "actionButtons": {
+                    "commentActionButtonsRenderer": {
+                      "creatorHeart": {
+                        "creatorHeartRenderer": {
+                          "heartedTooltip": "hearted"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentId": "UgxDDDDDDDDDDDDDDDDDDDD",
+                "commentKey": "ENTITY-COMMENT-NEWEST"
+              }
+            }
+          },
+          {
+            "continuationItemRenderer": {
+              "continuationEndpoint": {
+                "continuationCommand": {
+                  "token": "PLACEHOLDER-COMMENTS-PAGE2"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "frameworkUpdates": {
+    "entityBatchUpdate": {
+      "mutations": [
+        {
+          "entityKey": "ENTITY-COMMENT-PINNED",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "UgxAAAAAAAAAAAAAAAAAAAA",
+                "content": {
+                  "content": "The pinned comment."
+                },
+                "publishedTime": "2 days ago"
+              },
+              "author": {
+                "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "displayName": "Pinned Author",
+                "isCreator": true,
+                "isVerified": true,
+                "avatarThumbnailUrl": "https://example.invalid/avatar-pinned.jpg"
+              },
+              "toolbar": {
+                "likeCountNotliked": "1.2K",
+                "replyCount": "14",
+                "likeCountLiked": ""
+              }
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-TOOLBAR-PINNED",
+          "payload": {
+            "engagementToolbarStateEntityPayload": {
+              "heartState": "TOOLBAR_HEART_STATE_HEARTED"
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-COMMENT-REPLY1",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "UgxREPLYAAAAAAAAAAAAAAA",
+                "content": {
+                  "content": "A loaded reply."
+                },
+                "publishedTime": "1 day ago (edited)"
+              },
+              "author": {
+                "channelId": "UCrrrrrrrrrrrrrrrrrrrrrr",
+                "displayName": "Reply Author"
+              },
+              "toolbar": {
+                "likeCountNotliked": "3",
+                "replyCount": "0"
+              }
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-COMMENT-NEWEST",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "UgxDDDDDDDDDDDDDDDDDDDD",
+                "content": {
+                  "content": "A third comment."
+                },
+                "publishedTime": "1 hour ago"
+              },
+              "author": {
+                "channelId": "UCdddddddddddddddddddddd",
+                "displayName": "Third Author",
+                "isCreator": false
+              },
+              "toolbar": {
+                "likeCountNotliked": "",
+                "replyCount": ""
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

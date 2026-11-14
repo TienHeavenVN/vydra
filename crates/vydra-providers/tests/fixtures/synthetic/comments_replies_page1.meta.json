@@ -1,0 +1,20 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube comment renderer trees documented in docs/research/COMMENTS_REQUEST_CONTRACT.md and docs/research/COMMENTS_RESPONSE_ANALYSIS.md. It is NOT a captured response and must not be described as one: every comment, author, id, count and continuation token here is a placeholder.",
+  "endpoint": "next, WEB client",
+  "created": "2026-11-13",
+  "purpose": "One page of replies to a single parent comment, carrying both reply row shapes and a reply-page continuation.",
+  "sections_exercised": [
+    "onResponseReceivedEndpoints[].appendContinuationItemsAction.continuationItems[]",
+    "bare commentViewModel rows",
+    "bare commentRenderer rows",
+    "frameworkUpdates.entityBatchUpdate.mutations[].payload.commentEntityPayload",
+    "continuationItemRenderer.continuationEndpoint.continuationCommand.token"
+  ],
+  "not_verified": [
+    "that reply pages are always delivered through onResponseReceivedEndpoints rather than onResponseReceivedActions",
+    "that a reply page ever restates the parent's total reply count",
+    "that replies are flattened to one level in every surface"
+  ]
+}

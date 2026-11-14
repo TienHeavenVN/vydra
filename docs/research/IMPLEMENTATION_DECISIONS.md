@@ -613,3 +613,48 @@ tell a redirect from a wrong answer.
 **Residual.** Handle support returns when a handle→id resolution can be verified as an exact match (e.g. a page
 whose stated vanity URL equals the requested handle), not before.
 
+## ADR-025 — A comment page is addressed by a relayed token, and replies are a separate operation
+
+**Status:** accepted (Phase 7)
+**Context.** The comment section has no addressable endpoint: it is reached through a continuation token that only
+a page which already rendered the section carries. Two orders ("Top", "Newest") are not request parameters either —
+each is a menu entry carrying its own token. Replies are addressed by a third token that exists only inside the
+comment page that rendered the thread. Every reference implementation therefore relays tokens; none constructs one.
+The obvious shortcuts are all attractive and all dishonest: hard-code a `params` blob for an order (no reference
+implementation does), derive a reply token from a comment id (undocumented encoding; a wrong token pages a
+different thread and the client cannot tell), or treat "no comment section" as "no comments".
+
+**Decision.**
+
+1. `NextRequest` can express exactly two bodies — `{context, videoId}` and `{context, continuation}` — and no third.
+   There is no `params` field. A token is validated (non-empty, ≤ 8 KiB, no whitespace/control characters) before
+   the request is made.
+2. The section token comes from the watch page's `itemSectionRenderer.targetId == "comments-section"`. Its absence
+   is `UnavailabilityReason::CommentsDisabled`, served as `409 content_unavailable` with
+   `details[0].issue: "comments_disabled"` — never an empty list, never a 404.
+3. Sort order is positional in the page's own menu, and the token is relayed. `top` and `newest` are the only
+   orders offered; an order the menu does not render is `Unsupported`, never approximated with the default.
+4. Replies are a separate operation with their own cursor namespace, and the only way to reach one is a token a
+   comment page rendered for that parent. When the thread is not among the first `REPLY_SCAN_PAGES` (3) default
+   comment pages, the answer is `404 not_found` — a bounded cost stated as a refusal, not an unbounded scan.
+5. A reply page never restates the thread's total. `total_reply_count` is the parent row's claim; `loaded_replies`
+   is what a page carried; `has_more_replies` is whether upstream offered a continuation. Three facts, never merged.
+6. Comment pages and reply pages share one cache class (`CacheClass::Comments`) with `cache.comments_ttl_secs`, and
+   the cache key carries the video, the order, the token, the limit and the locale. A cursor page is never reused
+   across orders, and a disabled verdict or a transient failure is never cached as an empty page.
+
+**Rejected alternatives.** (a) Send a hard-coded `params`/token per order and claim sorting works because the
+request returned HTTP 200 — the failure mode this project keeps refusing. (b) Build a reply token from a comment id
+— silently wrong pages. (c) Flatten replies into the comment document and let the client page "the thread" — two
+different cursors in one namespace, which is how a reply cursor eventually pages comments. (d) Cache a
+comments-disabled verdict as an empty `CommentList` — makes a temporary state permanent and unrecoverable by the
+client. (e) Fetch all replies eagerly to avoid a separate endpoint — unbounded requests behind one API call.
+
+**Evidence.** `docs/research/COMMENTS_REQUEST_CONTRACT.md` (request shapes and the refusal table),
+`docs/research/COMMENTS_RESPONSE_ANALYSIS.md` (both renderer shapes and the field table),
+`tests/{comments_parser,request_contract}.rs`, `vydra-engines` comment tests.
+
+**Residual.** A live probe has not yet confirmed the two-order menu or the reply-token path on today's upstream
+(see `docs/reports/PHASE_7_REPORT.md` §7). A thread that appears only under `newest` is reported `not_found` by the
+bounded scan; fixing that needs either a page-count budget the operator can raise or an order-scoped reply cursor,
+and both are deferred until a live capture shows the scan failing.

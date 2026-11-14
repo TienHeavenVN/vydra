@@ -210,6 +210,10 @@ pub struct CacheConfig {
     /// TTL for continuation pages: shorter, because a positional slice of a list that can change while a
     /// client pages through it converges faster with a small TTL.
     pub cursor_page_ttl_secs: u64,
+    /// TTL for a comment page (Phase 7). The most volatile list Vydra serves: a busy video gains comments
+    /// continuously, and a page read one minute ago is still useful while a page read five minutes ago is
+    /// misleading.
+    pub comments_ttl_secs: u64,
     /// Serve stale entries for this long while revalidating. `0` disables stale serving.
     pub stale_while_revalidate_secs: u64,
     /// Whether search responses are cached at all (off by default: highest churn).
@@ -228,6 +232,7 @@ impl Default for CacheConfig {
             search_ttl_secs: 60,
             listing_ttl_secs: 120,
             cursor_page_ttl_secs: 60,
+            comments_ttl_secs: 60,
             stale_while_revalidate_secs: 0,
             cache_search: false,
         }
@@ -548,6 +553,13 @@ impl Config {
             "VYDRA__CACHE__CURSOR_PAGE_TTL_SECS",
             &mut config.cache.cursor_page_ttl_secs,
             "cache.cursor_page_ttl_secs",
+            &mut issues,
+        );
+        set_u64(
+            vars,
+            "VYDRA__CACHE__COMMENTS_TTL_SECS",
+            &mut config.cache.comments_ttl_secs,
+            "cache.comments_ttl_secs",
             &mut issues,
         );
         set_bool_opt(

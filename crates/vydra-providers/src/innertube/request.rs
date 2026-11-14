@@ -179,6 +179,67 @@ impl ContinuationRequest {
     }
 }
 
+/// `next` body: `{context, videoId}` **or** `{context, continuation}`.
+///
+/// The `next` endpoint serves the watch page and the comment section. Both bodies are modelled as one type
+/// because they are the same endpoint, and the type makes the two legal shapes the only constructible ones:
+///
+/// * [`NextRequest::comments_section`] asks for the watch page of a video, from which the comment section's
+///   continuation token is read (the token is never constructed);
+/// * [`NextRequest::continuation`] asks for one page of whatever the token addresses — a comment page, a
+///   page of replies, or a page in a sort order.
+///
+/// There is deliberately no `params` field, and the type cannot express a continuation *and* a `videoId` in
+/// one body: sending both is not a shape any reference implementation uses, and the live probe
+/// (`docs/research/COMMENTS_REQUEST_CONTRACT.md` §2) only ever sent one of them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NextRequest {
+    pub context: ClientContext,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<String>,
+}
+
+impl NextRequest {
+    /// Watch-page body: `{context, videoId}`.
+    pub fn comments_section(context: ClientContext, video_id: &vydra_common::VideoId) -> Self {
+        Self {
+            context,
+            video_id: Some(video_id.as_str().to_owned()),
+            continuation: None,
+        }
+    }
+
+    /// Continuation body: `{context, continuation}`.
+    pub fn continuation(
+        context: ClientContext,
+        continuation: impl Into<String>,
+    ) -> Result<Self, ProviderError> {
+        let continuation = continuation.into();
+        // A comment continuation is an opaque blob. It is relayed, so the only checks are the ones that
+        // keep a caller from smuggling something that is not a token: non-empty, bounded, and free of
+        // whitespace and control characters.
+        if continuation.is_empty()
+            || continuation.len() > 8192
+            || continuation
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control())
+        {
+            return Err(ProviderError::InvalidRequest {
+                field: "continuation".to_owned(),
+                issue: "invalid_token".to_owned(),
+            });
+        }
+        Ok(Self {
+            context,
+            video_id: None,
+            continuation: Some(continuation),
+        })
+    }
+}
+
 /// Browse body: `{context, browseId[, params]}`.
 ///
 /// The browse endpoint serves channels and playlists. Two properties matter and are enforced by the

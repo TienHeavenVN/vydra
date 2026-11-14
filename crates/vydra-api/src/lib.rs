@@ -23,15 +23,17 @@ use tower_http::trace::TraceLayer;
 use tracing::Instrument;
 use uuid::Uuid;
 use vydra_auth::{Authenticator, RateLimiter};
-use vydra_common::{BuildInfo, ChannelRef, PageParams, PaginationMeta, PlaylistId, VideoId};
+use vydra_common::{
+    BuildInfo, ChannelRef, CommentId, PageParams, PaginationMeta, PlaylistId, VideoId,
+};
 use vydra_config::Config;
 use vydra_domain::{
-    AttemptOutcome, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
-    Provenance, SearchResults, SourceAttempt, VideoDocument,
+    AttemptOutcome, ChannelDocument, ChannelVideoList, CommentList, CommentSort, PlaylistDocument,
+    PlaylistVideoList, Provenance, ReplyList, SearchResults, SourceAttempt, VideoDocument,
 };
 use vydra_engines::{
-    ChannelInput, ChannelVideosInput, Engines, PlaylistInput, PlaylistVideosInput, SearchInput,
-    VideoInput,
+    ChannelInput, ChannelVideosInput, CommentRepliesInput, CommentsInput, Engines, PlaylistInput,
+    PlaylistVideosInput, SearchInput, VideoInput,
 };
 use vydra_errors::{Error, ErrorBody};
 use vydra_observability::Metrics;
@@ -269,6 +271,72 @@ pub struct ResourceQuery {
 }
 
 impl ResourceQuery {
+    fn locales(&self) -> vydra_errors::Result<(Option<String>, Option<String>)> {
+        Ok((
+            normalise_locale("hl", self.hl.clone())?,
+            normalise_locale("gl", self.gl.clone())?,
+        ))
+    }
+}
+
+/// Query parameters accepted by `GET /videos/{id}/comments`.
+///
+/// `sort` is validated against the two orders whose request contracts are verified
+/// (`docs/research/COMMENTS_REQUEST_CONTRACT.md` §3). An unknown order is a `400`, not a silent fallback to
+/// the default: a client that asked for "newest" and received "top" would have no way to tell.
+#[derive(Debug, Default, Deserialize)]
+pub struct CommentsQuery {
+    pub sort: Option<String>,
+    pub limit: Option<u16>,
+    pub cursor: Option<String>,
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+impl CommentsQuery {
+    fn sort(&self) -> vydra_errors::Result<CommentSort> {
+        match self.sort.as_deref() {
+            None | Some("top") => Ok(CommentSort::Top),
+            Some("newest") => Ok(CommentSort::Newest),
+            Some(_) => Err(vydra_errors::Error::validation("sort", "unsupported")),
+        }
+    }
+
+    fn page(&self) -> PageParams {
+        PageParams {
+            limit: self.limit,
+            cursor: self.cursor.clone(),
+        }
+    }
+
+    fn locales(&self) -> vydra_errors::Result<(Option<String>, Option<String>)> {
+        Ok((
+            normalise_locale("hl", self.hl.clone())?,
+            normalise_locale("gl", self.gl.clone())?,
+        ))
+    }
+}
+
+/// Query parameters accepted by `GET /videos/{id}/comments/{comment_id}/replies`.
+///
+/// One struct rather than two extractors, because a handler can only hold one `Query` and splitting the
+/// parameters across two types would make the second set silently unreachable.
+#[derive(Debug, Default, Deserialize)]
+pub struct RepliesQuery {
+    pub limit: Option<u16>,
+    pub cursor: Option<String>,
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+impl RepliesQuery {
+    fn page(&self) -> PageParams {
+        PageParams {
+            limit: self.limit,
+            cursor: self.cursor.clone(),
+        }
+    }
+
     fn locales(&self) -> vydra_errors::Result<(Option<String>, Option<String>)> {
         Ok((
             normalise_locale("hl", self.hl.clone())?,
@@ -603,6 +671,83 @@ async fn channel_videos_handler(
     Ok(Json(Envelope { data: list, meta }))
 }
 
+/// `GET /api/v1/videos/{id}/comments`.
+///
+/// Read-only. The order is one of the two upstream offers, the cursor is opaque and signed, and the
+/// envelope states how many replies came with each thread, how many exist in total, and whether more pages
+/// are available.
+async fn comments_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path(id): Path<String>,
+    Query(query): Query<CommentsQuery>,
+) -> ApiResult<Json<Envelope<CommentList>>> {
+    let video_id = VideoId::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let sort = query.sort().map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let limit = query.limit;
+    let list = state
+        .engines
+        .comments(CommentsInput {
+            id: video_id,
+            sort,
+            page: query.page(),
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.comments"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+
+    let pagination = PaginationMeta::new(
+        limit.unwrap_or(vydra_common::DEFAULT_LIMIT),
+        list.items.len(),
+        list.next_token.clone(),
+    );
+    let meta = Meta::from_provenance(&request_id.0, &list.provenance, Some(pagination));
+    Ok(Json(Envelope { data: list, meta }))
+}
+
+/// `GET /api/v1/videos/{id}/comments/{comment_id}/replies`.
+///
+/// The parent comment id is validated before any upstream call, and it is part of the cursor's namespace:
+/// a cursor minted for one thread is rejected by another.
+async fn comment_replies_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path((id, comment_id)): Path<(String, String)>,
+    Query(query): Query<RepliesQuery>,
+) -> ApiResult<Json<Envelope<ReplyList>>> {
+    let video_id = VideoId::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let parent = CommentId::parse(comment_id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let limit = query.limit;
+    let replies = state
+        .engines
+        .comment_replies(CommentRepliesInput {
+            id: video_id,
+            parent,
+            page: query.page(),
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.comments.replies"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+
+    let pagination = PaginationMeta::new(
+        limit.unwrap_or(vydra_common::DEFAULT_LIMIT),
+        replies.items.len(),
+        replies.next_token.clone(),
+    );
+    let meta = Meta::from_provenance(&request_id.0, &replies.provenance, Some(pagination));
+    Ok(Json(Envelope { data: replies, meta }))
+}
+
 /// `GET /api/v1/playlists/{id}`.
 async fn playlist_handler(
     State(state): State<Arc<AppState>>,
@@ -785,6 +930,9 @@ impl ProviderObserver for MetricsObserver {
 /// Phase 6 mounts four channel/playlist endpoints under the same rule: `/channels/{id}`, its `/videos`
 /// listing, `/playlists/{id}` and its `/videos` listing. `ChannelPlaylists`, `ChannelAbout` and the
 /// channel tabs other than `videos` are *not* mounted because no provider declares them.
+///
+/// Phase 7 adds the two comment routes, each behind its own capability: `/videos/{id}/comments`
+/// (`CommentsThread`) and `/videos/{id}/comments/{comment_id}/replies` (`CommentsReplies`).
 pub fn router(state: Arc<AppState>) -> Router {
     let capabilities = state.registry.capabilities();
     let mut api = Router::new().route("/search", get(search_handler));
@@ -823,6 +971,18 @@ pub fn router(state: Arc<AppState>) -> Router {
     }
     if capabilities.contains(Capability::PlaylistItems) {
         api = api.route("/playlists/{id}/videos", get(playlist_videos_handler));
+    }
+    // Phase 7. Two routes, two capabilities: a provider that can read a comment section is not automatically
+    // one that can find a reply continuation, and mounting both on one capability would serve an endpoint that
+    // fails for a reason the caller cannot see.
+    if capabilities.contains(Capability::CommentsThread) {
+        api = api.route("/videos/{id}/comments", get(comments_handler));
+    }
+    if capabilities.contains(Capability::CommentsReplies) {
+        api = api.route(
+            "/videos/{id}/comments/{comment_id}/replies",
+            get(comment_replies_handler),
+        );
     }
 
     // Ops endpoints stay reachable without an API key so orchestrators can probe the service
@@ -1032,6 +1192,93 @@ mod tests {
             .into_input(id)
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_comment_order_is_validated_not_dropped() {
+        // Absent means the default order, which is the one every implementation sends unprompted.
+        assert_eq!(
+            CommentsQuery::default().sort().expect("default"),
+            CommentSort::Top
+        );
+        assert_eq!(
+            CommentsQuery {
+                sort: Some("top".into()),
+                ..Default::default()
+            }
+            .sort()
+            .expect("top"),
+            CommentSort::Top
+        );
+        assert_eq!(
+            CommentsQuery {
+                sort: Some("newest".into()),
+                ..Default::default()
+            }
+            .sort()
+            .expect("newest"),
+            CommentSort::Newest
+        );
+
+        // Anything else is a caller error. Silently serving the default order would answer a question the
+        // caller did not ask, and there is no way for the response to say it did.
+        for bad in ["views", "oldest", "TOP", "", "newest,top"] {
+            let error = CommentsQuery {
+                sort: Some(bad.to_owned()),
+                ..Default::default()
+            }
+            .sort()
+            .expect_err("must reject");
+            assert!(
+                matches!(error, Error::Validation(_)),
+                "expected a validation error for {bad:?}, got {error:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn comment_locales_are_validated_like_every_other_endpoint() {
+        let query = CommentsQuery {
+            hl: Some("EN-us".into()),
+            gl: Some("us".into()),
+            ..Default::default()
+        };
+        let (hl, gl) = query.locales().expect("locales");
+        assert_eq!(hl.as_deref(), Some("en-us"));
+        assert_eq!(gl.as_deref(), Some("us"));
+
+        assert!(
+            CommentsQuery {
+                hl: Some("en us".into()),
+                ..Default::default()
+            }
+            .locales()
+            .is_err()
+        );
+        // The reply endpoint takes the same dimensions through its own type, because a handler can only hold
+        // one `Query`.
+        assert!(
+            RepliesQuery {
+                gl: Some("usa".into()),
+                ..Default::default()
+            }
+            .locales()
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn comments_disabled_is_a_conflict_with_a_named_reason() {
+        let error = Error::ContentUnavailable {
+            reason: vydra_errors::UnavailabilityReason::CommentsDisabled,
+            message: "watch page has no comment section".into(),
+        };
+        let body = ErrorBody::from_error(&error, "rid");
+        assert_eq!(body.status, 409);
+        assert_eq!(body.code, vydra_errors::ErrorCode::ContentUnavailable);
+        assert_eq!(body.details.len(), 1);
+        assert_eq!(body.details[0].field, "availability");
+        assert_eq!(body.details[0].issue, "comments_disabled");
     }
 
     #[test]

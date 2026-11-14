@@ -11,6 +11,7 @@
 
 pub mod captions;
 pub mod channel;
+pub mod comment;
 pub mod common;
 pub mod playlist;
 pub mod search;
@@ -19,6 +20,9 @@ pub mod video;
 pub use captions::CaptionTrackList;
 pub use channel::{
     ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVerification, ChannelVideoList,
+};
+pub use comment::{
+    CommentAuthor, CommentDocument, CommentList, CommentSort, CommentThread, ReplyList,
 };
 pub use common::{
     AttemptOutcome, Availability, BroadcastInfo, CaptionKind, CaptionTrack, Chapter, Count,
@@ -31,5 +35,5 @@ pub use playlist::{
 };
 pub use search::{SearchItem, SearchResults};
 pub use video::{RelatedVideos, VideoChapters, VideoDocument, VideoSummary};
-pub use vydra_common::{ChannelId, PlaylistId, VideoId};
+pub use vydra_common::{ChannelId, CommentId, PlaylistId, VideoId};
 pub use vydra_errors::UnavailabilityReason;

@@ -17,6 +17,14 @@ fn check_charset(id: &str, allowed: impl Fn(char) -> bool) -> bool {
     !id.is_empty() && id.len() <= MAX_ID_LEN && id.chars().all(allowed)
 }
 
+/// As [`check_charset`], with an explicit length ceiling.
+///
+/// Needed by identifiers whose upstream length differs from the 64-character default: a comment id
+/// is a base64url blob that routinely exceeds it (Phase 7 measured ids between 40 and 90 characters).
+fn check_charset_with_max(id: &str, max: usize, allowed: impl Fn(char) -> bool) -> bool {
+    !id.is_empty() && id.len() <= max && id.chars().all(allowed)
+}
+
 fn is_bare_id_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '-' || c == '_'
 }
@@ -187,6 +195,17 @@ impl<'de> Deserialize<'de> for ChannelRef {
         Self::parse(&raw).map_err(serde::de::Error::custom)
     }
 }
+
+id_newtype!(
+    /// A comment id: a base64url blob, 8 to 200 characters.
+    ///
+    /// Not a channel or video id: the length floor is what rejects the lookalikes a caller might try
+    /// to pass off as a comment (`UC…`, an 11-character video id), and the charset is what keeps a
+    /// path segment or a query string out of the upstream request body.
+    CommentId,
+    "comment_id",
+    |v: &str| v.len() >= 8 && check_charset_with_max(v, 200, is_bare_id_char)
+);
 
 #[cfg(test)]
 mod tests {

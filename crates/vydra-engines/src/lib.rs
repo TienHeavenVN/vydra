@@ -9,11 +9,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use vydra_cache::{Cache, CacheClass, Lookup};
-use vydra_common::{ChannelId, ChannelRef, CursorCodec, PageParams, PlaylistId, VideoId};
+use vydra_common::{
+    ChannelId, ChannelRef, CommentId, CursorCodec, PageParams, PlaylistId, VideoId,
+};
 use vydra_domain::{
-    Availability, CaptionTrackList, ChannelDocument, ChannelVideoList, Chapter, PlaylistDocument,
-    PlaylistVideoList, Provenance, SearchItem, SearchResults, VideoChapters, VideoDocument,
-    VideoSummary,
+    Availability, CaptionTrackList, ChannelDocument, ChannelVideoList, Chapter, CommentList,
+    CommentSort, PlaylistDocument, PlaylistVideoList, Provenance, ReplyList, SearchItem,
+    SearchResults, VideoChapters, VideoDocument, VideoSummary,
 };
 use vydra_errors::Error;
 use vydra_provider_registry::{FetchOutcome, ProviderRegistry};
@@ -40,6 +42,9 @@ pub struct EnginesConfig {
     /// TTL for a *continuation* page, which is a positional slice of a list that can be edited while a
     /// client pages through it. Shorter than [`Self::listing_ttl`] so a paging session converges quickly.
     pub cursor_page_ttl: Duration,
+    /// TTL for a comment page. Comments are the most volatile list Vydra serves: a busy video gains comments
+    /// continuously, so this is shorter than [`Self::listing_ttl`].
+    pub comments_ttl: Duration,
     pub cache_search: bool,
     pub strictness: Strictness,
     /// Mirrors `providers.enable_unverified_filters`. Enforced here as well as at the HTTP edge so
@@ -59,6 +64,7 @@ impl Default for EnginesConfig {
             search_ttl: Duration::from_secs(60),
             listing_ttl: Duration::from_secs(120),
             cursor_page_ttl: Duration::from_secs(60),
+            comments_ttl: Duration::from_secs(60),
             cache_search: false,
             strictness: Strictness::Lenient,
             unverified_filters: false,
@@ -98,6 +104,26 @@ pub struct ChannelInput {
 #[derive(Debug, Clone)]
 pub struct ChannelVideosInput {
     pub id: ChannelId,
+    pub page: PageParams,
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+/// Comment listing input (`GET /videos/{id}/comments`).
+#[derive(Debug, Clone)]
+pub struct CommentsInput {
+    pub id: VideoId,
+    pub sort: CommentSort,
+    pub page: PageParams,
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+/// Reply listing input (`GET /videos/{id}/comments/{comment_id}/replies`).
+#[derive(Debug, Clone)]
+pub struct CommentRepliesInput {
+    pub id: VideoId,
+    pub parent: CommentId,
     pub page: PageParams,
     pub hl: Option<String>,
     pub gl: Option<String>,
@@ -506,6 +532,215 @@ impl Engines {
     }
 
     /// One page of a channel's videos.
+    /// Cache key for one comment page.
+    ///
+    /// Contains every dimension that changes the response *and* is not already in the cursor envelope: the
+    /// video, the order, the page token and the limit, plus the locale. Two orders of the same video are
+    /// different documents even though they share a video id, which is why the order is in the key rather
+    /// than only in the cursor.
+    fn comments_cache_key(
+        id: &VideoId,
+        sort: CommentSort,
+        token: Option<&str>,
+        limit: u16,
+        hl: &str,
+        gl: &str,
+    ) -> String {
+        format!(
+            "comments:{id}:{}:{}:{limit}:{hl}:{gl}",
+            sort.as_str(),
+            token.unwrap_or("-")
+        )
+    }
+
+    fn replies_cache_key(
+        id: &VideoId,
+        parent: &CommentId,
+        token: Option<&str>,
+        limit: u16,
+        hl: &str,
+        gl: &str,
+    ) -> String {
+        format!(
+            "comments.replies:{id}:{parent}:{}:{limit}:{hl}:{gl}",
+            token.unwrap_or("-")
+        )
+    }
+
+    /// Cursor namespace for one comment order of one video.
+    ///
+    /// The video id and the order are both inside the namespace, so a cursor minted for "newest" cannot be
+    /// replayed against "top", and one minted for video A cannot page video B.
+    fn comments_cursor_namespace(id: &VideoId, sort: CommentSort) -> String {
+        format!("comments:{id}:{}", sort.as_str())
+    }
+
+    /// Cursor namespace for one thread's replies: the parent id is part of it, so a reply cursor cannot be
+    /// replayed against another parent.
+    fn replies_cursor_namespace(id: &VideoId, parent: &CommentId) -> String {
+        format!("comments.replies:{id}:{parent}")
+    }
+
+    /// One page of a video's comments.
+    pub async fn comments(&self, input: CommentsInput) -> Result<CommentList, Error> {
+        let limit = input.page.effective_limit()?;
+        let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
+        let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
+        let namespace = Engines::comments_cursor_namespace(&input.id, input.sort);
+
+        let token = match input.page.cursor_ref() {
+            Some(raw) => Some(self.cursors.decode(raw, &namespace)?.t),
+            None => None,
+        };
+
+        let cache_key = Engines::comments_cache_key(
+            &input.id,
+            input.sort,
+            token.as_deref(),
+            limit,
+            &hl,
+            &gl,
+        );
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Comments, &cache_key, self.config_hash)
+            && let Ok(mut cached) = serde_json::from_str::<CommentList>(&json)
+        {
+            cached.provenance.cached = true;
+            cached.provenance.sources.clear();
+            return Ok(cached);
+        }
+
+        let ctx = self.context(Some(hl), Some(gl));
+        let outcome = self
+            .registry
+            .fetch(
+                ProviderRequest::Comments {
+                    id: input.id.clone(),
+                    sort: input.sort,
+                    cursor: token.clone(),
+                    hl: ctx.hl.clone(),
+                    gl: ctx.gl.clone(),
+                    limit,
+                },
+                &ctx,
+            )
+            .await?;
+        let attempts = outcome.attempts.clone();
+        let provider_id = outcome.provider.as_str().to_owned();
+        let ProviderResponse::Comments(mut list) = outcome.response else {
+            return Err(Error::Internal(
+                "provider returned the wrong payload type".into(),
+            ));
+        };
+        list.provenance.sources = attempts;
+
+        // A token equal to the one that produced this page would page forever.
+        if let Some(next) = list.next_token.as_deref()
+            && Some(next) == token.as_deref()
+        {
+            list.next_token = None;
+            list.provenance.parse_warnings = list.provenance.parse_warnings.saturating_add(1);
+        }
+
+        list.next_token = match list.next_token.take() {
+            Some(next) => Some(self.cursors.encode(&namespace, &provider_id, &next)?),
+            None => None,
+        };
+
+        let ttl = if token.is_some() {
+            self.config.cursor_page_ttl
+        } else {
+            self.config.comments_ttl
+        };
+        self.cache.set(
+            CacheClass::Comments,
+            &cache_key,
+            serde_json::to_string(&list).map_err(|err| Error::Internal(err.to_string()))?,
+            ttl,
+            self.config_hash,
+        );
+        Ok(list)
+    }
+
+    /// One page of replies under a comment.
+    pub async fn comment_replies(
+        &self,
+        input: CommentRepliesInput,
+    ) -> Result<ReplyList, Error> {
+        let limit = input.page.effective_limit()?;
+        let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
+        let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
+        let namespace = Engines::replies_cursor_namespace(&input.id, &input.parent);
+
+        let token = match input.page.cursor_ref() {
+            Some(raw) => Some(self.cursors.decode(raw, &namespace)?.t),
+            None => None,
+        };
+
+        let cache_key =
+            Engines::replies_cache_key(&input.id, &input.parent, token.as_deref(), limit, &hl, &gl);
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Comments, &cache_key, self.config_hash)
+            && let Ok(mut cached) = serde_json::from_str::<ReplyList>(&json)
+        {
+            cached.provenance.cached = true;
+            cached.provenance.sources.clear();
+            return Ok(cached);
+        }
+
+        let ctx = self.context(Some(hl), Some(gl));
+        let outcome = self
+            .registry
+            .fetch(
+                ProviderRequest::CommentReplies {
+                    id: input.id.clone(),
+                    parent: input.parent.clone(),
+                    cursor: token.clone(),
+                    hl: ctx.hl.clone(),
+                    gl: ctx.gl.clone(),
+                    limit,
+                },
+                &ctx,
+            )
+            .await?;
+        let attempts = outcome.attempts.clone();
+        let provider_id = outcome.provider.as_str().to_owned();
+        let ProviderResponse::CommentReplies(mut page) = outcome.response else {
+            return Err(Error::Internal(
+                "provider returned the wrong payload type".into(),
+            ));
+        };
+        page.provenance.sources = attempts;
+
+        if let Some(next) = page.next_token.as_deref()
+            && Some(next) == token.as_deref()
+        {
+            page.next_token = None;
+            page.provenance.parse_warnings = page.provenance.parse_warnings.saturating_add(1);
+        }
+
+        page.next_token = match page.next_token.take() {
+            Some(next) => Some(self.cursors.encode(&namespace, &provider_id, &next)?),
+            None => None,
+        };
+
+        let ttl = if token.is_some() {
+            self.config.cursor_page_ttl
+        } else {
+            self.config.comments_ttl
+        };
+        self.cache.set(
+            CacheClass::Comments,
+            &cache_key,
+            serde_json::to_string(&page).map_err(|err| Error::Internal(err.to_string()))?,
+            ttl,
+            self.config_hash,
+        );
+        Ok(page)
+    }
+
     pub async fn channel_videos(
         &self,
         input: ChannelVideosInput,
@@ -1379,6 +1614,242 @@ mod tests {
             ..EnginesConfig::default()
         };
         (Engines::new(registry, cache, cursors, config), calls)
+    }
+
+    /// A provider that answers comment requests, recording the order each request asked for.
+    ///
+    /// It echoes whatever continuation token it was given, which is the pathological case the engine has to
+    /// survive, and it records the order so a test can prove the order reaches the provider.
+    #[derive(Debug)]
+    struct CommentProvider {
+        calls: Arc<AtomicUsize>,
+        sorts: Arc<std::sync::Mutex<Vec<CommentSort>>>,
+        next: Option<String>,
+    }
+
+    #[async_trait]
+    impl Provider for CommentProvider {
+        fn id(&self) -> ProviderId {
+            ProviderId::new("comments")
+        }
+        fn capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_slice(&[Capability::CommentsThread, Capability::CommentsReplies])
+        }
+        fn client_label(&self) -> String {
+            "comments-1".into()
+        }
+        async fn fetch(
+            &self,
+            request: ProviderRequest,
+            _ctx: &ProviderContext,
+        ) -> Result<ProviderResponse, vydra_errors::ProviderError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            match request {
+                ProviderRequest::Comments { sort, .. } => {
+                    self.sorts.lock().expect("lock").push(sort);
+                    Ok(ProviderResponse::Comments(CommentList {
+                        items: vec![],
+                        sort,
+                        next_token: self.next.clone(),
+                        duplicates: 0,
+                        availability: Availability::Available,
+                        provenance: provenance_for("next", "next"),
+                    }))
+                }
+                ProviderRequest::CommentReplies { parent, .. } => {
+                    Ok(ProviderResponse::CommentReplies(ReplyList {
+                        parent_id: parent,
+                        items: vec![],
+                        total_reply_count: None,
+                        next_token: self.next.clone(),
+                        duplicates: 0,
+                        availability: Availability::Available,
+                        provenance: provenance_for("next", "next"),
+                    }))
+                }
+                _ => Err(vydra_errors::ProviderError::Unsupported {
+                    capability: "x".into(),
+                }),
+            }
+        }
+    }
+
+    /// A provider that reports the one upstream state that must never be flattened into "no comments".
+    #[derive(Debug)]
+    struct DisabledCommentsProvider {
+        calls: Arc<AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl Provider for DisabledCommentsProvider {
+        fn id(&self) -> ProviderId {
+            ProviderId::new("comments-off")
+        }
+        fn capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_slice(&[Capability::CommentsThread])
+        }
+        fn client_label(&self) -> String {
+            "comments-off-1".into()
+        }
+        async fn fetch(
+            &self,
+            _request: ProviderRequest,
+            _ctx: &ProviderContext,
+        ) -> Result<ProviderResponse, vydra_errors::ProviderError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Err(vydra_errors::ProviderError::Unavailable {
+                reason: vydra_domain::UnavailabilityReason::CommentsDisabled,
+                message: "watch page has no comment section".into(),
+            })
+        }
+    }
+
+    fn comment_engines(next: Option<&str>) -> (Engines, Arc<AtomicUsize>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = Arc::new(CommentProvider {
+            calls: calls.clone(),
+            sorts: Arc::new(std::sync::Mutex::new(Vec::new())),
+            next: next.map(str::to_owned),
+        });
+        let registry = Arc::new(ProviderRegistry::new(vec![provider]));
+        let cache = Arc::new(MemoryCache::new(64));
+        let cursors =
+            CursorCodec::new("0123456789abcdef0123456789abcdef", Duration::from_secs(600))
+                .expect("codec");
+        (
+            Engines::new(registry, cache, cursors, EnginesConfig::default()),
+            calls,
+        )
+    }
+
+    fn comment_input(sort: CommentSort, cursor: Option<&str>) -> CommentsInput {
+        CommentsInput {
+            id: VideoId::parse("dQw4w9WgXcQ").expect("id"),
+            sort,
+            page: PageParams {
+                limit: None,
+                cursor: cursor.map(str::to_owned),
+            },
+            hl: None,
+            gl: None,
+        }
+    }
+
+    fn reply_input(parent: &CommentId, cursor: Option<&str>) -> CommentRepliesInput {
+        CommentRepliesInput {
+            id: VideoId::parse("dQw4w9WgXcQ").expect("id"),
+            parent: parent.clone(),
+            page: PageParams {
+                limit: None,
+                cursor: cursor.map(str::to_owned),
+            },
+            hl: None,
+            gl: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn a_comment_page_is_cached_per_order_and_the_order_reaches_the_provider() {
+        let (engines, calls) = comment_engines(None);
+        engines
+            .comments(comment_input(CommentSort::Top, None))
+            .await
+            .expect("page");
+        let cached = engines
+            .comments(comment_input(CommentSort::Top, None))
+            .await
+            .expect("page");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            1,
+            "second read must be cached"
+        );
+        assert!(cached.provenance.cached);
+        assert_eq!(cached.sort, CommentSort::Top);
+
+        // A different order is a different document, even for the same video and the same page size.
+        engines
+            .comments(comment_input(CommentSort::Newest, None))
+            .await
+            .expect("page");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn a_comment_cursor_is_namespaced_by_video_and_order() {
+        let (engines, _) = comment_engines(Some("RAW-COMMENTS"));
+        let first = engines
+            .comments(comment_input(CommentSort::Top, None))
+            .await
+            .expect("page");
+        let cursor = first.next_token.clone().expect("cursor");
+
+        // The provider token is never exposed: the engine wraps it in a signed envelope.
+        assert_ne!(cursor, "RAW-COMMENTS");
+        let second = engines
+            .comments(comment_input(CommentSort::Top, Some(&cursor)))
+            .await
+            .expect("page");
+        // The provider echoed the token it was given; the engine drops it instead of paging forever.
+        assert!(second.next_token.is_none());
+        assert!(second.provenance.parse_warnings >= 1);
+
+        // Replaying the same cursor under another order must be refused, not silently re-interpreted.
+        let error = engines
+            .comments(comment_input(CommentSort::Newest, Some(&cursor)))
+            .await
+            .expect_err("cursor must not cross orders");
+        assert!(
+            matches!(error, Error::InvalidCursor),
+            "expected invalid_cursor, got {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_reply_cursor_is_scoped_to_its_parent_comment() {
+        let (engines, _) = comment_engines(Some("RAW-REPLIES"));
+        let parent_a = CommentId::parse("UgxAAAAAAAAAAAAAAAAAAAA").expect("id");
+        let parent_b = CommentId::parse("UgxBBBBBBBBBBBBBBBBBBBB").expect("id");
+
+        let first = engines
+            .comment_replies(reply_input(&parent_a, None))
+            .await
+            .expect("page");
+        assert_eq!(first.parent_id, parent_a);
+        let cursor = first.next_token.clone().expect("cursor");
+
+        let error = engines
+            .comment_replies(reply_input(&parent_b, Some(&cursor)))
+            .await
+            .expect_err("cursor must not cross parents");
+        assert!(
+            matches!(error, Error::InvalidCursor),
+            "expected invalid_cursor, got {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn comments_disabled_is_reported_as_unavailable_not_as_an_empty_list() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = Arc::new(DisabledCommentsProvider {
+            calls: calls.clone(),
+        });
+        let registry = Arc::new(ProviderRegistry::new(vec![provider]));
+        let cache = Arc::new(MemoryCache::new(8));
+        let cursors =
+            CursorCodec::new("0123456789abcdef0123456789abcdef", Duration::from_secs(600))
+                .expect("codec");
+        let engines = Engines::new(registry, cache, cursors, EnginesConfig::default());
+
+        let error = engines
+            .comments(comment_input(CommentSort::Top, None))
+            .await
+            .expect_err("disabled comments are not an empty page");
+        assert!(
+            matches!(error, Error::ContentUnavailable { .. }),
+            "expected content_unavailable, got {error:?}"
+        );
+        assert!(calls.load(Ordering::SeqCst) >= 1);
     }
 
     fn channel_input(id: &str, hl: Option<&str>) -> ChannelVideosInput {
