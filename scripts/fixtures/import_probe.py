@@ -130,10 +130,11 @@ STRUCTURAL = {
     "gridShelfViewModel",
 }
 
-# Content shapes that are not `*Renderer` and have no mapping yet. Kept (payload replaced by an
-# empty object, so nothing can be inferred from content the mapper does not understand) because the
-# parser counts them as dropped results — the fixture has to keep that visible.
-CONTENT_VIEW_MODELS = {"shortsLockupViewModel"}
+# Content shapes that have no mapping yet (a Shorts shelf item, and the newer "lockup" card that is
+# a video/playlist presented in the replacement component). Kept, with an empty payload so nothing
+# can be inferred from content the mapper does not understand, because the parser counts them as
+# dropped results — the fixture has to keep that visible.
+CONTENT_VIEW_MODELS = {"shortsLockupViewModel", "lockupViewModel"}
 
 # Keys that are pure session/tracking material wherever they appear.
 DROP_EVERYWHERE = {
@@ -232,6 +233,21 @@ def project(node, stats):
     return out
 
 
+def probe_observation(summary, label):
+    mapping = summary.get("probe", {}).get("provider_mapping", {})
+    if label != "search_page_1":
+        return {"note": "the probe only maps the first capture"}
+    return {
+        "note": "the probe's own mapping of the unreduced capture",
+        "items": mapping.get("summary", {}).get("items"),
+        "kinds": mapping.get("summary", {}).get("kinds"),
+        "parse_warnings": mapping.get("summary", {}).get("parse_warnings"),
+        "next_cursor_len": mapping.get("summary", {}).get("next_cursor_len"),
+        "estimated_results": mapping.get("summary", {}).get("estimated_results"),
+        "ok": mapping.get("ok"),
+    }
+
+
 def build_meta(summary, label, source_bytes, stats, captured_at, capture_run, capture_workflow):
     records = {record["label"]: record for record in summary.get("records", [])}
     record = records.get(label, {})
@@ -296,6 +312,10 @@ def build_meta(summary, label, source_bytes, stats, captured_at, capture_run, ca
             sorted(stats["dropped_renderers"].items(), key=lambda item: (-item[1], item[0]))
         ),
         "kept_renderers": stats["kept_renderers"],
+        # What the probe itself saw when it mapped the *unreduced* capture: the fixture below is a
+        # projection, so these live numbers are recorded here rather than being made to look like the
+        # fixture's numbers.
+        "probe_observation": probe_observation(summary, label),
     }
 
 

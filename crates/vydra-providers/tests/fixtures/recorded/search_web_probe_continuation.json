@@ -743,7 +743,9 @@
                               ]
                             }
                           },
-                          {},
+                          {
+                            "lockupViewModel": {}
+                          },
                           {
                             "videoRenderer": {
                               "videoId": "J42QsvdXnJo",

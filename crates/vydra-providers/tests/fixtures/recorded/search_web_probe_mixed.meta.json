@@ -56,5 +56,8 @@
   "kept_renderers": {
     "channelRenderer": 1,
     "videoRenderer": 29
+  },
+  "probe_observation": {
+    "note": "the probe only maps the first capture"
   }
 }

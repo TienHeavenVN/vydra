@@ -30,8 +30,8 @@
     "projected every mapped renderer to the keys the mapper reads",
     "kept continuation tokens verbatim (they expire; none is presented as usable)",
     "kept estimatedResults",
-    "content shapes without a mapping kept as empty objects (counted as unmapped_content by the parser): []",
-    "page chrome dropped entirely (it is not a result and the parser counts it as unknown_renderer only): 3 occurrence(s) across 3 key(s)",
+    "content shapes without a mapping kept as empty objects (counted as unmapped_content by the parser): ['lockupViewModel']",
+    "page chrome dropped entirely (it is not a result and the parser counts it as unknown_renderer only): 2 occurrence(s) across 2 key(s)",
     "dropped 0 non-renderer keys that no parser reads"
   ],
   "redaction": [
@@ -48,10 +48,12 @@
   "capture_file_bytes": 682235,
   "dropped_renderers": {
     "desktopTopbarRenderer": 1,
-    "lockupViewModel": 1,
     "searchHeaderRenderer": 1
   },
   "kept_renderers": {
     "videoRenderer": 18
+  },
+  "probe_observation": {
+    "note": "the probe only maps the first capture"
   }
 }

@@ -276,10 +276,16 @@ fn playlist_summary_from_renderer(
         channel_id: channel_id_of(renderer, &["shortBylineText", "longBylineText"]),
         channel_title: first_text(renderer, &["shortBylineText", "longBylineText"]),
         description: None,
-        item_count: renderer
-            .get("videoCount")
-            .and_then(text_of)
-            .and_then(|text| count_from_text(&text)),
+        // `videoCount` is the plain field ("20"); `videoCountText` is the displayed form
+        // ("20 videos" / localized runs). Both are read so a response that carries only the
+        // rendered string does not lose the count; none of the Phase 4.3 captures contained a
+        // playlist, so this order is reference-backed, not capture-backed.
+        item_count: ["videoCount", "videoCountText"].iter().find_map(|key| {
+            renderer
+                .get(*key)
+                .and_then(|value| text_of(value))
+                .and_then(|text| count_from_text(&text))
+        }),
         thumbnails: renderer
             .get("thumbnail")
             .map(thumbnails_of)
@@ -308,7 +314,11 @@ pub fn search_item_from_renderer(
             playlist_summary_from_renderer(renderer.value, report).map(SearchItem::Playlist)
         }
         other => {
-            report.unknown_renderer(other);
+            // `collect_renderers` only hands over keys from `KNOWN_RENDERERS`, i.e. shapes that are
+            // *known to be content* — and every one that lands here has no mapping yet. Counting it
+            // as `unknown_renderer` (the chrome counter) hid 11 real items on the Phase 4.3 capture;
+            // `unmapped_result` is the counter that says "a result was dropped".
+            report.unmapped_result(other);
             None
         }
     }

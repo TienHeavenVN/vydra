@@ -107,10 +107,10 @@ fn channel_renderer_maps_every_documented_field() {
 }
 
 #[test]
-fn playlist_renderer_maps_the_item_count_from_runs() {
-    let document = json!({"contents": [playlist("PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR", "Mix")]});
-    let (results, _report) = parse(&document);
-
+fn playlist_renderer_maps_the_item_count_from_either_shape() {
+    // `videoCountText` (the displayed form) ...
+    let runs = json!({"contents": [playlist("PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR", "Mix")]});
+    let (results, _report) = parse(&runs);
     let SearchItem::Playlist(mapped) = &results.items[0] else {
         panic!("expected a playlist");
     };
@@ -119,6 +119,21 @@ fn playlist_renderer_maps_the_item_count_from_runs() {
     assert_eq!(
         mapped.item_count.as_ref().map(|count| count.value),
         Some(20)
+    );
+
+    // ... and `videoCount` (the plain field) both produce the count.
+    let plain = json!({"contents": [{"playlistRenderer": {
+        "playlistId": "PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR",
+        "title": {"simpleText": "Mix"},
+        "videoCount": "37",
+    }}]});
+    let (results, _report) = parse(&plain);
+    let SearchItem::Playlist(mapped) = &results.items[0] else {
+        panic!("expected a playlist");
+    };
+    assert_eq!(
+        mapped.item_count.as_ref().map(|count| count.value),
+        Some(37)
     );
 }
 
@@ -513,13 +528,16 @@ fn recorded_continuation_page_maps_every_result() {
         .as_deref()
         .expect("second page has a cursor");
     assert_eq!(cursor.len(), 732);
-    assert_eq!(report.unmapped_results(), 0);
+    assert_eq!(
+        report.unmapped_results(),
+        1,
+        "the page carries one `lockupViewModel` card Vydra cannot map yet"
+    );
     assert_eq!(report.unknown_renderers(), 0);
     assert_eq!(report.skipped_items(), 0);
     assert!(
-        report.check(Strictness::Strict).is_ok(),
-        "a fully mapped page passes strict mode: {:?}",
-        report.messages()
+        report.check(Strictness::Strict).is_err(),
+        "one unmapped card is still a lost result, so strict mode stays loud"
     );
 }
 

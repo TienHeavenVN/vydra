@@ -48,5 +48,8 @@
   "capture_run": "https://github.com/TienHeavenVN/vydra/actions/runs/43542839419",
   "capture_file_bytes": 273,
   "dropped_renderers": {},
-  "kept_renderers": {}
+  "kept_renderers": {},
+  "probe_observation": {
+    "note": "the probe only maps the first capture"
+  }
 }

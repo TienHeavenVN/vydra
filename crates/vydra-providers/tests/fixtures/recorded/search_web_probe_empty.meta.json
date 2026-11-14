@@ -52,5 +52,8 @@
     "searchHeaderRenderer": 1,
     "searchSubMenuRenderer": 1
   },
-  "kept_renderers": {}
+  "kept_renderers": {},
+  "probe_observation": {
+    "note": "the probe only maps the first capture"
+  }
 }

@@ -57,5 +57,34 @@
   "kept_renderers": {
     "videoRenderer": 18,
     "channelRenderer": 1
+  },
+  "probe_observation": {
+    "note": "the probe's own mapping of the unreduced capture",
+    "items": 19,
+    "kinds": [
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "channel",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video",
+      "video"
+    ],
+    "parse_warnings": 133,
+    "next_cursor_len": 812,
+    "estimated_results": 23544833,
+    "ok": true
   }
 }
