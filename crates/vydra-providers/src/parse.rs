@@ -52,7 +52,22 @@ pub const STRUCTURAL_RENDERERS: &[&str] = &[
     "singleColumnBrowseResultsRenderer",
     "tabRenderer",
     "sectionListContinuationRenderer",
+    // Carries nothing but the next token: it is navigation, not a result. Counting it made every
+    // paginated page look like it had unread content (one occurrence per page on the Phase 4.3
+    // captures), for a renderer whose only payload the parser already extracts by key.
+    "continuationItemRenderer",
 ];
+
+/// Content shapes that carry a result but are not `*Renderer` keys and have no mapping yet.
+///
+/// `shortsLockupViewModel` is a Shorts shelf item. The Phase 4.3 capture of a real first page
+/// contains 25 of them (65 on the `veritasium` page): each one is a result the caller cannot see.
+/// They were dropped without any diagnostic because the key does not end in `Renderer`, so
+/// `parse_warnings` stayed quiet — the exact "unknown content silently disappears" failure this
+/// phase is about. Counting them here makes the gap visible; mapping them is out of scope until
+/// the video id can be read from the reel endpoint instead of being parsed out of an `entityId`
+/// string (which is how a lookalike id would become a "valid" result).
+pub const UNMAPPED_CONTENT_VIEW_MODELS: &[&str] = &["shortsLockupViewModel"];
 
 /// Maximum object depth walked. Guards against pathological/fuzzed payloads.
 const MAX_DEPTH: usize = 48;
@@ -66,6 +81,7 @@ const MAX_WARNINGS: usize = 24;
 pub struct ParseReport {
     warnings: Vec<String>,
     unknown_renderers: u32,
+    unmapped_results: u32,
     skipped_items: u32,
     missing_fields: u32,
     structural: bool,
@@ -87,6 +103,16 @@ impl ParseReport {
         self.warn(format!("unknown_renderer:{key}"));
     }
 
+    /// A content shape that carries a result but has no mapping (see [`UNMAPPED_CONTENT_VIEW_MODELS`]).
+    ///
+    /// Kept apart from [`Self::unknown_renderer`] because that counter also covers page chrome —
+    /// dialogs, filter chips, menus, share panels — which a healthy page has hundreds of. Losing a
+    /// *result* is a different class of event, and it is what `Strict` mode fails on.
+    pub fn unmapped_result(&mut self, key: &str) {
+        self.unmapped_results = self.unmapped_results.saturating_add(1);
+        self.warn(format!("unmapped_content:{key}"));
+    }
+
     pub fn skipped_item(&mut self, reason: &str) {
         self.skipped_items = self.skipped_items.saturating_add(1);
         self.warn(format!("skipped_item:{reason}"));
@@ -105,6 +131,7 @@ impl ParseReport {
 
     pub fn count(&self) -> u32 {
         self.unknown_renderers
+            .saturating_add(self.unmapped_results)
             .saturating_add(self.skipped_items)
             .saturating_add(self.missing_fields)
             .saturating_add(u32::from(self.structural))
@@ -118,6 +145,22 @@ impl ParseReport {
         self.skipped_items
     }
 
+    /// Number of results that were recognised as content but not mapped.
+    pub fn unmapped_results(&self) -> u32 {
+        self.unmapped_results
+    }
+
+    /// Number of content-level problems: dropped results, missing fields, structural surprises.
+    ///
+    /// This is the number `Strict` mode fails on; `unknown_renderers()` is deliberately not part of
+    /// it (see [`Self::unmapped_result`]).
+    pub fn content_problems(&self) -> u32 {
+        self.unmapped_results
+            .saturating_add(self.skipped_items)
+            .saturating_add(self.missing_fields)
+            .saturating_add(u32::from(self.structural))
+    }
+
     pub fn has_structural_problem(&self) -> bool {
         self.structural
     }
@@ -128,6 +171,7 @@ impl ParseReport {
 
     pub fn merge(&mut self, other: ParseReport) {
         self.unknown_renderers += other.unknown_renderers;
+        self.unmapped_results += other.unmapped_results;
         self.skipped_items += other.skipped_items;
         self.missing_fields += other.missing_fields;
         self.structural |= other.structural;
@@ -139,6 +183,14 @@ impl ParseReport {
     }
 
     /// In `Strict` mode any warning fails the parse (used by fixture tests so regressions are loud).
+    ///
+    /// Known limitation, measured in Phase 4.3: a *live* page carries page chrome (hotkey dialogs,
+    /// filter chips, share panels, menu items) that is counted as `unknown_renderer` — 133
+    /// occurrences on the captured first page — even though every result on it mapped. `Strict` is
+    /// therefore only usable against reduced documents, which is exactly how the fixtures are built.
+    /// [`Self::content_problems`] is the number that distinguishes "a result was lost" from "the
+    /// page had buttons"; making `Strict` fail on that number instead is a Phase 4.4 decision, not
+    /// something to change quietly here.
     pub fn check(&self, strictness: Strictness) -> Result<(), ProviderError> {
         if strictness == Strictness::Strict && self.count() > 0 {
             return Err(ProviderError::Parse {
@@ -186,6 +238,13 @@ pub fn collect_renderers<'a>(root: &'a Value, report: &mut ParseReport) -> Vec<R
                 // order: search results must keep the order the upstream served them in.
                 let mut children: Vec<(&Value, usize)> = Vec::new();
                 for (key, value) in map {
+                    // A content shape with no mapping: counted, and not descended into (its inner
+                    // renderers all describe the same item, so walking them would multiply the
+                    // count without adding information).
+                    if UNMAPPED_CONTENT_VIEW_MODELS.contains(&key.as_str()) && !value.is_null() {
+                        report.unmapped_result(key);
+                        continue;
+                    }
                     if key.ends_with("Renderer")
                         || key == "lockupViewModel"
                         || key == "videoRenderer"

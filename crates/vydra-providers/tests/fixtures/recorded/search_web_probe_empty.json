@@ -1,0 +1,26 @@
+{
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {}
+                ]
+              }
+            }
+          ],
+          "hideBottomSeparator": true,
+          "subMenu": {},
+          "targetId": "search-feed"
+        }
+      }
+    }
+  },
+  "estimatedResults": "0",
+  "header": {},
+  "targetId": "search-page",
+  "topbar": {}
+}

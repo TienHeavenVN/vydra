@@ -16,6 +16,7 @@ use time::OffsetDateTime;
 use vydra_domain::{Precision, Provenance, SearchItem};
 use vydra_providers::innertube::map::map_search;
 use vydra_providers::parse::{ParseReport, collect_renderers};
+use vydra_providers::Strictness;
 
 fn provenance() -> Provenance {
     Provenance {
@@ -214,12 +215,16 @@ fn containers_are_transparent_for_mapped_renderers() {
 
 #[test]
 fn unknown_renderers_never_become_items() {
-    // A Shorts shelf and a "you might also like" card: shapes Vydra does not map.
+    // Page chrome plus one real result: a Shorts shelf item and a "playables" card are content
+    // shapes Vydra cannot map yet, a `dialogRenderer` is chrome.
     let document = json!({
         "contents": {"sectionListRenderer": {"contents": [
             {"itemSectionRenderer": {"contents": [
                 {"reelShelfRenderer": {"items": [{"reelItemRenderer": {"videoId": "dQw4w9WgXcQ"}}]}},
-                {"shortsLockupViewModel": {"entityId": "shorts-shelf-item-dQw4w9WgXcQ"}},
+                {"gridShelfViewModel": {"contents": [
+                    {"shortsLockupViewModel": {"entityId": "shorts-shelf-item-dQw4w9WgXcQ"}},
+                ]}},
+                {"dialogRenderer": {"title": {"simpleText": "Cookies"}}},
                 {"videoRenderer": {"videoId": "dQw4w9WgXcQ", "title": {"simpleText": "Real"}}},
             ]}},
         ]}}
@@ -229,11 +234,22 @@ fn unknown_renderers_never_become_items() {
     assert_eq!(results.items.len(), 1, "only the videoRenderer may map");
     assert_eq!(results.items[0].kind(), "video");
     assert!(
-        report.unknown_renderers() >= 1,
-        "unknown content must be counted, not dropped silently"
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("unmapped_content:shortsLockupViewModel")),
+        "a dropped result must be named: {:?}",
+        report.messages()
     );
-    // ... and the counted warning reaches `parse_warnings` through the provider.
-    assert!(report.count() >= 1);
+    assert!(
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("unknown_renderer:dialogRenderer")),
+        "chrome is counted separately: {:?}",
+        report.messages()
+    );
+    assert!(report.content_problems() >= 1, "losing a result is a content problem");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -329,14 +345,19 @@ fn localized_counts_and_clock_durations_are_parsed() {
 
 #[test]
 fn abbreviated_counts_are_marked_approximate() {
-    let document = json!({"contents": [video("dQw4w9WgXcQ", "T")]});
+    let document = json!({"contents": [{"videoRenderer": {
+        "videoId": "dQw4w9WgXcQ",
+        "title": {"simpleText": "T"},
+        "viewCountText": {"simpleText": "1.2K views"},
+    }}]});
     let (results, _) = parse(&document);
     let SearchItem::Video(mapped) = &results.items[0] else {
         panic!("expected a video");
     };
     let count = mapped.view_count.as_ref().expect("count");
-    assert_eq!(count.value, 1_000);
+    assert_eq!(count.value, 1_200);
     assert_eq!(count.precision, Precision::Approximate);
+    assert_eq!(count.raw.as_deref(), Some("1.2K views"), "the source text is kept");
 }
 
 #[test]
@@ -417,36 +438,126 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|err| panic!("fixture {path}: {err}"))
 }
 
+// Each document below was captured by Vydra from the live endpoint (see
+// `tests/fixtures/recorded/search_web_probe_*.meta.json` for the run, the request body keys and the
+// reduction applied). The counts are exact because the reduction keeps every mapped renderer and
+// every content shape that has no mapping — nothing else — so a change in the mapper shows up here.
+
 #[test]
-fn recorded_first_page_has_no_unknown_content_and_no_duplicates() {
+fn recorded_first_page_maps_every_result_and_counts_the_shorts_gap() {
     let document = fixture("recorded/search_web_probe_first_page.json");
     let (results, report) = parse(&document);
 
-    assert!(!results.items.is_empty(), "a real page must produce items");
-    assert!(
-        results.next_cursor.is_some(),
-        "a real first page carries a continuation token"
+    assert_eq!(results.items.len(), 19, "18 videos + 1 channel");
+    let kinds: Vec<&str> = results.items.iter().map(|item| item.kind()).collect();
+    assert_eq!(kinds.iter().filter(|kind| **kind == "video").count(), 18);
+    assert_eq!(kinds.iter().filter(|kind| **kind == "channel").count(), 1);
+    assert_eq!(
+        results.items[0].kind(),
+        "video",
+        "document order is preserved"
     );
-    // Every renderer in the capture is one Vydra maps, and none repeats.
+    assert_eq!(
+        results.estimated_results.as_ref().map(|count| count.value),
+        Some(23_544_834),
+        "upstream's own estimate is carried through"
+    );
+
+    let cursor = results.next_cursor.as_deref().expect("first page has a cursor");
+    assert_eq!(cursor.len(), 812, "the real token, not a placeholder");
+
+    assert_eq!(
+        report.unmapped_results(),
+        25,
+        "the Shorts shelf is 25 results Vydra cannot show yet: counted, not silent"
+    );
     assert_eq!(
         report.unknown_renderers(),
         0,
-        "unmapped renderers: {:?}",
+        "the reduction keeps no chrome, so anything counted here is a regression: {:?}",
         report.messages()
     );
+    assert_eq!(report.skipped_items(), 0);
     assert!(
-        !report
-            .messages()
-            .iter()
-            .any(|message| message.contains("duplicate_item")),
-        "capture contained duplicates: {:?}",
+        report.check(Strictness::Strict).is_err(),
+        "strict mode must stay loud while results are being lost"
+    );
+}
+
+#[test]
+fn recorded_continuation_page_maps_every_result() {
+    let document = fixture("recorded/search_web_probe_continuation.json");
+    let (results, report) = parse(&document);
+
+    assert_eq!(results.items.len(), 18);
+    assert_eq!(
+        results.items.iter().filter(|item| item.kind() == "video").count(),
+        18
+    );
+    let cursor = results.next_cursor.as_deref().expect("second page has a cursor");
+    assert_eq!(cursor.len(), 732);
+    assert_eq!(report.unmapped_results(), 0);
+    assert_eq!(report.unknown_renderers(), 0);
+    assert_eq!(report.skipped_items(), 0);
+    assert!(
+        report.check(Strictness::Strict).is_ok(),
+        "a fully mapped page passes strict mode: {:?}",
         report.messages()
     );
-    assert!(
-        results
-            .next_cursor
-            .as_deref()
-            .is_some_and(|token| token.len() > 40),
-        "the recorded token must be a real one, not a placeholder"
+}
+
+#[test]
+fn recorded_mixed_page_maps_all_kinds_it_can() {
+    let document = fixture("recorded/search_web_probe_mixed.json");
+    let (results, report) = parse(&document);
+
+    assert_eq!(results.items.len(), 30, "29 videos + 1 channel");
+    assert_eq!(
+        results.items.iter().filter(|item| item.kind() == "video").count(),
+        29
+    );
+    assert_eq!(
+        results.items.iter().filter(|item| item.kind() == "channel").count(),
+        1
+    );
+    assert_eq!(
+        results.estimated_results.as_ref().map(|count| count.value),
+        Some(200_258)
+    );
+    assert_eq!(results.next_cursor.as_deref().map(str::len), Some(818));
+    assert_eq!(report.unmapped_results(), 65, "two Shorts shelves");
+    assert_eq!(report.unknown_renderers(), 0);
+}
+
+#[test]
+fn recorded_empty_page_is_empty_not_broken() {
+    let document = fixture("recorded/search_web_probe_empty.json");
+    let (results, report) = parse(&document);
+
+    assert!(results.items.is_empty());
+    assert!(results.next_cursor.is_none());
+    assert_eq!(
+        results.estimated_results.as_ref().map(|count| count.value),
+        Some(0)
+    );
+    assert_eq!(report.count(), 0, "an empty result set is not a parse warning");
+}
+
+#[test]
+fn recorded_error_document_yields_no_items() {
+    // `{"error": {"code": 400, "status": "FAILED_PRECONDITION", ...}}` — what upstream answers when
+    // the search body is missing `query` (run 43542839419). It must never look like an empty page
+    // that happens to have no results: the provider reports the status, and nothing is invented here.
+    let document = fixture("recorded/search_web_probe_malformed_request.json");
+    let (results, report) = parse(&document);
+
+    assert!(results.items.is_empty());
+    assert!(results.next_cursor.is_none());
+    assert!(results.estimated_results.is_none());
+    assert_eq!(report.count(), 0, "there is nothing to warn about: nothing was attempted");
+    assert_eq!(
+        document.get("error").and_then(|error| error.get("code")).and_then(serde_json::Value::as_i64),
+        Some(400),
+        "the fixture really is the error document"
     );
 }

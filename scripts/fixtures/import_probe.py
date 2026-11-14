@@ -101,6 +101,40 @@ LEAF_RENDERERS = {
     ],
 }
 
+# Structural renderers: they only group other renderers and must be followed, not dropped. Mirrors
+# `STRUCTURAL_RENDERERS` in crates/vydra-providers/src/parse.rs (plus the continuation wrapper, which
+# the parser treats as structure because it carries nothing but the token).
+STRUCTURAL = {
+    "twoColumnSearchResultsRenderer",
+    "twoColumnBrowseResultsRenderer",
+    "twoColumnWatchNextResults",
+    "sectionListRenderer",
+    "sectionListContinuationRenderer",
+    "itemSectionRenderer",
+    "shelfRenderer",
+    "horizontalListRenderer",
+    "gridRenderer",
+    "richGridRenderer",
+    "richItemRenderer",
+    "expandedShelfContentsRenderer",
+    "singleColumnBrowseResultsRenderer",
+    "tabRenderer",
+    "continuationItemRenderer",
+    "reelShelfRenderer",
+    "richSectionRenderer",
+    "resultSectionRenderer",
+    "verticalListRenderer",
+    "horizontalCardListRenderer",
+    "appendContinuationItemsAction",
+    # A Shorts shelf container: `gridShelfViewModel.contents[]` holds `shortsLockupViewModel` items.
+    "gridShelfViewModel",
+}
+
+# Content shapes that are not `*Renderer` and have no mapping yet. Kept (payload replaced by an
+# empty object, so nothing can be inferred from content the mapper does not understand) because the
+# parser counts them as dropped results — the fixture has to keep that visible.
+CONTENT_VIEW_MODELS = {"shortsLockupViewModel"}
+
 # Keys that are pure session/tracking material wherever they appear.
 DROP_EVERYWHERE = {
     "responseContext",
@@ -144,6 +178,14 @@ def project_renderer(kind, renderer):
 
 
 def project(node, stats):
+    """Copy the document, keeping results and the structure that leads to them.
+
+    Every container is followed generically (the upstream key names for wrappers change between
+    experiments, and an enumerated list silently dropped the whole Shorts shelf when it did). What is
+    *not* copied: session/tracking material, page chrome (any renderer that is not a mapped one), and
+    the payload of any content shape Vydra cannot map yet.
+    """
+
     if isinstance(node, list):
         return [project(child, stats) for child in node]
     if not isinstance(node, dict):
@@ -172,23 +214,25 @@ def project(node, stats):
                 continue
             stats["dropped"] += 1
             continue
-        if key in CONTAINERS:
+        if key in STRUCTURAL:
             out[key] = project(value, stats)
             continue
-        if key == "estimatedResults":
-            out[key] = value
+        if key in CONTENT_VIEW_MODELS:
+            out[key] = {}
+            stats["unmapped_content"][key] = stats["unmapped_content"].get(key, 0) + 1
             continue
         if key.endswith("Renderer") or key.endswith("ViewModel"):
-            # An unknown renderer: keep the key (so the parser must report it as unknown) but none of
-            # its payload — nothing may be inferred from content the mapper does not understand.
-            out[key] = {}
-            stats["unknown_renderers"][key] = stats["unknown_renderers"].get(key, 0) + 1
+            # Page chrome (dialogs, menus, filter chips, share panels, per-item menus) or an unknown
+            # content shape. Dropped with its subtree: the fixture is about the parse path of the
+            # results, and a reduced document with known counters is what lets the tests assert exact
+            # numbers. The full inventory of what was dropped goes into the metadata.
+            stats["dropped_renderers"][key] = stats["dropped_renderers"].get(key, 0) + 1
             continue
-        stats["dropped"] += 1
+        out[key] = project(value, stats)
     return out
 
 
-def build_meta(summary, label, source_bytes, stats, captured_at):
+def build_meta(summary, label, source_bytes, stats, captured_at, capture_run, capture_workflow):
     records = {record["label"]: record for record in summary.get("records", [])}
     record = records.get(label, {})
     notes = summary.get("probe", {})
@@ -202,7 +246,7 @@ def build_meta(summary, label, source_bytes, stats, captured_at):
         ),
         "captured_at": captured_at,
         "captured_by": "vydra-providers example probe_search (GitHub Actions runner)",
-        "capture_workflow": ".github/workflows/ci.yml job probe (commit message [probe])",
+        "capture_workflow": capture_workflow,
         "request": {
             "endpoint": "https://www.youtube.com/youtubei/v1/search",
             "query_string": "prettyPrint=false&key=<redacted>",
@@ -226,8 +270,12 @@ def build_meta(summary, label, source_bytes, stats, captured_at):
             "projected every mapped renderer to the keys the mapper reads",
             "kept continuation tokens verbatim (they expire; none is presented as usable)",
             "kept estimatedResults",
-            f"unknown renderers kept as empty objects: {sorted(stats['unknown_renderers'])}",
-            f"dropped {stats['dropped']} keys that no parser reads",
+            "content shapes without a mapping kept as empty objects (counted as unmapped_content "
+            f"by the parser): {sorted(stats['unmapped_content'])}",
+            "page chrome dropped entirely (it is not a result and the parser counts it as "
+            f"unknown_renderer only): {sum(stats['dropped_renderers'].values())} occurrence(s) "
+            f"across {len(stats['dropped_renderers'])} key(s)",
+            f"dropped {stats['dropped']} non-renderer keys that no parser reads",
         ],
         "redaction": [
             "api key, visitor id and cookie material removed by the probe before the file was written",
@@ -239,7 +287,15 @@ def build_meta(summary, label, source_bytes, stats, captured_at):
             "that the captured content is still current (item ids and titles are a snapshot)",
             "playback URLs: deliberately not represented",
         ],
-        "source_bytes": source_bytes,
+        "capture_run": capture_run,
+        "capture_file_bytes": source_bytes,
+        # Top-most dropped renderers: a dropped subtree is counted once, so this is an inventory of
+        # what was removed, not a count of every nested key. The full per-key inventory of the raw
+        # capture is what `scripts/fixtures/inventory_renderers.py` prints.
+        "dropped_renderers": dict(
+            sorted(stats["dropped_renderers"].items(), key=lambda item: (-item[1], item[0]))
+        ),
+        "kept_renderers": stats["kept_renderers"],
     }
 
 
@@ -248,6 +304,15 @@ def main() -> int:
     parser.add_argument("probe_out", type=pathlib.Path)
     parser.add_argument("fixtures", type=pathlib.Path)
     parser.add_argument("--captured-at", default=None)
+    parser.add_argument(
+        "--capture-run",
+        default=None,
+        help="URL of the workflow run that captured this probe output",
+    )
+    parser.add_argument(
+        "--capture-workflow",
+        default=".github/workflows/ci.yml job probe (commit message [probe])",
+    )
     args = parser.parse_args()
 
     summary_path = args.probe_out / "summary.json"
@@ -268,6 +333,8 @@ def main() -> int:
         ("search_error", "search_web_probe_malformed_request"),
     ]
 
+    records = {record["label"]: record for record in summary.get("records", [])}
+
     recorded = args.fixtures / "recorded"
     recorded.mkdir(parents=True, exist_ok=True)
 
@@ -278,20 +345,49 @@ def main() -> int:
             print(f"skip {label}: no capture", file=sys.stderr)
             continue
         document = json.loads(path.read_text(encoding="utf-8"))
-        stats = {"dropped": 0, "tokens": 0, "kept_renderers": {}, "unknown_renderers": {}}
+        stats = {
+            "dropped": 0,
+            "tokens": 0,
+            "kept_renderers": {},
+            "unmapped_content": {},
+            "dropped_renderers": {},
+        }
         reduced = project(document, stats)
+        expected = records.get(label, {})
+        for kind, key in (
+            ("videoRenderer", "video_renderers"),
+            ("channelRenderer", "channel_renderers"),
+            ("playlistRenderer", "playlist_renderers"),
+        ):
+            want = expected.get(key)
+            got = stats["kept_renderers"].get(kind, 0)
+            if want is not None and want != got:
+                print(
+                    f"reduction lost {kind}: probe counted {want}, kept {got}",
+                    file=sys.stderr,
+                )
+                return 3
         out_path = recorded / f"{stem}.json"
         out_path.write_text(
             json.dumps(reduced, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-        meta = build_meta(summary, label, len(path.read_bytes()), stats, captured_at)
+        meta = build_meta(
+            summary,
+            label,
+            len(path.read_bytes()),
+            stats,
+            captured_at,
+            args.capture_run,
+            args.capture_workflow,
+        )
         (recorded / f"{stem}.meta.json").write_text(
             json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         written += 1
         print(
             f"{out_path} ({out_path.stat().st_size} B) "
-            f"renderers={stats['kept_renderers']} unknown={sorted(stats['unknown_renderers'])}"
+            f"renderers={stats['kept_renderers']} unmapped={sorted(stats['unmapped_content'])} "
+            f"chrome_dropped={sum(stats['dropped_renderers'].values())}"
         )
 
     print(f"wrote {written} fixture(s) from {args.probe_out}")
