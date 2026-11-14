@@ -350,7 +350,8 @@ async fn main() -> ProbeResult<()> {
                     "PROBE {name}=error={}",
                     message.chars().take(200).collect::<String>()
                 );
-                json!({"capture": name, "outcome": "error", "message": message.chars().take(200).collect::<String>()})
+                let message: String = message.chars().take(200).collect();
+                json!({"capture": name, "outcome": "error", "message": message})
             }
         }
     }
@@ -397,14 +398,21 @@ async fn main() -> ProbeResult<()> {
                         summary.push(record("channel_videos_page1", outcome, &mut captures));
                     }
                     Err(error) => {
-                        summary.push(json!({"capture": "channel_videos_page1", "outcome": "invalid_params", "message": error.to_string()}));
+                        summary.push(json!({
+                            "capture": "channel_videos_page1",
+                            "outcome": "invalid_params",
+                            "message": error.to_string()
+                        }));
                     }
                 }
             }
             None => {
                 // A finding in itself: no videos tab means the relay has nothing to carry.
                 println!("PROBE videos_tab_params=none");
-                summary.push(json!({"capture": "channel_videos_page1", "outcome": "no_videos_tab"}));
+                summary.push(json!({
+                    "capture": "channel_videos_page1",
+                    "outcome": "no_videos_tab"
+                }));
             }
         }
     }
@@ -469,7 +477,11 @@ async fn main() -> ProbeResult<()> {
     {
         for line in structure_inventory(
             &page,
-            &["pageHeaderViewModel", "c4TabbedHeaderRenderer", "tabRenderer"],
+            &[
+                "pageHeaderViewModel",
+                "c4TabbedHeaderRenderer",
+                "tabRenderer",
+            ],
             &["tabRenderer"],
         ) {
             println!("PROBE struct_channel_page {line}");
