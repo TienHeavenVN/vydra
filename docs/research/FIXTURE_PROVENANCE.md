@@ -5,8 +5,11 @@ declared in a `*.meta.json` sidecar next to the fixture and repeated here, becau
 origin is unclear is worse than no fixture: it invites "the parser matches upstream" claims that the
 evidence does not support.
 
-**Vydra has never captured a fixture itself.** No request in this repository was ever sent to YouTube.
-Nothing here is labelled "live", and no recorded file is presented as current.
+**Phase 4.3 update.** Vydra now has its own captures: on 2026-11-14 it sent five requests to
+`/youtubei/v1/search` through the production transport from a GitHub-hosted runner and reduced the
+responses into `recorded/search_web_probe_*.json` (class `recorded_vydra_probe`). Everything captured
+before that date was third-party. A `recorded_vydra_probe` file is still a *snapshot*: it is not
+"what upstream returns today", and its sidecar says so in `not_verified`.
 
 ## 1. Classes
 
@@ -15,6 +18,7 @@ Nothing here is labelled "live", and no recorded file is presented as current.
 | `recorded_upstream_subset` | A reduced subset of a payload **captured by a third-party project** and published in its test resources. | "Vydra's parser agrees with this recording." Never "upstream answers like this today." |
 | `synthetic` | Hand-written document shaped after a documented renderer tree. | "The mapper handles this documented shape." Never "this is what upstream returns." |
 | `derived_malformed` | A recorded or synthetic document with one deliberate, described defect. | "The parser degrades in this specific way for this specific defect." |
+| `recorded_vydra_probe` | A reduction of a response **Vydra captured itself**, through `ReqwestTransport`, in a CI job whose run id is in the sidecar. | "Vydra's parser handles a document Vydra actually received, on that date, from that network." Never "upstream answers like this now" and never "this proves the contract for every region". |
 
 Rules that were applied when the corpus was built:
 
@@ -38,6 +42,11 @@ Rules that were applied when the corpus was built:
 | `recorded/browse_channel_search_2023-12-06.json` | recorded subset | 29 230 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/browse/chrome/2023.12.06_channel_search.json` (MIT) | 2023-12-06 | `recorded_fixture::recorded_browse_page_maps_every_renderer` |
 | `recorded/continuation_browse_2023-02-23.json` | recorded subset | 19 245 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/browse/chrome/2023.02.23_what_to_watch_continuation.json` (MIT) | 2023-02-23 | `recorded_fixture::recorded_continuation_page_keeps_the_trailing_token` |
 | `recorded/player_web_2025-11-10.json` | recorded subset | 8 963 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/player/web/2025.11.10_player_regular.json` (MIT) | 2025-11-10 | `recorded_fixture::recorded_player_page_maps_availability_formats_and_captions` |
+| `recorded/search_web_probe_first_page.json` | recorded_vydra_probe | 208 616 | run `43542839419`, `POST /youtubei/v1/search`, 200, 664 211 B body | 2026-11-14 | `search_parser::recorded_first_page_maps_every_result_and_counts_the_shorts_gap` |
+| `recorded/search_web_probe_continuation.json` | recorded_vydra_probe | 230 854 | same run, same endpoint, body `{context, continuation}`, 200, 263 144 B | 2026-11-14 | `search_parser::recorded_continuation_page_maps_every_result` |
+| `recorded/search_web_probe_mixed.json` | recorded_vydra_probe | 452 077 | same run, query `veritasium`, 200, 1 396 201 B | 2026-11-14 | `search_parser::recorded_mixed_page_maps_all_kinds_it_can` |
+| `recorded/search_web_probe_empty.json` | recorded_vydra_probe | 525 | same run, nonsense query, 200, 21 748 B, `estimatedResults: 0` | 2026-11-14 | `search_parser::recorded_empty_page_is_empty_not_broken` |
+| `recorded/search_web_probe_malformed_request.json` | recorded_vydra_probe | 274 | same run, body without `query`, 400 `FAILED_PRECONDITION` | 2026-11-14 | `search_parser::recorded_error_document_yields_no_items` |
 | `synthetic/search_mixed.json` | synthetic | 2 139 | hand-written, shaped after `EXTRACTION_METHODS.md` §5.2 | 2026-11-13 | `search_fixture::mixed_search_fixture_maps_to_domain_items` |
 | `malformed/search_without_contents.json` | derived | 28 | `browse_channel_search_2023-12-06.json` with `contents` removed (`{"estimatedResults":0}`) | 2026-11-13 | `recorded_fixture::malformed_search_without_contents_is_an_empty_page` |
 | `malformed/player_without_playability.json` | derived | 6 652 | `player_web_2025-11-10.json` with `playabilityStatus` removed | 2026-11-13 | `recorded_fixture::malformed_player_without_playability_warns_but_keeps_the_document` |
@@ -59,6 +68,31 @@ which client generation it represents.
   31 834 views, channel `UCTk3OjLsX-sYl60JBq3z5QQ`, Russian description), 1 muxed `formats` entry and
   3 `adaptiveFormats` entries, 1 caption track (`ru`, `asr`), `microformat` publishDate `2025-11-09`
   and category `Gaming`.
+
+### What the probe recordings actually contain
+
+Reduced by `scripts/fixtures/import_probe.py`; the full inventory of what was removed is in each
+sidecar (`dropped_renderers`, `reduction`) and the analysis is in
+`docs/research/SEARCH_RESPONSE_ANALYSIS.md`.
+
+* **First page** — `contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[]`:
+  one `itemSectionRenderer` with 18 `videoRenderer` and 1 `channelRenderer`, one
+  `continuationItemRenderer` (812-char token), plus a `gridShelfViewModel` holding 25
+  `shortsLockupViewModel` items with their payload removed. `estimatedResults` 23 544 834.
+* **Continuation** — `onResponseReceivedCommands[].reloadContinuationItemsCommand.continuationItems[]`
+  (a different envelope than the first page), 18 `videoRenderer`, one `lockupViewModel`, one
+  trailing token (732 chars), `estimatedResults` 19.
+* **Mixed** — 29 `videoRenderer`, 1 `channelRenderer`, 65 `shortsLockupViewModel`, 818-char token,
+  `estimatedResults` 200 258.
+* **Empty** — no renderers at all, `estimatedResults` 0. The live page also carried a
+  `backgroundPromoRenderer` ("These results may be inappropriate for some users."); it is chrome and
+  is listed as dropped.
+* **Malformed request** — `{"error": {code: 400, status: "FAILED_PRECONDITION", …}}` verbatim.
+
+Reproduce:
+`python3 scripts/fixtures/import_probe.py probe-out crates/vydra-providers/tests/fixtures
+--capture-run <run url>`. The tool refuses to write a fixture if the number of mapped renderers it
+keeps disagrees with the count the probe itself reported, so a reduction cannot silently lose results.
 
 ## 3. What remains unverified
 

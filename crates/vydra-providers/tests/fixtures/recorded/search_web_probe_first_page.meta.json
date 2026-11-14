@@ -59,7 +59,7 @@
     "channelRenderer": 1
   },
   "probe_observation": {
-    "note": "the probe's own mapping of the unreduced capture",
+    "note": "the probe's own mapping of the unreduced capture, before the page-cursor fix: next_cursor_len is one of the filter-chip tokens, not the page cursor (F-11)",
     "items": 19,
     "kinds": [
       "video",

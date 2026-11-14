@@ -188,11 +188,23 @@ No credential is compiled into the binary (ADR-018).
   (children are pushed onto the stack in reverse so the LIFO pop restores source order). A search
   response whose first item is a video yields a video first; anything else is a bug, because the
   caller sees a reordered result list and cursor pagination stops being append-only.
-* **Unknown-renderer accounting means content, not layout.** `KNOWN_RENDERERS` are mapped;
-  `STRUCTURAL_RENDERERS` (`sectionListRenderer`, `itemSectionRenderer`, …) are traversed but never
-  counted; anything else ending in `Renderer` is reported through `ParseReport::unknown_renderer`
-  and shows up in `provenance.parse_warnings`. That counter is the to-do list for future content
-  types, so it must not be polluted by containers that appear in every response.
+* **Three counters, three meanings** (Phase 4.3, from the live captures):
+  * `unknown_renderer` — a renderer key the mapper does not know. On a real first page this is 800+
+    occurrences of *chrome* (dialogs, filter chips, menus, share panels); it is the inventory of UI
+    shapes, not of lost content.
+  * `unmapped_result` — a content shape that was recognised as a *result* and dropped: the Shorts
+    shelf items (`shortsLockupViewModel`), the `lockupViewModel` cards, any `KNOWN_RENDERERS` entry
+    without a mapping arm. This is the number that means "the caller sees fewer results than the
+    page contains", and it is what `content_problems()` sums.
+  * `skipped_item` / `missing_field` / `structural` — the item was there but unusable.
+  `KNOWN_RENDERERS` are mapped; `STRUCTURAL_RENDERERS` (`sectionListRenderer`, `itemSectionRenderer`,
+  `continuationItemRenderer`, …) are traversed but never counted, because they carry structure or a
+  token and nothing else. `UNMAPPED_CONTENT_VIEW_MODELS` is the explicit list of content shapes that
+  are *known to be content* and *known to be unmapped* — the three counters only stay honest if that
+  list is kept short and is emptied by mapping, not by deleting entries.
+* **Strict mode is a fixture tool, not a runtime mode.** It fails on any counter, and a live page
+  always has chrome, so `Strict` is used against reduced documents (the fixtures). Making it fail on
+  `content_problems()` instead is a deliberate Phase 4.4 decision (see `parse.rs::check`).
 * **Budgets.** `MAX_DEPTH = 48`, `MAX_NODES = 100_000`, `MAX_WARNINGS = 24`. Exceeding them emits a
   warning and stops descending; it never truncates silently.
 
@@ -207,7 +219,12 @@ logged.
 The transport boundary resolves the target *before* the socket exists (`GuardedResolver`), refuses
 prohibited IPv4/IPv6 ranges (including IPv4 addresses wrapped in IPv6), fails closed when nothing
 survives, refuses redirects and refuses ambient proxies. The analysis, the address tables and the
-residual risks are in `docs/security/DNS_REBINDING_ANALYSIS.md`.
+residual risks are in `docs/security/DNS_REBINDING_ANALYSIS.md`; what the transport does when a
+request times out, is cancelled, hits the body cap or receives a 3xx — and what a *pooled* connection
+means for the resolver guard — is in `docs/security/TRANSPORT_RELIABILITY.md` (Phase 4.3).
+
+Bodies are structs now (`innertube/request.rs`), so "a continuation cannot carry a query" is a
+compile-time property, not a convention.
 
 ## 7. Adding a provider (the whole checklist)
 

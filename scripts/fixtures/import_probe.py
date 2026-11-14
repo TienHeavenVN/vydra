@@ -238,7 +238,10 @@ def probe_observation(summary, label):
     if label != "search_page_1":
         return {"note": "the probe only maps the first capture"}
     return {
-        "note": "the probe's own mapping of the unreduced capture",
+        "note": (
+            "the probe's own mapping of the unreduced capture, before the page-cursor fix: "
+            "next_cursor_len is one of the filter-chip tokens, not the page cursor (F-11)"
+        ),
         "items": mapping.get("summary", {}).get("items"),
         "kinds": mapping.get("summary", {}).get("kinds"),
         "parse_warnings": mapping.get("summary", {}).get("parse_warnings"),

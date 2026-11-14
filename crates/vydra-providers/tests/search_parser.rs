@@ -460,6 +460,25 @@ fn fixture(name: &str) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|err| panic!("fixture {path}: {err}"))
 }
 
+#[test]
+fn a_filter_chip_token_never_becomes_the_page_cursor() {
+    // Live evidence (run 43542839419): a first page carried six `continuationCommand` tokens — one
+    // page cursor (638 chars) and five filter chips (746/754/810/812/1018). The walk used to return a
+    // chip token, which pages a *filtered* result set instead of the next page.
+    let document = json!({
+        "header": {"searchHeaderRenderer": {"chipBar": {"chipCloudRenderer": {"chips": [
+            {"chipCloudChipRenderer": {"navigationEndpoint": {"continuationCommand": {"token": "CHIP-TOKEN"}}}},
+        ]}}}},
+        "contents": {"twoColumnSearchResultsRenderer": {"primaryContents": {"sectionListRenderer": {"contents": [
+            {"itemSectionRenderer": {"contents": [video("dQw4w9WgXcQ", "T")]}},
+            {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "PAGE-CURSOR"}}}},
+        ]}}}}
+    });
+    let (results, _) = parse(&document);
+
+    assert_eq!(results.next_cursor.as_deref(), Some("PAGE-CURSOR"));
+}
+
 // Each document below was captured by Vydra from the live endpoint (see
 // `tests/fixtures/recorded/search_web_probe_*.meta.json` for the run, the request body keys and the
 // reduction applied). The counts are exact because the reduction keeps every mapped renderer and
@@ -489,7 +508,11 @@ fn recorded_first_page_maps_every_result_and_counts_the_shorts_gap() {
         .next_cursor
         .as_deref()
         .expect("first page has a cursor");
-    assert_eq!(cursor.len(), 812, "the real token, not a placeholder");
+    assert_eq!(
+        cursor.len(),
+        638,
+        "the page cursor, not one of the filter-chip tokens on the same page"
+    );
 
     assert_eq!(
         report.unmapped_results(),
@@ -527,7 +550,11 @@ fn recorded_continuation_page_maps_every_result() {
         .next_cursor
         .as_deref()
         .expect("second page has a cursor");
-    assert_eq!(cursor.len(), 732);
+    assert_eq!(
+        cursor.len(),
+        1320,
+        "the continuation page carries one page cursor (1320) and six chip tokens"
+    );
     assert_eq!(
         report.unmapped_results(),
         1,
@@ -567,7 +594,11 @@ fn recorded_mixed_page_maps_all_kinds_it_can() {
         results.estimated_results.as_ref().map(|count| count.value),
         Some(200_258)
     );
-    assert_eq!(results.next_cursor.as_deref().map(str::len), Some(818));
+    assert_eq!(
+        results.next_cursor.as_deref().map(str::len),
+        Some(612),
+        "the page cursor; the chip tokens on this page are longer"
+    );
     assert_eq!(report.unmapped_results(), 65, "two Shorts shelves");
     assert_eq!(report.unknown_renderers(), 0);
 }

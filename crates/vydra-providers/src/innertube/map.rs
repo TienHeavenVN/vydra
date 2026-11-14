@@ -283,7 +283,7 @@ fn playlist_summary_from_renderer(
         item_count: ["videoCount", "videoCountText"].iter().find_map(|key| {
             renderer
                 .get(*key)
-                .and_then(|value| text_of(value))
+                .and_then(text_of)
                 .and_then(|text| count_from_text(&text))
         }),
         thumbnails: renderer

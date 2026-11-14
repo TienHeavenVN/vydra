@@ -1,14 +1,21 @@
 # InnerTube request contracts — what Vydra sends and what it expects back
 
-**Status of the evidence.** Vydra has never made a request to YouTube. Nothing in this document is a
-live verification: every statement is either (a) read out of Vydra's own code, (b) read out of a
-reference implementation that is publicly readable, or (c) checked against a *recorded* response that
-a third-party test suite captured. Rows that only have (b) are marked **inferred**; rows that have a
-recording are marked **recorded**. The distinction is deliberate — see
-`docs/research/FIXTURE_PROVENANCE.md` and `docs/PROGRESS.md` for the standing rule.
+**Status of the evidence.** Vydra made its first live requests in Phase 4.3 (2026-11-14, runs
+`43541388070` and `43542839419`; five captures analysed in
+`docs/research/SEARCH_RESPONSE_ANALYSIS.md`). Rows are therefore labelled with three classes:
 
-Phase 4.2 scope: verify existing contracts. No new engine, no new endpoint, no signature /
-`n-sig` / PoToken handling, and no fabricated playback URL.
+* **verified_live** — Vydra sent the request through the production transport and recorded the
+  response it got back (run id + status + body size are cited);
+* **recorded** — a *third party's* recording, reduced into this repository (see
+  `docs/research/FIXTURE_PROVENANCE.md`);
+* **inferred** — read out of Vydra's code and a public reference implementation, never observed.
+
+Only `/youtubei/v1/search` has verified_live rows. The player endpoint, the `params` encoding and
+everything behind the unverified-filters capability are still inferred, and are labelled that way.
+Nothing below is a claim about what upstream *should* answer.
+
+Phase 4.3 scope: evidence and reliability for the existing search provider. No new engine, no new
+endpoint, no signature / `n-sig` / PoToken handling, no fabricated playback URL, no enabled filters.
 
 ---
 
@@ -96,7 +103,7 @@ Body root (both endpoints):
 | `x-youtube-client-name` | `client.rs::headers` | yt-dlp `_base.py:978-1000` (`generate_api_headers`); MediaServiceCore `HTTPClient.kt:122-147` |
 | `x-youtube-client-version` | same | same |
 | `x-goog-visitor-id` | same | yt-dlp `_base.py:978-1000`; YouTube.js `src/utils/HTTPClient.ts#L192` |
-| `context` object | `client.rs::context_value` | yt-dlp `_base.py:852-866` (`{'context': …, **query}`) |
+| `context` object | `innertube/request.rs::ClientContext::new` | yt-dlp `_base.py:852-866` (`{'context': …, **query}`); **verified_live** (every capture carried it) |
 
 Two divergences from MediaServiceCore are intentional and documented:
 
@@ -105,6 +112,23 @@ Two divergences from MediaServiceCore are intentional and documented:
 * MediaServiceCore copies `visitorData` into the header even when it is empty (empty header value);
   Vydra omits the header instead. An empty header is treated as "absent" upstream, so the difference
   is not observable.
+
+### 3.1 Typed bodies (`innertube/request.rs`)
+
+Since Phase 4.3 the bodies are structs, not `json!` literals, so the contract is enforced by the type
+rather than by review:
+
+| Type | Wire shape | Guarantee |
+| --- | --- | --- |
+| `ClientContext` | `{client{hl,gl,clientName,clientVersion,originalUrl[,platform][,visitorData]}, user{lockedSafetyMode}, request{useSsl,internalExperimentFlags}}` | one constructor for every endpoint; `visitorData` omitted when the bootstrap produced none; member order fixed |
+| `SearchRequest` | `{context, query[, params]}` | `params` is private, `None` by default, and skipped when absent — a search without filters cannot accidentally serialize one |
+| `ContinuationRequest` | `{context, continuation}` | **structurally cannot** carry `query` or `params` (no such fields) |
+| `PlayerRequest` | `{context, videoId, contentCheckOk, racyCheckOk}` | the two flags are always present, as the web client sends them |
+
+Field order is struct order, so the same request always serializes to the same bytes; the seven unit
+tests in `request.rs` assert the exact string, including `"platform":"DESKTOP"` for the web profile
+and the absence of `visitorData` when it is empty. `tests/request_contract.rs` keeps the endpoint,
+query-string and header assertions on top.
 
 ### A-29 — the api key was never sent (fixed in this phase)
 
@@ -126,9 +150,10 @@ POST /youtubei/v1/search?prettyPrint=false&key=…     (body: common envelope + 
 
 | Case | Body keys | Evidence |
 | --- | --- | --- |
-| first page | `context`, `query` | `SearchApiHelper.java:6-8` (`{"query": …}`), yt-dlp `_base.py:852-866` |
-| first page + filters | `context`, `query`, `params` | `SearchApiHelper.java:27` (`{"query":…,"params":…}`) — **only used when the unverified-filters capability is enabled** |
-| continuation | `context`, `continuation` | `SearchApiHelper.CONTINUATION_SEARCH`, yt-dlp `_base.py:1056` |
+| first page | `context`, `query` | **verified_live**: run `43542839419`, 200, 664 211 bytes; also `SearchApiHelper.java:6-8`, yt-dlp `_base.py:852-866` |
+| first page + filters | `context`, `query`, `params` | **inferred**: `SearchApiHelper.java:27` — only used when the unverified-filters capability is enabled, which it is not |
+| continuation | `context`, `continuation` | **verified_live**: run `43542839419`, 200, 263 144 bytes, 18 items on the second page; also `SearchApiHelper.CONTINUATION_SEARCH`, yt-dlp `_base.py:1056` |
+| malformed body (no `query`) | `context` only | **verified_live**: 400, 274 bytes, `FAILED_PRECONDITION` — the error path is real, not imagined |
 
 The query is sent as a JSON string (no URL encoding needed); `hl`/`gl` live in the context, not in the
 URL. Continuation does **not** repeat the query or the params — all three reference clients rely on
@@ -164,10 +189,20 @@ records the gap in `not_verified`.
   (`parse.rs::find_continuation`), independent of container path.
 * Cursor is opaque to Vydra; the engine encodes it for the public API and the provider sends it back
   verbatim.
-* **Recorded**: a `/youtubei/v1/browse` continuation (`recorded/continuation_browse_2023-02-23.json`:
-  5 `richItemRenderer.content.videoRenderer` items + a trailing token, 582 chars, expired). This
-  verifies token extraction and `richItemRenderer` unwrapping; it does **not** prove that a search
-  continuation has the same envelope.
+* **Verified_live** (Phase 4.3): a token taken from the first page was sent back in a body of exactly
+  `{context, continuation}` and upstream answered 200 with a complete second page — 263 144 bytes, 18
+  `videoRenderer` items and a further 1 320-char cursor (run `43542839419`). The envelope of that page
+  is *not* the first page's: it arrives as
+  `onResponseReceivedCommands[].reloadContinuationItemsCommand.continuationItems[]`
+  (`docs/research/SEARCH_RESPONSE_ANALYSIS.md` §2).
+* **Caveat, same run**: the token the probe sent was a *filter-chip* token, not the page cursor (the
+  extraction bug is analysed in `docs/research/SEARCH_RESPONSE_ANALYSIS.md` §2.1 and fixed in
+  `parse.rs::find_continuation`). The request *shape* is verified; which page/filter that response
+  represents is not.
+* **Recorded** (Phase 4.2): a `/youtubei/v1/browse` continuation
+  (`recorded/continuation_browse_2023-02-23.json`: 5 `richItemRenderer.content.videoRenderer` items +
+  a trailing token, 582 chars, expired) — kept because it exercises `richItemRenderer` unwrapping,
+  which search continuations do not use.
 * Page size: `limit` is applied locally after mapping and recorded as `page_truncated`, so Vydra
   never claims upstream honoured a page size it was not asked for.
 
@@ -221,20 +256,25 @@ attempts to decipher, unwrap, or construct a URL.
   the call is attempted (`ProviderError::Timeout`).
 * Transport-level: `connect_timeout` 3 s; the whole exchange is bounded by the per-request timeout
   passed into `TransportRequest.timeout`.
-* Response body cap: `max_response_bytes` (default 8 MiB) → `Parse` error mentioning the cap.
+* Response body cap: `max_response_bytes` (default 4 MiB) → `Parse` error mentioning the cap; the
+  body is streamed and the cap is checked before the next chunk is appended
+  (`transport.rs::execute_once`).
 * Redirects: none (`Policy::none()`); a `3xx` cannot move the request to another host.
 
 ---
 
-## 6. What would turn each "inferred" row into "recorded"
+## 6. What is still not verified (after Phase 4.3)
 
-| Row | Missing evidence |
-| --- | --- |
-| `/search` container path | one recorded `/youtubei/v1/search` response (first page) |
-| search continuation envelope | one recorded search continuation response |
-| `sw.js_data` bootstrap shape today | one recorded bootstrap document, or a real request |
-| `params` protobuf encoding | a recorded filtered-search request/response pair |
-| player response *today* | the newest recording is 2025-11-10 and predates this phase by a year |
+| Row | Status | Why it stays open |
+| --- | --- | --- |
+| `/search` container path | **verified_live** | two captures, both the first page and a continuation |
+| search continuation envelope | **verified_live** | token-only body accepted; different envelope, now documented |
+| `sw.js_data` bootstrap shape | **verified_live (indirectly)** | every run produced a visitor id and an API key and the subsequent request was accepted; the bootstrap document itself is not stored |
+| `params` protobuf encoding | **inferred** | filters stay disabled (`enable_unverified_filters: false`); one filtered request/response pair would be needed, and it is not worth sending unverified bytes |
+| player response *today* | **recorded (2025-11-10)** | the search probe does not call `/player`; a player probe is Phase 4.4 work |
+| region / language variance | **open** | one capture, `gl=US`, `hl=en` |
+| Shorts / lockup cards | **counted, unmapped** | see `docs/research/SEARCH_RESPONSE_ANALYSIS.md` §3 |
 
-None of these can be produced without making a live request, which this phase deliberately does not
-do. They are listed here, in `docs/PROGRESS.md` and in the phase report as the honest boundary.
+What the remaining rows need is another live capture, not more reading. The capture path exists
+(`crates/vydra-providers/examples/probe_search.rs` + `.github/workflows/probe.yml`) so a later phase
+can extend it instead of guessing.

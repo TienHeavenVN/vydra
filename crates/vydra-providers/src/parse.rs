@@ -357,11 +357,66 @@ pub fn thumbnails_of(value: &Value) -> Vec<Thumbnail> {
         .collect()
 }
 
-/// Find the first `continuationCommand.token` anywhere in the tree.
+/// Find the token that continues the *page*, not a filter chip.
 ///
-/// Continuation tokens are opaque; every reference implementation round-trips them unresolved
-/// (`docs/research/EXTRACTION_METHODS.md` §5.3).
+/// A search response carries two families of tokens:
+///
+/// * the page cursor, on `continuationItemRenderer.continuationEndpoint.continuationCommand`;
+/// * one token per filter chip, on `chipCloudChipRenderer.navigationEndpoint.continuationCommand`.
+///
+/// They are different operations: a chip token asks upstream for a *filtered or re-sorted* result set.
+/// Phase 4.3 measured the difference on a live page — the walk below returned the chip token
+/// (812 chars) while the page cursor was 638 chars, so "next page" would have silently changed the
+/// result set instead of paging it (that is also why the captured "page 2" is a chip continuation, see
+/// `docs/research/SEARCH_RESPONSE_ANALYSIS.md`). The cursor is therefore taken from the item renderer
+/// first; any other `continuationCommand` is a fallback for older envelopes that hang the token off
+/// the section itself.
 pub fn find_continuation(root: &Value) -> Option<String> {
+    find_page_cursor(root).or_else(|| find_any_continuation_token(root))
+}
+
+/// `continuationItemRenderer.continuationEndpoint.continuationCommand.token`.
+fn find_page_cursor(root: &Value) -> Option<String> {
+    let mut stack = vec![root];
+    let mut visited = 0usize;
+    while let Some(node) = stack.pop() {
+        visited += 1;
+        if visited > MAX_NODES {
+            return None;
+        }
+        match node {
+            Value::Object(map) => {
+                let token = map
+                    .get("continuationItemRenderer")
+                    .and_then(|item| item.get("continuationEndpoint"))
+                    .and_then(|endpoint| endpoint.get("continuationCommand"))
+                    .and_then(|command| command.get("token"))
+                    .and_then(Value::as_str)
+                    .filter(|token| !token.is_empty());
+                if let Some(token) = token {
+                    return Some(token.to_owned());
+                }
+                for value in map.values() {
+                    if value.is_object() || value.is_array() {
+                        stack.push(value);
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items {
+                    if item.is_object() || item.is_array() {
+                        stack.push(item);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Any `continuationCommand.token`, wherever it is (fallback path).
+fn find_any_continuation_token(root: &Value) -> Option<String> {
     let mut stack = vec![root];
     let mut visited = 0usize;
     while let Some(node) = stack.pop() {

@@ -1,6 +1,6 @@
 # Progress and Verification Status
 
-Last updated: 2026-11-13. This file is the authoritative answer to "does it work?".
+Last updated: 2026-11-14. This file is the authoritative answer to "does it work?".
 
 ## Blocked verification (read first)
 
@@ -23,8 +23,12 @@ Consequences, stated plainly:
    `docs/security/PROVIDER_ENGINE_AUDIT.md` §0 for the exact method.
 2. **No test result is reported as passing unless a CI run says so.** Every claim below names the run
    it came from; unexecuted tests stay labelled unexecuted.
-3. **No upstream request has ever been made.** Anything about live YouTube behaviour is derived from
-   reading the reference implementations (`docs/research/`), not from observation.
+3. **Upstream requests are made only from CI, and only by the probe.** Phase 4.3 changed this: on
+   2026-11-14 five `/youtubei/v1/search` requests were sent through the production transport from a
+   GitHub-hosted runner (runs `43541388070`, `43542839419`) and reduced into
+   `crates/vydra-providers/tests/fixtures/recorded/search_web_probe_*.json`. The sandbox still cannot
+   reach YouTube, so everything about live behaviour outside those captures is derived from the
+   reference implementations in `docs/research/`.
 4. Because of (3), capabilities that depend on unverified encodings are **not declared** by default
    (see "Conservative capability policy").
 5. The CI status of any commit is a moving target; the authoritative source is the Actions run for the
@@ -40,11 +44,26 @@ Consequences, stated plainly:
 | 4 — Provider engine | **audited, remediated, verification in CI** | contract, transport, InnerTube search/player/captions, registry, fixtures; 20 findings closed (see `docs/security/PROVIDER_ENGINE_AUDIT.md`) |
 | 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
 | 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
+| 4.3 — Search evidence & reliability | **in progress (this change)** | 5 live captures, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video + chapters + captions metadata | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 4.3 — search evidence and reliability (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Vydra can talk to `/youtubei/v1/search` through its own transport | 5 captures, statuses 200×4 + 400, run [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419); first capture run [43541388070](https://github.com/TienHeavenVN/vydra/actions/runs/43541388070) |
+| A search continuation works with the token alone | page 2 arrived with a `{context, continuation}` body: 200, 263 144 B, 18 items |
+| A malformed search body is rejected, not silently emptied | 400 `FAILED_PRECONDITION`, 274 B, captured verbatim |
+| Request bodies are typed, not assembled ad hoc | `innertube/request.rs` (7 unit tests) + `tests/request_contract.rs` |
+| The parser cannot turn unknown content into an item | `tests/search_parser.rs` (19 tests, 5 of them on the probe recordings) |
+| Transport failures are typed and not retried | `tests/transport_reliability.rs` (6 tests) |
+| Type-scoped filters are still disabled | `enable_unverified_filters: false`; no `params` on any request the probe sent |
+
+Full detail, including what the captures *do not* prove, is in `docs/reports/PHASE_4_3_REPORT.md`.
 
 ## Phase 4.1 — compile stabilisation (what CI actually proved)
 
