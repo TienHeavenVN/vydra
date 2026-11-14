@@ -1,0 +1,186 @@
+{
+  "probe": {
+    "client_name": "WEB",
+    "client_name_id": "1",
+    "client_version": "2.20260805.01.00",
+    "empty_query": "zzqqxxvydraprobe9931",
+    "generated_at": "2026-11-14T01:49:52.705963969Z",
+    "gl": "US",
+    "has_api_key": true,
+    "has_visitor_data": true,
+    "hl": "en",
+    "mixed_query": "veritasium",
+    "probe_version": "0.1.0",
+    "provider_mapping": {
+      "endpoint": "search",
+      "ok": true,
+      "summary": {
+        "estimated_results": 23544833,
+        "first": {
+          "duration_seconds": 440,
+          "id": "koft_Yschnc",
+          "kind": "video",
+          "title": "Billy Joel - Captain Jack (Audio)",
+          "view_count": 2379683
+        },
+        "items": 19,
+        "kinds": [
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "channel",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video",
+          "video"
+        ],
+        "next_cursor_len": 812,
+        "parse_warnings": 133
+      }
+    },
+    "query": "captain jack"
+  },
+  "records": [
+    {
+      "bytes": 664211,
+      "channel_renderers": 1,
+      "continuation_token_len": 812,
+      "elapsed_ms": 638,
+      "estimated_results": "23544834",
+      "item_sections": 1,
+      "label": "search_page_1",
+      "playlist_renderers": 0,
+      "request_body_keys": [
+        "context",
+        "query"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>",
+      "shelf_renderers": 0,
+      "status": 200,
+      "top_level_keys": [
+        "contents",
+        "estimatedResults",
+        "frameworkUpdates",
+        "header",
+        "responseContext",
+        "targetId",
+        "topbar",
+        "trackingParams"
+      ],
+      "video_renderers": 18
+    },
+    {
+      "bytes": 263144,
+      "channel_renderers": 0,
+      "continuation_token_len": 732,
+      "elapsed_ms": 320,
+      "estimated_results": "19",
+      "item_sections": 1,
+      "label": "search_page_2",
+      "playlist_renderers": 0,
+      "request_body_keys": [
+        "context",
+        "continuation"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>",
+      "shelf_renderers": 0,
+      "status": 200,
+      "top_level_keys": [
+        "estimatedResults",
+        "onResponseReceivedCommands",
+        "responseContext",
+        "topbar",
+        "trackingParams"
+      ],
+      "video_renderers": 18
+    },
+    {
+      "bytes": 1396201,
+      "channel_renderers": 1,
+      "continuation_token_len": 818,
+      "elapsed_ms": 688,
+      "estimated_results": "200258",
+      "item_sections": 1,
+      "label": "search_mixed",
+      "playlist_renderers": 0,
+      "request_body_keys": [
+        "context",
+        "query"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>",
+      "shelf_renderers": 1,
+      "status": 200,
+      "top_level_keys": [
+        "contents",
+        "estimatedResults",
+        "frameworkUpdates",
+        "header",
+        "responseContext",
+        "targetId",
+        "topbar",
+        "trackingParams"
+      ],
+      "video_renderers": 29
+    },
+    {
+      "bytes": 21748,
+      "channel_renderers": 0,
+      "continuation_token_len": null,
+      "elapsed_ms": 1328,
+      "estimated_results": "0",
+      "item_sections": 1,
+      "label": "search_empty",
+      "playlist_renderers": 0,
+      "request_body_keys": [
+        "context",
+        "query"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>",
+      "shelf_renderers": 0,
+      "status": 200,
+      "top_level_keys": [
+        "contents",
+        "estimatedResults",
+        "header",
+        "responseContext",
+        "targetId",
+        "topbar",
+        "trackingParams"
+      ],
+      "video_renderers": 0
+    },
+    {
+      "bytes": 274,
+      "channel_renderers": 0,
+      "continuation_token_len": null,
+      "elapsed_ms": 18,
+      "estimated_results": null,
+      "item_sections": 0,
+      "label": "search_error",
+      "playlist_renderers": 0,
+      "request_body_keys": [
+        "client",
+        "request",
+        "user"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>",
+      "shelf_renderers": 0,
+      "status": 400,
+      "top_level_keys": [
+        "error"
+      ],
+      "video_renderers": 0
+    }
+  ]
+}
