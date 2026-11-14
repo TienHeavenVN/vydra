@@ -847,7 +847,9 @@ pub fn map_player(
     //
     // Neither outcome may claim `Available`, and an unrecognised verdict is never silent.
     let playability = dto.playability_status.as_ref();
-    let raw_status = playability.and_then(|status| status.status.as_ref()).and_then(text_of);
+    let raw_status = playability
+        .and_then(|status| status.status.as_ref())
+        .and_then(text_of);
     let verdict = match playability {
         Some(status) => classify_playability(status),
         None => Playability::Missing,
@@ -878,13 +880,14 @@ pub fn map_player(
 
     // Identity is required, not optional: without `videoDetails.videoId` the document cannot be
     // attributed to the requested id, so this is a parse failure rather than a nullable field.
-    let upstream_id = details
-        .video_id
-        .as_ref()
-        .and_then(text_of)
-        .ok_or_else(|| ProviderError::Parse {
-            message: "player response without videoDetails.videoId".into(),
-        })?;
+    let upstream_id =
+        details
+            .video_id
+            .as_ref()
+            .and_then(text_of)
+            .ok_or_else(|| ProviderError::Parse {
+                message: "player response without videoDetails.videoId".into(),
+            })?;
     if upstream_id != expected_id.as_str() {
         // Documented upstream behaviour: an outdated client can answer with another video
         // (`docs/research/EXTRACTION_METHODS.md` §13).
@@ -913,9 +916,10 @@ pub fn map_player(
     // --- text fields -------------------------------------------------------------
     let title = match details.title.as_ref().and_then(text_of) {
         Some(title) => Some(title),
-        None => micro.and_then(|micro| micro.title.as_ref()).and_then(text_of).inspect(
-            |_| evidence.fallback("title", FieldSource::Microformat),
-        ),
+        None => micro
+            .and_then(|micro| micro.title.as_ref())
+            .and_then(text_of)
+            .inspect(|_| evidence.fallback("title", FieldSource::Microformat)),
     };
     let title = title.unwrap_or_else(|| {
         report.missing_field("videoDetails", "title");
@@ -982,7 +986,9 @@ pub fn map_player(
 
     // --- publication -------------------------------------------------------------
     let publication = publication_from(micro, report);
-    let published_at = publication.as_ref().map(|publication| publication.published_at);
+    let published_at = publication
+        .as_ref()
+        .map(|publication| publication.published_at);
 
     // --- broadcast state ---------------------------------------------------------
     let broadcast = broadcast_from(micro);
@@ -1345,15 +1351,13 @@ fn storyboards_from(
             report.warn("storyboards_unparsed");
             return None;
         }
-        let parsed = fields
-            .get(0..6)
-            .and_then(|fields| {
-                let mut numbers = [0u32; 6];
-                for (slot, raw) in numbers.iter_mut().zip(fields) {
-                    *slot = raw.trim().parse::<u32>().ok()?;
-                }
-                Some(numbers)
-            });
+        let parsed = fields.get(0..6).and_then(|fields| {
+            let mut numbers = [0u32; 6];
+            for (slot, raw) in numbers.iter_mut().zip(fields) {
+                *slot = raw.trim().parse::<u32>().ok()?;
+            }
+            Some(numbers)
+        });
         let Some([width, height, frame_count, columns, rows, interval_ms]) = parsed else {
             report.warn("storyboards_unparsed");
             return None;
@@ -1868,7 +1872,10 @@ mod tests {
             Some(UtcOffset::UTC)
         );
         // The summary keeps carrying the same instant, so existing clients are unaffected.
-        assert_eq!(document.summary.published_at, Some(publication.published_at));
+        assert_eq!(
+            document.summary.published_at,
+            Some(publication.published_at)
+        );
     }
 
     #[test]
@@ -1950,15 +1957,25 @@ mod tests {
         ));
 
         assert_eq!(document.summary.title, "Microformat title");
-        assert_eq!(document.description.as_deref(), Some("Microformat description"));
+        assert_eq!(
+            document.description.as_deref(),
+            Some("Microformat description")
+        );
         assert_eq!(
             document.summary.channel_id.as_ref().map(|id| id.as_str()),
             Some("UCuAXFkgsw1L7xaCfnd5JJOw")
         );
-        assert_eq!(document.summary.channel_title.as_deref(), Some("Rick Astley"));
+        assert_eq!(
+            document.summary.channel_title.as_deref(),
+            Some("Rick Astley")
+        );
         assert_eq!(document.summary.duration_seconds, Some(213));
         assert_eq!(
-            document.summary.view_count.as_ref().map(|count| count.value),
+            document
+                .summary
+                .view_count
+                .as_ref()
+                .map(|count| count.value),
             Some(1_836_979_877)
         );
         assert_eq!(document.category.as_deref(), Some("Music"));
@@ -1979,12 +1996,13 @@ mod tests {
             "duration_seconds",
             "view_count",
         ] {
-            assert!(fallbacks.contains(&field), "{field} missing from {fallbacks:?}");
+            assert!(
+                fallbacks.contains(&field),
+                "{field} missing from {fallbacks:?}"
+            );
         }
         assert!(
-            document
-                .evidence
-                .has_section(FieldSource::Microformat)
+            document.evidence.has_section(FieldSource::Microformat)
                 && document.evidence.has_section(FieldSource::VideoDetails)
         );
     }
@@ -1995,7 +2013,10 @@ mod tests {
             json!({}),
             json!({"videoId": "dQw4w9WgXcQ", "title": "t", "lengthSeconds": "two minutes"}),
         ));
-        assert!(document.summary.duration_seconds.is_none(), "never 0, never a guess");
+        assert!(
+            document.summary.duration_seconds.is_none(),
+            "never 0, never a guess"
+        );
         assert!(
             report
                 .messages()
@@ -2009,10 +2030,12 @@ mod tests {
             json!({}),
             json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
         ));
-        assert!(!report
-            .messages()
-            .iter()
-            .any(|message| message.contains("lengthSeconds")));
+        assert!(
+            !report
+                .messages()
+                .iter()
+                .any(|message| message.contains("lengthSeconds"))
+        );
     }
 
     #[test]
@@ -2024,7 +2047,10 @@ mod tests {
         let (document, _) = map(&payload);
         assert_eq!(document.availability, Availability::Live);
         assert_eq!(document.summary.live_state, Some(LiveState::Live));
-        assert!(document.availability.is_available(), "live content is playable");
+        assert!(
+            document.availability.is_available(),
+            "live content is playable"
+        );
 
         let payload = json!({
             "playabilityStatus": {"status": "OK"},
@@ -2097,7 +2123,10 @@ mod tests {
             "storyboards": {"playerStoryboardSpecRenderer": {"spec": "https://example.invalid/sb|48#27"}}
         });
         let (document, report) = map(&payload);
-        assert!(document.storyboards.is_none(), "half a spec is not a storyboard");
+        assert!(
+            document.storyboards.is_none(),
+            "half a spec is not a storyboard"
+        );
         assert!(
             report
                 .messages()
@@ -2129,7 +2158,11 @@ mod tests {
         assert!(document.keywords.is_empty());
         assert_eq!(document.summary.live_state, Some(LiveState::Live));
         assert_eq!(
-            document.summary.view_count.as_ref().map(|count| count.value),
+            document
+                .summary
+                .view_count
+                .as_ref()
+                .map(|count| count.value),
             Some(12)
         );
     }

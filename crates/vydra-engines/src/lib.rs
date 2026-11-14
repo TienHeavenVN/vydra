@@ -661,11 +661,9 @@ mod tests {
 
         // The stored TTL is the short one, so the entry cannot outlive a privacy change by long.
         assert_eq!(
-            engines
-                .cache_policy()
-                .ttl(Availability::Unavailable {
-                    reason: vydra_errors::UnavailabilityReason::Private
-                }),
+            engines.cache_policy().ttl(Availability::Unavailable {
+                reason: vydra_errors::UnavailabilityReason::Private
+            }),
             Some(Duration::from_secs(60))
         );
     }
@@ -718,11 +716,9 @@ mod tests {
         // Same cache, same provider id, different client label: the second engine must not be served the
         // first engine's body (Phase 5B: the key was salted with provider ids only).
         let shared = Arc::new(MemoryCache::new(64));
-        let (first, first_calls, _) = engines_for(Availability::Available, "web-1", Some(shared.clone()));
-        first
-            .video(video_input(None))
-            .await
-            .expect("document");
+        let (first, first_calls, _) =
+            engines_for(Availability::Available, "web-1", Some(shared.clone()));
+        first.video(video_input(None)).await.expect("document");
         assert_eq!(first_calls.load(Ordering::SeqCst), 1);
 
         let (second, second_calls, _) = engines_for(Availability::Available, "web-2", Some(shared));

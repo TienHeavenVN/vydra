@@ -1141,5 +1141,4 @@ mod tests {
             "the fingerprint must be stable for the same configuration"
         );
     }
-
 }

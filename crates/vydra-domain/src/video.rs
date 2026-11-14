@@ -97,7 +97,6 @@ pub struct VideoDocument {
     pub provenance: Provenance,
 }
 
-
 /// Document returned by `GET /videos/{id}/related`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RelatedVideos {

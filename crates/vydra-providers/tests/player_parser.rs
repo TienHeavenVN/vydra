@@ -493,9 +493,7 @@ async fn live_capture_maps_the_microformat_facts_and_records_the_disagreement() 
 /// sections no capture carries together, not upstream's current behaviour.
 #[tokio::test]
 async fn synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions() {
-    let provider = provider_with(&fixture(
-        "synthetic/player_live_broadcast_storyboards.json",
-    ));
+    let provider = provider_with(&fixture("synthetic/player_live_broadcast_storyboards.json"));
     let document = document(
         video(&provider, PUBLIC_ID, Strictness::Strict)
             .await
