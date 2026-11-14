@@ -165,13 +165,14 @@ jobs:
       - name: validate OpenAPI document
         run: npx --yes @redocly/cli@latest lint docs/api/openapi.yaml
 
-  # TEMPORARY (Phase 5A): moves the player probe capture into the repository. Gated on a commit
-  # message token so ordinary pushes never run it; removed before the phase is reported complete.
-  # The permanent entry point is `.github/workflows/probe.yml` (`workflow_dispatch`, artifact only).
+  # TEMPORARY (Phase 5A): apply rustfmt, publish clippy diagnostics on failure, and move the player
+  # probe capture into the repository. Gated on a commit message token so ordinary pushes never run
+  # it; removed before the phase is reported complete. The permanent entry point for the probe is
+  # `.github/workflows/probe.yml` (`workflow_dispatch`, artifact only).
   player-probe:
     if: contains(github.event.head_commit.message, '[player-probe]')
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -179,7 +180,33 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
       - uses: Swatinem/rust-cache@v2
+      - name: configure git
+        run: |
+          git config user.name "vydra-probe"
+          git config user.email "probe@vydra.invalid"
+      - name: apply rustfmt
+        run: |
+          cargo fmt --all
+          git add -A
+          git commit -m "style: apply rustfmt" || echo "already formatted"
+      - name: clippy (diagnostics published when it fails)
+        env:
+          CARGO_TERM_COLOR: never
+        run: |
+          set -o pipefail
+          cargo clippy --workspace --all-targets --all-features -- -D warnings 2>&1 | tee clippy.log || true
+          if grep -qE "^(error|warning)" clippy.log; then
+            mkdir -p ci-diagnostics
+            {
+              echo "clippy for run ${GITHUB_RUN_ID}"
+              grep -E "^(error|warning)" -A 8 clippy.log | head -400
+            } > ci-diagnostics/clippy.log
+            git add ci-diagnostics
+            git commit -m "chore(diagnostics): clippy output for ${GITHUB_RUN_ID}" || true
+          fi
       - name: run the player evidence probe
         env:
           VYDRA_PROBE_OUT: probe-out
@@ -188,16 +215,14 @@ jobs:
       - name: archive the capture
         if: always()
         run: |
-          bash scripts/ci/annotate.sh probe.log -1 25
+          bash scripts/ci/annotate.sh probe.log -1 25 || true
           python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
           python3 scripts/fixtures/archive_probe.py probe-out "docs/research/data/player-probe-${GITHUB_RUN_ID}" \
             --kind player --capture-run "${GITHUB_RUN_ID}" | tee archive.log
-      - name: publish the capture on the branch
+      - name: publish on the branch
         if: always()
         run: |
-          git config user.name "vydra-probe"
-          git config user.email "probe@vydra.invalid"
-          git add "docs/research/data/player-probe-${GITHUB_RUN_ID}"
+          git add "docs/research/data/player-probe-${GITHUB_RUN_ID}" 2>/dev/null || true
           git commit -m "test(evidence): player probe capture ${GITHUB_RUN_ID}" || echo "nothing to publish"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
@@ -208,6 +233,7 @@ jobs:
           path: |
             probe-out
             probe.log
+            clippy.log
             archive.log
           retention-days: 14
           if-no-files-found: warn

@@ -170,10 +170,6 @@ fn object_keys(value: &Value) -> Vec<String> {
     }
 }
 
-fn top_level_keys(value: &Value) -> Vec<String> {
-    object_keys(value)
-}
-
 fn array_len(value: Option<&Value>) -> Option<usize> {
     value.and_then(Value::as_array).map(Vec::len)
 }
@@ -268,6 +264,7 @@ struct Capture {
     label: String,
     video_id: String,
     body_keys: Vec<String>,
+    payload_keys: Vec<String>,
     status: u16,
     content_type: Option<String>,
     upstream_date: Option<String>,
@@ -286,6 +283,7 @@ impl Capture {
             "method": "POST",
             "request_url": "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
             "request_body_keys": self.body_keys,
+            "response_top_level_keys": self.payload_keys,
             "status": self.status,
             "content_type": self.content_type,
             "upstream_date": self.upstream_date,
@@ -330,6 +328,7 @@ async fn record(
                 label: label.to_owned(),
                 video_id: video_id.to_owned(),
                 body_keys,
+                payload_keys: Vec::new(),
                 status: 0,
                 content_type: None,
                 upstream_date: None,
@@ -395,6 +394,7 @@ async fn record(
         label: label.to_owned(),
         video_id: video_id.to_owned(),
         body_keys,
+        payload_keys: parsed.as_ref().map(object_keys).unwrap_or_default(),
         status: response.status,
         content_type,
         upstream_date,
