@@ -14,9 +14,9 @@
 use serde_json::{Value, json};
 use time::OffsetDateTime;
 use vydra_domain::{Precision, Provenance, SearchItem};
+use vydra_providers::Strictness;
 use vydra_providers::innertube::map::map_search;
 use vydra_providers::parse::{ParseReport, collect_renderers};
-use vydra_providers::Strictness;
 
 fn provenance() -> Provenance {
     Provenance {
@@ -249,7 +249,10 @@ fn unknown_renderers_never_become_items() {
         "chrome is counted separately: {:?}",
         report.messages()
     );
-    assert!(report.content_problems() >= 1, "losing a result is a content problem");
+    assert!(
+        report.content_problems() >= 1,
+        "losing a result is a content problem"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -357,7 +360,11 @@ fn abbreviated_counts_are_marked_approximate() {
     let count = mapped.view_count.as_ref().expect("count");
     assert_eq!(count.value, 1_200);
     assert_eq!(count.precision, Precision::Approximate);
-    assert_eq!(count.raw.as_deref(), Some("1.2K views"), "the source text is kept");
+    assert_eq!(
+        count.raw.as_deref(),
+        Some("1.2K views"),
+        "the source text is kept"
+    );
 }
 
 #[test]
@@ -463,7 +470,10 @@ fn recorded_first_page_maps_every_result_and_counts_the_shorts_gap() {
         "upstream's own estimate is carried through"
     );
 
-    let cursor = results.next_cursor.as_deref().expect("first page has a cursor");
+    let cursor = results
+        .next_cursor
+        .as_deref()
+        .expect("first page has a cursor");
     assert_eq!(cursor.len(), 812, "the real token, not a placeholder");
 
     assert_eq!(
@@ -491,10 +501,17 @@ fn recorded_continuation_page_maps_every_result() {
 
     assert_eq!(results.items.len(), 18);
     assert_eq!(
-        results.items.iter().filter(|item| item.kind() == "video").count(),
+        results
+            .items
+            .iter()
+            .filter(|item| item.kind() == "video")
+            .count(),
         18
     );
-    let cursor = results.next_cursor.as_deref().expect("second page has a cursor");
+    let cursor = results
+        .next_cursor
+        .as_deref()
+        .expect("second page has a cursor");
     assert_eq!(cursor.len(), 732);
     assert_eq!(report.unmapped_results(), 0);
     assert_eq!(report.unknown_renderers(), 0);
@@ -513,11 +530,19 @@ fn recorded_mixed_page_maps_all_kinds_it_can() {
 
     assert_eq!(results.items.len(), 30, "29 videos + 1 channel");
     assert_eq!(
-        results.items.iter().filter(|item| item.kind() == "video").count(),
+        results
+            .items
+            .iter()
+            .filter(|item| item.kind() == "video")
+            .count(),
         29
     );
     assert_eq!(
-        results.items.iter().filter(|item| item.kind() == "channel").count(),
+        results
+            .items
+            .iter()
+            .filter(|item| item.kind() == "channel")
+            .count(),
         1
     );
     assert_eq!(
@@ -540,7 +565,11 @@ fn recorded_empty_page_is_empty_not_broken() {
         results.estimated_results.as_ref().map(|count| count.value),
         Some(0)
     );
-    assert_eq!(report.count(), 0, "an empty result set is not a parse warning");
+    assert_eq!(
+        report.count(),
+        0,
+        "an empty result set is not a parse warning"
+    );
 }
 
 #[test]
@@ -554,9 +583,16 @@ fn recorded_error_document_yields_no_items() {
     assert!(results.items.is_empty());
     assert!(results.next_cursor.is_none());
     assert!(results.estimated_results.is_none());
-    assert_eq!(report.count(), 0, "there is nothing to warn about: nothing was attempted");
     assert_eq!(
-        document.get("error").and_then(|error| error.get("code")).and_then(serde_json::Value::as_i64),
+        report.count(),
+        0,
+        "there is nothing to warn about: nothing was attempted"
+    );
+    assert_eq!(
+        document
+            .get("error")
+            .and_then(|error| error.get("code"))
+            .and_then(serde_json::Value::as_i64),
         Some(400),
         "the fixture really is the error document"
     );
