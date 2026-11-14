@@ -26,13 +26,13 @@ use bytes::Bytes;
 use serde_json::Value;
 use vydra_common::VideoId;
 use vydra_domain::Availability;
-use vydra_errors::UnavailabilityReason;
+use vydra_errors::{ProviderError, UnavailabilityReason};
 use vydra_providers::innertube::{
     ClientKind, ClientProfile, InnertubeProvider, InnertubeProviderConfig,
 };
 use vydra_providers::{
-    Provider, ProviderContext, ProviderError, ProviderRequest, ProviderResponse, ReplayTransport,
-    Strictness, TransportResponse,
+    Provider, ProviderContext, ProviderRequest, ProviderResponse, ReplayTransport, Strictness,
+    TransportResponse,
 };
 
 const PUBLIC_ID: &str = "dQw4w9WgXcQ";
