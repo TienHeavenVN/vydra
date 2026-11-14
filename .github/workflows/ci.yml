@@ -165,6 +165,53 @@ jobs:
       - name: validate OpenAPI document
         run: npx --yes @redocly/cli@latest lint docs/api/openapi.yaml
 
+  # TEMPORARY (Phase 5A): moves the player probe capture into the repository. Gated on a commit
+  # message token so ordinary pushes never run it; removed before the phase is reported complete.
+  # The permanent entry point is `.github/workflows/probe.yml` (`workflow_dispatch`, artifact only).
+  player-probe:
+    if: contains(github.event.head_commit.message, '[player-probe]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the player evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_player 2>&1 | tee probe.log
+      - name: archive the capture
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh probe.log -1 25
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
+          python3 scripts/fixtures/archive_probe.py probe-out "docs/research/data/player-probe-${GITHUB_RUN_ID}" \
+            --kind player --capture-run "${GITHUB_RUN_ID}" | tee archive.log
+      - name: publish the capture on the branch
+        if: always()
+        run: |
+          git config user.name "vydra-probe"
+          git config user.email "probe@vydra.invalid"
+          git add "docs/research/data/player-probe-${GITHUB_RUN_ID}"
+          git commit -m "test(evidence): player probe capture ${GITHUB_RUN_ID}" || echo "nothing to publish"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-probe-out
+          path: |
+            probe-out
+            probe.log
+            archive.log
+          retention-days: 14
+          if-no-files-found: warn
+
   docker:
     runs-on: ubuntu-latest
     steps:

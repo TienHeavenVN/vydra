@@ -332,6 +332,22 @@ impl InnertubeClient {
         body: Value,
         ctx: &ProviderContext,
     ) -> Result<(u16, Bytes), ProviderError> {
+        let response = self.post_raw_capture(endpoint, body, ctx).await?;
+        Ok((response.status, response.body))
+    }
+
+    /// The whole uninterpreted response of a raw POST, including headers and round-trip time.
+    ///
+    /// Exists for the evidence probes (`examples/probe_search.rs`, `examples/probe_player.rs`), which
+    /// must record `content-type`, `date` and latency next to the bytes. It goes through the same
+    /// guarded transport, session and header construction as [`Self::post_raw`] — there is no
+    /// second HTTP path — and it never retries.
+    pub async fn post_raw_capture(
+        &self,
+        endpoint: &str,
+        body: Value,
+        ctx: &ProviderContext,
+    ) -> Result<crate::transport::TransportResponse, ProviderError> {
         let encoded = serde_json::to_vec(&body).map_err(|err| ProviderError::InvalidRequest {
             field: "body".into(),
             issue: format!("serialize: {err}"),
@@ -342,7 +358,7 @@ impl InnertubeClient {
         let (response, _) = self
             .send(&url, ctx, Some(Bytes::from(encoded)), &session)
             .await?;
-        Ok((response.status, response.body))
+        Ok(response)
     }
 
     /// Build the shared `context` object for a session.

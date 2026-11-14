@@ -25,6 +25,18 @@ on:
         description: Query expected to return no results
         required: false
         default: zzqqxxvydraprobe9931
+      public_video_id:
+        description: Player probe — long-standing public video id
+        required: false
+        default: dQw4w9WgXcQ
+      captions_video_id:
+        description: Player probe — public video id known to carry caption tracks
+        required: false
+        default: 9Umm2MAKsMc
+      missing_video_id:
+        description: Player probe — syntactically valid id expected not to resolve
+        required: false
+        default: AAAAAAAAAAA
 
 permissions:
   contents: read
@@ -57,5 +69,45 @@ jobs:
           path: |
             probe-out
             probe.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Phase 5A: the same evidence pattern for `POST /youtubei/v1/player`. Four fixed requests against
+  # three fixed ids; no enumerate-and-retry, no playback URLs requested. The artifact is reviewable
+  # but expires, so a capture that a fixture is derived from is also archived in the repository by
+  # the archiver step (`scripts/fixtures/archive_probe.py`) and committed by hand.
+  player:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the player evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_VIDEO_PUBLIC: ${{ inputs.public_video_id }}
+          VYDRA_PROBE_VIDEO_CAPTIONS: ${{ inputs.captions_video_id }}
+          VYDRA_PROBE_VIDEO_MISSING: ${{ inputs.missing_video_id }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_player 2>&1 | tee player-probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh player-probe.log -1 25
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
+      - name: archive preview (not committed by this workflow)
+        if: always()
+        run: |
+          python3 scripts/fixtures/archive_probe.py probe-out "player-probe-archive/${GITHUB_RUN_ID}" \
+            --kind player --capture-run "${GITHUB_RUN_ID}" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-probe-out
+          path: |
+            probe-out
+            player-probe-archive
+            player-probe.log
           retention-days: 14
           if-no-files-found: warn

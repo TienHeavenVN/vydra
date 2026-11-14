@@ -197,6 +197,26 @@ impl PlayerRequest {
             racy_check_ok: true,
         }
     }
+
+    /// Same body with the two check flags chosen explicitly.
+    ///
+    /// The provider always builds [`Self::new`]; this exists so the Phase 5A probe and the contract
+    /// tests can send the *opposite* flags and see whether the verdict changes. Both flags being
+    /// `true` is what the anonymous web client sends (it is a content-warning acknowledgement, not an
+    /// age or account bypass — the age gate still answers `LOGIN_REQUIRED`).
+    pub fn with_checks(
+        context: ClientContext,
+        video_id: impl Into<String>,
+        content_check_ok: bool,
+        racy_check_ok: bool,
+    ) -> Self {
+        Self {
+            context,
+            video_id: video_id.into(),
+            content_check_ok,
+            racy_check_ok,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -276,6 +296,18 @@ mod tests {
         assert!(json.ends_with(r#","continuation":"CBQSCBg"}"#), "{json}");
         assert!(!json.contains("query"), "{json}");
         assert!(!json.contains("params"), "{json}");
+    }
+
+    #[test]
+    fn player_request_serializes_opposite_check_flags_verbatim() {
+        let request = PlayerRequest::with_checks(context(), "AAAAAAAAAAA", false, false);
+        let json = serde_json::to_string(&request).expect("serialize");
+        assert!(
+            json.ends_with(
+                r#","videoId":"AAAAAAAAAAA","contentCheckOk":false,"racyCheckOk":false}"#
+            ),
+            "{json}"
+        );
     }
 
     #[test]
