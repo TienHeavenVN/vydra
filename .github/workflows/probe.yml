@@ -1,0 +1,266 @@
+name: probe
+
+# Manual only. This workflow performs real requests to www.youtube.com through Vydra's guarded
+# transport so that the recorded fixture corpus can contain captures made by Vydra itself, with a
+# stated date and a stated redaction pass. It is deliberately *not* part of `ci.yml`:
+#
+#   * it needs egress to YouTube, which the CI policy does not otherwise require;
+#   * it must never be a required check, because a blocked datacenter IP is a fact about the runner,
+#     not a regression in Vydra;
+#   * it uploads evidence artifacts instead of asserting anything, so nothing depends on it passing.
+#
+# See docs/research/SEARCH_RESPONSE_ANALYSIS.md and scripts/fixtures/import_probe.py.
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: Primary search query
+        required: false
+        default: captain jack
+      mixed_query:
+        description: Query expected to mix renderer kinds (video + channel + playlist)
+        required: false
+        default: veritasium
+      empty_query:
+        description: Query expected to return no results
+        required: false
+        default: zzqqxxvydraprobe9931
+      public_video_id:
+        description: Player probe — long-standing public video id
+        required: false
+        default: dQw4w9WgXcQ
+      captions_video_id:
+        description: Player probe — public video id known to carry caption tracks
+        required: false
+        default: 9Umm2MAKsMc
+      missing_video_id:
+        description: Player probe — syntactically valid id expected not to resolve
+        required: false
+        default: AAAAAAAAAAA
+      channel_id:
+        description: Browse probe — long-standing public channel id
+        required: false
+        default: UCHnyfMqiRRG1u-2MsSQLbXA
+      channel_handle:
+        description: Browse probe — the same channel's handle (tests whether a handle is a browse id)
+        required: false
+        default: '@veritasium'
+      comments_video_id:
+        description: Comments probe — long-standing public video id with an open comment section
+        required: false
+        default: dQw4w9WgXcQ
+      comments_missing_video_id:
+        description: Comments probe — syntactically valid id expected not to resolve
+        required: false
+        default: AAAAAAAAAAA
+
+  # Not dispatchable until this file exists on the default branch (GitHub resolves `workflow_dispatch`
+  # against `main`). Touching the marker file runs the same probe from a branch, which is how the Phase 6
+  # browse captures were made.
+  push:
+    paths:
+      - '.github/probe-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_QUERY: ${{ inputs.query }}
+          VYDRA_PROBE_MIXED_QUERY: ${{ inputs.mixed_query }}
+          VYDRA_PROBE_EMPTY_QUERY: ${{ inputs.empty_query }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_search 2>&1 | tee probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh probe.log -1 25
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-out
+          path: |
+            probe-out
+            probe.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Phase 5A: the same evidence pattern for `POST /youtubei/v1/player`. Four fixed requests against
+  # three fixed ids; no enumerate-and-retry, no playback URLs requested. The artifact is reviewable
+  # but expires, so a capture that a fixture is derived from is also archived in the repository by
+  # the archiver step (`scripts/fixtures/archive_probe.py`) and committed by hand.
+  player:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the player evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_VIDEO_PUBLIC: ${{ inputs.public_video_id }}
+          VYDRA_PROBE_VIDEO_CAPTIONS: ${{ inputs.captions_video_id }}
+          VYDRA_PROBE_VIDEO_MISSING: ${{ inputs.missing_video_id }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_player 2>&1 | tee player-probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh player-probe.log -1 25
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
+      - name: archive preview (not committed by this workflow)
+        if: always()
+        run: |
+          python3 scripts/fixtures/archive_probe.py probe-out "player-probe-archive/${GITHUB_RUN_ID}" \
+            --kind player --capture-run "${GITHUB_RUN_ID}" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-probe-out
+          path: |
+            probe-out
+            player-probe-archive
+            player-probe.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Phase 6: the same evidence pattern for `POST /youtubei/v1/browse`. Six fixed requests: a channel page
+  # by id, the same page by handle, the videos tab addressed with the `params` the page itself carried, one
+  # entry continuation of that tab, the channel's uploads playlist, and one entry continuation of the
+  # playlist. Public resources only; no enumeration, no sign-in, no consent/PoToken trickery.
+  #
+  # The captures are redacted (tracking/identity keys dropped, URL query strings removed), land in an
+  # artifact, and the channel page is additionally printed as base64 in the log so a genuine capture can be
+  # recovered when artifacts are not reachable.
+  browse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the browse evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_CHANNEL_ID: ${{ inputs.channel_id || 'UCHnyfMqiRRG1u-2MsSQLbXA' }}
+          VYDRA_PROBE_CHANNEL_HANDLE: ${{ inputs.channel_handle || '@veritasium' }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_browse 2>&1 | tee browse-probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          # The job log is not downloadable from the build sandbox, so the probe's own summary lines are
+          # republished as annotations. `b64` chunks carry the capture itself and are counted, not
+          # republished.
+          python3 - browse-probe.log <<'PY'
+          import os
+          import re
+          import sys
+
+          path = sys.argv[1]
+          if not os.path.exists(path):
+              sys.exit(0)
+          lines = [line.rstrip() for line in open(path, errors="replace") if line.startswith("PROBE")]
+          b64 = [line for line in lines if line.startswith("PROBE b64 ")]
+          rest = [line for line in lines if not line.startswith("PROBE b64 ")]
+          # One annotation per group: the check-run annotation budget here is ten, so a line per
+          # annotation would hide the interesting ones.
+          print("::notice title=probe::%d lines, %d base64 chunk lines" % (len(rest), len(b64)))
+          structural = [line for line in rest if " struct_" in line]
+          summary = [line for line in rest if " struct_" not in line]
+          for title, lines in (("probe", summary), ("struct", structural)):
+              if not lines:
+                  continue
+              payload = "\n".join(line[:1400] for line in lines)
+              print("::error title=%s::" % title + payload.replace("%", "%25").replace("\n", "%0A"))
+          PY
+      - name: archive preview (not committed by this workflow)
+        if: always()
+        run: |
+          python3 scripts/fixtures/archive_probe.py probe-out "browse-probe-archive/${GITHUB_RUN_ID}" \
+            --kind browse --capture-run "${GITHUB_RUN_ID}" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browse-probe-out
+          path: |
+            probe-out
+            browse-probe-archive
+            browse-probe.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Phase 7: the same evidence pattern for `POST /youtubei/v1/next`, comments only. Five fixed requests: the
+  # watch page whose comment section carries the section token, the comment page that token addresses, the same
+  # page in the other order (addressed with the token the page's own sort menu carried), one reply page for the
+  # first thread that rendered a reply continuation, and the watch page of an id expected not to resolve.
+  #
+  # Read-only, as the whole engine is: nothing is posted, edited, deleted or liked, no session is created and no
+  # sign-in or bot check is attempted. A refusal is recorded as a refusal.
+  #
+  # Comment text and author names are replaced by their length before anything is written: the artifact keeps the
+  # shape, not somebody's words. The first comment page is also printed as base64 so a genuine capture survives
+  # when artifacts are not reachable.
+  comments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the comments evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_COMMENTS_VIDEO: ${{ inputs.comments_video_id || 'dQw4w9WgXcQ' }}
+          VYDRA_PROBE_COMMENTS_MISSING_VIDEO: ${{ inputs.comments_missing_video_id || 'AAAAAAAAAAA' }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_comments 2>&1 | tee comments-probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          python3 - comments-probe.log <<'PY2'
+          import os
+          import sys
+
+          path = sys.argv[1]
+          if not os.path.exists(path):
+              sys.exit(0)
+          lines = [line.rstrip() for line in open(path, errors="replace") if line.startswith("PROBE")]
+          b64 = [line for line in lines if line.startswith("PROBE b64 ")]
+          rest = [line for line in lines if not line.startswith("PROBE b64 ")]
+          # The annotation budget is ten per check run, so everything goes into a few grouped annotations.
+          print("::notice title=comments-probe::%d lines, %d base64 chunk lines" % (len(rest), len(b64)))
+          structural = [line for line in rest if " struct_" in line]
+          summary = [line for line in rest if " struct_" not in line]
+          for title, group in (("comments-probe", summary), ("comments-shape", structural)):
+              if not group:
+                  continue
+              payload = "\n".join(line[:1400] for line in group)
+              print("::error title=%s::" % title + payload.replace("%", "%25").replace("\n", "%0A"))
+          PY2
+      - name: archive preview (not committed by this workflow)
+        if: always()
+        run: |
+          python3 scripts/fixtures/archive_probe.py probe-out "comments-probe-archive/${GITHUB_RUN_ID}" \
+            --kind comments --capture-run "${GITHUB_RUN_ID}" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comments-probe-out
+          path: |
+            probe-out
+            comments-probe-archive
+            comments-probe.log
+          retention-days: 14
+          if-no-files-found: warn

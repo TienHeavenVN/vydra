@@ -1,0 +1,61 @@
+{
+  "class": "recorded_vydra_probe",
+  "note": "Captured by Vydra itself, not by hand and not by a third party: crates/vydra-providers/examples/probe_search.rs ran through the production ReqwestTransport on a GitHub Actions runner. Reduced (projected, never rewritten) by scripts/fixtures/import_probe.py.",
+  "captured_at": "2026-11-14T02:04:50.51169735Z",
+  "captured_by": "vydra-providers example probe_search (GitHub Actions runner)",
+  "capture_workflow": ".github/workflows/ci.yml job probe (commit message [probe])",
+  "request": {
+    "endpoint": "https://www.youtube.com/youtubei/v1/search",
+    "query_string": "prettyPrint=false&key=<redacted>",
+    "body_keys": [
+      "context",
+      "continuation"
+    ],
+    "client": {
+      "clientName": "WEB",
+      "clientVersion": "2.20260805.01.00",
+      "hl": "en",
+      "gl": "US"
+    },
+    "had_api_key": true,
+    "had_visitor_data": true
+  },
+  "http": {
+    "status": 200,
+    "bytes": 488298,
+    "elapsed_ms": 609
+  },
+  "reduction": [
+    "kept the container chain (contents/sectionListRenderer/itemSectionRenderer/shelf) and top-level action envelopes",
+    "projected every mapped renderer to the keys the mapper reads",
+    "kept continuation tokens verbatim (they expire; none is presented as usable)",
+    "kept estimatedResults",
+    "content shapes without a mapping kept as empty objects (counted as unmapped_content by the parser): ['lockupViewModel', 'shortsLockupViewModel']",
+    "page chrome dropped entirely (it is not a result and the parser counts it as unknown_renderer only): 8 occurrence(s) across 4 key(s)",
+    "dropped 0 non-renderer keys that no parser reads"
+  ],
+  "redaction": [
+    "api key, visitor id and cookie material removed by the probe before the file was written",
+    "every URL query string stripped by the probe; this script drops URL keys entirely",
+    "responseContext / trackingParams / frameworkUpdates removed"
+  ],
+  "not_verified": [
+    "that a later request from a different network or region returns the same tree",
+    "that the captured content is still current (item ids and titles are a snapshot)",
+    "playback URLs: deliberately not represented"
+  ],
+  "capture_run": "https://github.com/TienHeavenVN/vydra/actions/runs/43544223832",
+  "capture_file_bytes": 1050732,
+  "dropped_renderers": {
+    "buttonViewModel": 4,
+    "sectionHeaderViewModel": 2,
+    "desktopTopbarRenderer": 1,
+    "searchHeaderRenderer": 1
+  },
+  "kept_renderers": {
+    "videoRenderer": 18
+  },
+  "probe_observation": {
+    "note": "the probe only maps the first capture"
+  }
+}

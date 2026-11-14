@@ -1,0 +1,24 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube comment renderer trees documented in docs/research/COMMENTS_REQUEST_CONTRACT.md and docs/research/COMMENTS_RESPONSE_ANALYSIS.md. It is NOT a captured response and must not be described as one: every comment, author, id, count and continuation token here is a placeholder.",
+  "endpoint": "next, WEB client",
+  "created": "2026-11-13",
+  "purpose": "One page of top-level comments carrying both renderer shapes at once: commentThreadRenderer.commentViewModel joined to frameworkUpdates.entityBatchUpdate, and the classic commentThreadRenderer.comment.commentRenderer. Includes a pinned and hearted comment, a thread with one loaded reply and a reply continuation, an abbreviated like count, and the page's own sort menu and next-page token.",
+  "sections_exercised": [
+    "onResponseReceivedEndpoints[].reloadContinuationItemsCommand.continuationItems[]",
+    "onResponseReceivedEndpoints[].appendContinuationItemsAction.continuationItems[]",
+    "commentsHeaderRenderer.sortMenu.sortFilterSubMenuRenderer.subMenuItems[]",
+    "commentThreadRenderer.commentViewModel{commentId,commentKey,toolbarStateKey,pinnedText}",
+    "frameworkUpdates.entityBatchUpdate.mutations[].payload.commentEntityPayload",
+    "commentThreadRenderer.replies.commentRepliesRenderer.contents[]",
+    "commentThreadRenderer.comment.commentRenderer",
+    "continuationItemRenderer.continuationEndpoint.continuationCommand.token"
+  ],
+  "not_verified": [
+    "that the sort menu always has exactly two entries in the order Top, Newest",
+    "that sort tokens are stable across requests or sessions",
+    "that every page carries a frameworkUpdates entity batch",
+    "that like and reply counts are always rendered as abbreviated text"
+  ]
+}

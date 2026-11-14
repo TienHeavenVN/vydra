@@ -1,0 +1,21 @@
+[package]
+name = "vydra-worker"
+description = "Vydra background maintenance worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "vydra-worker"
+path = "src/main.rs"
+
+[dependencies]
+vydra-config = { workspace = true }
+vydra-observability = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

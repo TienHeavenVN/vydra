@@ -1,0 +1,6 @@
+{
+  "class": "derived_malformed",
+  "derived_from": "recorded/player_web_2025-11-10.json",
+  "operation": "kept only `videoDetails`; `playabilityStatus`, `streamingData`, `captions`, `microformat` deleted",
+  "purpose": "a player response that omits its playability status must raise a parse warning rather than silently claim availability"
+}

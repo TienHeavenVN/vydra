@@ -1,0 +1,12 @@
+{
+  "class": "derived_malformed",
+  "source_class": "transformed",
+  "derived_from": "recorded/player_probe_public_unplayable_2026-11-14.json",
+  "derivation": "playabilityStatus removed; every other byte of the redacted capture preserved (keys re-sorted, indentation normalised)",
+  "capture_run": "43549736295",
+  "captured_at": "2026-11-14T03:05:36.574513145Z",
+  "transformation_run_by": "scripts/fixtures/import_player_capture.py",
+  "sha256": "71c667fc160e3094bb40730043b55a239de38d24189d7e8ac8a7b0060277d18d",
+  "bytes": 11662,
+  "description": "A real player document with the verdict removed: proves a missing verdict yields Availability::Unknown rather than a fabricated success. Not a capture."
+}

@@ -1,0 +1,222 @@
+{
+  "trackingParams": "PLACEHOLDER_TRACKING",
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "content": {
+              "richGridRenderer": {
+                "contents": [
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "lockupViewModel": {
+                          "contentId": "lockup00001",
+                          "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                          "contentImage": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://example.invalid/vi/lockup00001/hq720.jpg",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://example.invalid/vi/lockup00001/hq720.jpg",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailBottomOverlayViewModel": {
+                                    "badges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "text": {
+                                            "content": "9:59"
+                                          },
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "metadata": {
+                            "lockupMetadataViewModel": {
+                              "title": {
+                                "content": "A first lockup row"
+                              },
+                              "metadata": {
+                                "contentMetadataViewModel": {
+                                  "metadataRows": [
+                                    {
+                                      "metadataParts": [
+                                        {
+                                          "text": {
+                                            "content": "1.2M views"
+                                          }
+                                        },
+                                        {
+                                          "text": {
+                                            "content": "2 days ago"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "rendererContext": {
+                            "accessibilityContext": {
+                              "label": "A first lockup row by Example Channel"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "lockupViewModel": {
+                          "contentId": "lockup00002",
+                          "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                          "contentImage": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://example.invalid/vi/lockup00002/hq720.jpg",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://example.invalid/vi/lockup00002/hq720.jpg",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailBottomOverlayViewModel": {
+                                    "badges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "animatedText": "Now playing",
+                                          "text": {
+                                            "content": "LIVE"
+                                          },
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "metadata": {
+                            "lockupMetadataViewModel": {
+                              "title": {
+                                "content": "A live lockup row"
+                              },
+                              "metadata": {
+                                "contentMetadataViewModel": {
+                                  "metadataRows": [
+                                    {
+                                      "metadataParts": [
+                                        {
+                                          "text": {
+                                            "content": "3,204 watching"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "rendererContext": {
+                            "accessibilityContext": {
+                              "label": "A live lockup row by Example Channel"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "lockupViewModel": {
+                          "contentId": "not-a-video-id",
+                          "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                          "contentImage": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://example.invalid/vi/not-a-video-id/hq720.jpg",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://example.invalid/vi/not-a-video-id/hq720.jpg",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": []
+                            }
+                          },
+                          "metadata": {
+                            "lockupMetadataViewModel": {
+                              "title": {
+                                "content": "A row whose content id is not a video id"
+                              },
+                              "metadata": {}
+                            }
+                          },
+                          "rendererContext": {
+                            "accessibilityContext": {
+                              "label": "A row whose content id is not a video id by Example Channel"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "continuationItemRenderer": {
+                      "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                      "continuationEndpoint": {
+                        "continuationCommand": {
+                          "token": "PAGE_TOKEN_LOCKUP_PAGE2_PLACEHOLDER",
+                          "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

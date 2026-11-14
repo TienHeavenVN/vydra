@@ -1,0 +1,25 @@
+[package]
+name = "vydra-provider-registry"
+description = "Provider selection, health tracking, circuit breaking and bounded fallback"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vydra-domain = { workspace = true }
+vydra-errors = { workspace = true }
+vydra-providers = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+vydra-common = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

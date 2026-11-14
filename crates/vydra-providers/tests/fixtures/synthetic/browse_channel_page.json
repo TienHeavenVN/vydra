@@ -1,0 +1,205 @@
+{
+  "trackingParams": "PLACEHOLDER_TRACKING",
+  "metadata": {
+    "channelMetadataRenderer": {
+      "title": "Placeholder Studio",
+      "description": "Placeholder channel description.\nSecond line of the description.",
+      "externalId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "channelUrl": "http://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa",
+      "vanityChannelUrl": "http://www.youtube.com/@placeholderstudio",
+      "isFamilySafe": true,
+      "avatar": {
+        "thumbnails": [
+          {
+            "url": "https://example.invalid/avatar=s88",
+            "width": 88,
+            "height": 88
+          },
+          {
+            "url": "https://example.invalid/avatar=s176",
+            "width": 176,
+            "height": 176
+          }
+        ]
+      }
+    }
+  },
+  "header": {
+    "pageHeaderRenderer": {
+      "pageTitle": "Placeholder Studio",
+      "content": {
+        "pageHeaderViewModel": {
+          "title": {
+            "dynamicTextViewModel": {
+              "text": {
+                "content": "Placeholder Studio"
+              }
+            }
+          },
+          "image": {
+            "decoratedAvatarViewModel": {
+              "avatar": {
+                "avatarViewModel": {
+                  "image": {
+                    "sources": [
+                      {
+                        "url": "https://example.invalid/avatar=s48",
+                        "width": 48,
+                        "height": 48
+                      },
+                      {
+                        "url": "https://example.invalid/avatar=s160",
+                        "width": 160,
+                        "height": 160
+                      }
+                    ]
+                  },
+                  "a11yLabel": "Placeholder Studio"
+                }
+              }
+            }
+          },
+          "banner": {
+            "imageBannerViewModel": {
+              "image": {
+                "sources": [
+                  {
+                    "url": "https://example.invalid/banner=1060",
+                    "width": 1060,
+                    "height": 175
+                  },
+                  {
+                    "url": "https://example.invalid/banner=2120",
+                    "width": 2120,
+                    "height": 350
+                  }
+                ]
+              }
+            }
+          },
+          "metadata": {
+            "contentMetadataViewModel": {
+              "metadataRows": [
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "@placeholderstudio",
+                        "commandRuns": [
+                          {
+                            "startIndex": 0,
+                            "length": 17
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "512 videos"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "1.24M subscribers"
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "512 videos"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "badges": [
+            {
+              "metadataBadgeRenderer": {
+                "style": "BADGE_STYLE_TYPE_VERIFIED",
+                "label": "Verified",
+                "tooltip": "Verified"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Home",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZob21l"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZ2aWRlb3PyBgQKAjoA"
+              }
+            },
+            "content": {
+              "richGridRenderer": {
+                "contents": [],
+                "trackingParams": "PLACEHOLDER_TAB"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Shorts",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZzaG9ydHM"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Playlists",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EglwbGF5bGlzdHM"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "About",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgVhYm91dA"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

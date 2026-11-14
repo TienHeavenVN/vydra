@@ -1,0 +1,50 @@
+# cargo-deny configuration. Enforced in CI (.github/workflows/ci.yml).
+# ADR-011: copyleft licenses are banned for runtime dependencies so that no GPL/AGPL code
+# from the reference projects studied in docs/research/ can be linked into Vydra by accident.
+[graph]
+targets = [{ triple = "x86_64-unknown-linux-gnu" }]
+
+[licenses]
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "Unlicense",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+deny = [
+    { name = "openssl-sys", use-instead = "rustls" },
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+# Accepted-risk records. Each entry names the crate, why the advisory is not reachable in Vydra,
+# and the follow-up that removes it. Reviewed 2026-11-13 (docs/security/PROVIDER_ENGINE_AUDIT.md §7).
+ignore = [
+    # protobuf 2.28 is pulled by `prometheus`. The advisory is a crash on *parsing* deeply nested
+    # protobuf input; Vydra only ever *encodes* metric exposition text, never decodes protobuf.
+    # Follow-up: replace `prometheus` with `metrics-exporter-prometheus` when the engine story allows it.
+    "RUSTSEC-2024-0437",
+    # libsqlite3-sys is an optional backend of `sqlx`, which Vydra uses for PostgreSQL only and only
+    # as scaffolding (Phase 8). Optional dependencies still appear in Cargo.lock, so the advisory is
+    # reported even though the crate is never compiled. Follow-up: pin/upgrade sqlx, or drop it until
+    # the repository layer lands.
+    "RUSTSEC-2026-0459",
+    # rsa is an optional MySQL-auth dependency of sqlx. Vydra links the PostgreSQL backend only and
+    # never performs RSA operations, so the Marvin timing oracle has no attack surface here.
+    # Follow-up: as above, upgrade or drop sqlx until the repository layer lands.
+    "RUSTSEC-2023-0071",
+]

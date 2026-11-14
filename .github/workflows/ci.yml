@@ -1,0 +1,243 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: 1
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --check
+        run: |
+          set -o pipefail
+          cargo fmt --all -- --check 2>&1 | tee fmt.log
+      - name: annotate
+        if: always()
+        run: |
+          cargo metadata --no-deps --format-version 1 > /dev/null 2> metadata.log || true
+          bash scripts/ci/annotate.sh metadata.log 0 10
+          bash scripts/ci/annotate.sh fmt.log 0 10
+          # The job log is not downloadable from the build sandbox, so a formatting failure is surfaced
+          # as annotations that carry the diff itself: every hunk header plus the exact added/removed
+          # lines. Without this, a red `fmt` job says only "exit code 1".
+          python3 - fmt.log <<'PY'
+          import os
+          import re
+          import sys
+
+          path = sys.argv[1]
+          if not os.path.exists(path):
+              sys.exit(0)
+          ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+          kept = []
+          for raw in open(path, errors="replace"):
+              line = ansi.sub("", raw).rstrip()
+              if not line.strip():
+                  continue
+              if line.startswith("Diff in") or line.startswith("+") or line.startswith("-"):
+                  kept.append(line[:200])
+          for line in kept[:50]:
+              print("::error title=fmt-diff::" + line.replace("%", "%25"))
+          if len(kept) > 50:
+              print("::error title=fmt-diff::truncated after 50 lines; %d total" % len(kept))
+          PY
+
+  # TEMPORARY (Phase 7, remove before the phase is declared done): the development sandbox has no Rust
+  # toolchain, so `cargo fmt --check` is the only source of truth for formatting. This job formats the tree
+  # and republishes the diff as grouped annotations, which is far cheaper than reading ten truncated
+  # `cargo fmt` annotations per round.
+  fmt-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: format and publish the diff
+        run: |
+          cargo fmt --all
+          git diff > fmt.diff
+          if [ ! -s fmt.diff ]; then
+            echo "::notice title=fmt::tree is already formatted"
+            exit 0
+          fi
+          wc -l fmt.diff
+          python3 - <<'PY2'
+          import pathlib
+
+          diff = pathlib.Path("fmt.diff").read_text(errors="replace")
+          # Only the changed lines matter for reproducing the formatting; the file/hunk headers stay.
+          chunks, current = [], ""
+          for line in diff.splitlines():
+              if len(current) + len(line) + 1 > 3000:
+                  chunks.append(current)
+                  current = ""
+              current += line + "\n"
+          if current:
+              chunks.append(current)
+          print("::notice title=fmt::%d chunks" % len(chunks))
+          for index, chunk in enumerate(chunks[:8]):
+              escaped = chunk.replace("%", "%25").replace("\n", "%0A")
+              print("::error title=fmt-%d::%s" % (index, escaped))
+          for index, chunk in enumerate(chunks[8:]):
+              print("::warning title=fmt-tail-%d::%s" % (index, chunk[:200]))
+          PY2
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check --workspace --all-targets
+        run: |
+          set -o pipefail
+          cargo check --workspace --all-targets --message-format=short 2>&1 | tee check.log
+      - name: annotate
+        if: always()
+        run: |
+          grep -A6 '^error' check.log | head -50 > check-errors.log || true
+          bash scripts/ci/annotate.sh check-errors.log -1 40
+          for offset in 0 10 20 30 40; do
+            bash scripts/ci/annotate.sh check.log "$offset" 10
+          done
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo clippy
+        run: |
+          set +e
+          set -o pipefail
+          cargo clippy --workspace --all-targets --all-features --message-format=short -- -D warnings 2>&1 | tee clippy.log
+          status=$?
+          bash scripts/ci/report.sh clippy.log
+          exit $status
+
+  test:
+    runs-on: ubuntu-latest
+    # One job per package. A single workspace-wide run took long enough to be killed by the
+    # runner (exit 143 / "operation was canceled") before any diagnostic could be published,
+    # and a hang in one package took every other package with it.
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "vydra-api-server"
+          - "vydra-worker"
+          - "vydra-api"
+          - "vydra-auth"
+          - "vydra-cache"
+          - "vydra-common"
+          - "vydra-config"
+          - "vydra-database"
+          - "vydra-domain"
+          - "vydra-engines"
+          - "vydra-errors"
+          - "vydra-observability"
+          - "vydra-provider-registry"
+          - "vydra-providers"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test -p ${{ matrix.package }}
+        run: |
+          bash scripts/ci/test-package.sh "${{ matrix.package }}" test.log
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # No Cargo.lock is committed (see docs/security/PROVIDER_ENGINE_AUDIT.md), so it is generated.
+      - run: cargo generate-lockfile
+      - name: cargo audit
+        run: |
+          set -o pipefail
+          cargo install cargo-audit --locked --quiet 2>&1 | tee install.log
+          # Ignored advisories mirror deny.toml; the rationale lives in
+          # docs/security/PROVIDER_ENGINE_AUDIT.md §7 (accepted third-party risk).
+          cargo audit --ignore RUSTSEC-2024-0437 --ignore RUSTSEC-2026-0459 \
+            --ignore RUSTSEC-2023-0071 2>&1 | tee audit.log
+      - name: annotate
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh install.log 0 5
+          bash scripts/ci/annotate.sh audit.log -1 40
+          for offset in 0 10 20; do
+            bash scripts/ci/annotate.sh audit.log "$offset" 10
+          done
+
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo generate-lockfile
+      - name: cargo deny
+        run: |
+          set -o pipefail
+          cargo install cargo-deny --locked --quiet 2>&1 | tee install.log
+          cargo deny check 2>&1 | tee deny.log
+      - name: annotate
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh install.log 0 5
+          grep -A6 'error\[rejected\]' deny.log | head -60 > deny-rejected.log || true
+          bash scripts/ci/annotate.sh deny-rejected.log -1 40
+          grep -B2 -A6 'error\[vulnerability\]' deny.log | head -40 > deny-vuln.log || true
+          bash scripts/ci/annotate.sh deny-vuln.log -1 30
+          bash scripts/ci/annotate.sh deny.log -1 40
+          for offset in 0 10 20; do
+            bash scripts/ci/annotate.sh deny.log "$offset" 10
+          done
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: validate OpenAPI document
+        run: npx --yes @redocly/cli@latest lint docs/api/openapi.yaml
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: vydra:ci

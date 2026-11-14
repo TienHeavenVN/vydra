@@ -1,0 +1,14 @@
+/target
+**/*.rs.bk
+.env
+.env.local
+*.log
+.idea/
+.vscode/
+
+# Python bytecode from the fixture scripts never belongs in git
+__pycache__/
+*.pyc
+
+# Phase 4.3 evidence probe output (never committed; see .github/workflows/probe.yml)
+/probe-out

@@ -1,0 +1,37 @@
+{
+  "class": "recorded_upstream_subset",
+  "note": "Subset of a payload recorded by a third-party test suite. No request was made by Vydra.",
+  "upstream": {
+    "repository": "https://github.com/yuliskov/MediaServiceCore",
+    "commit": "b3d561f53cedca04d642b6e7f914f19b4536ce69",
+    "path": "youtubeapi/src/test/resources/browse/chrome/2023.12.06_channel_search.json",
+    "license": "MIT",
+    "recorded_by_upstream_on": "2023-12-06"
+  },
+  "acquired": "2026-11-13",
+  "acquired_by": "scripts/fixtures/extract_recorded.py",
+  "endpoint": "browse (a channel's search tab), WEB client",
+  "locale_observed": "ru (thousands separators are U+00A0, relative dates are Russian)",
+  "reduction": [
+    "kept the expandable tab that holds the result renderers",
+    "kept the first 6 item sections",
+    "kept, per renderer, only the keys the parser reads (videoId/title/lengthText/viewCountText/publishedTimeText/thumbnail/thumbnailOverlays/badges/ownerText and the playlist equivalents)",
+    "kept nested text envelopes (runs/simpleText) and owner browse ids unmodified",
+    "removed every URL query string (signature parameters)"
+  ],
+  "removed": [
+    "responseContext",
+    "header",
+    "metadata",
+    "topbar",
+    "microformat",
+    "frameworkUpdates",
+    "trackingParams",
+    "navigationEndpoint payloads other than browseId/canonicalBaseUrl"
+  ],
+  "not_verified": [
+    "that /youtubei/v1/search answers with this exact tree today (the recording predates the fixture by two years)",
+    "that the global search surface nests renderers identically to a channel search tab",
+    "any request shape: only responses are represented here"
+  ]
+}

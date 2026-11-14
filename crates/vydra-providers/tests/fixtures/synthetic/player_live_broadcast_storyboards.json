@@ -1,0 +1,133 @@
+{
+  "playabilityStatus": {
+    "status": "OK"
+  },
+  "videoDetails": {
+    "videoId": "dQw4w9WgXcQ",
+    "title": "SYNTHETIC live broadcast fixture",
+    "lengthSeconds": "0",
+    "viewCount": "1234",
+    "author": "Synthetic channel",
+    "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+    "shortDescription": "0:00 Intro\n1:00 Topic",
+    "keywords": [
+      "synthetic",
+      "fixture"
+    ],
+    "isLiveContent": true,
+    "isLiveNow": true,
+    "isOwnerViewing": false,
+    "isPrivate": false,
+    "thumbnail": {
+      "thumbnails": [
+        {
+          "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault_live.jpg",
+          "width": 480,
+          "height": 360
+        }
+      ]
+    }
+  },
+  "microformat": {
+    "playerMicroformatRenderer": {
+      "publishDate": "2026-11-14T18:00:00-08:00",
+      "uploadDate": "2026-11-14T18:00:00-08:00",
+      "category": "Gaming",
+      "ownerChannelName": "Synthetic channel",
+      "externalChannelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+      "externalVideoId": "dQw4w9WgXcQ",
+      "likeCount": "99",
+      "isUnlisted": false,
+      "isFamilySafe": true,
+      "lengthSeconds": "0",
+      "viewCount": "1234",
+      "thumbnail": {
+        "thumbnails": [
+          {
+            "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault_live.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        ]
+      },
+      "liveBroadcastDetails": {
+        "isLiveNow": true,
+        "startTimestamp": "2026-11-15T02:00:00Z"
+      }
+    }
+  },
+  "storyboards": {
+    "playerStoryboardSpecRenderer": {
+      "spec": "https://i.ytimg.com/sb/dQw4w9WgXcQ/storyboard3_L$L/$N.jpg?sqp=SYNTHETIC&sigh=SYNTHETICSIG|48#27#100#10#10#0#default#SYNTHETICSIG|80#45#101#10#10#1000#M$M#SYNTHETICSIG",
+      "recommendedLevel": 0
+    }
+  },
+  "streamingData": {
+    "expiresInSeconds": "21540",
+    "formats": [
+      {
+        "itag": 18,
+        "mimeType": "video/mp4; codecs=\"avc1.42001E, mp4a.40.2\"",
+        "bitrate": 531704,
+        "width": 640,
+        "height": 360,
+        "fps": 30,
+        "qualityLabel": "360p",
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "contentLength": "1024",
+        "approxDurationMs": "300000",
+        "url": "https://example.invalid/synthetic-muxed?sqp=SYNTHETIC&sigh=SYNTHETICSIG"
+      }
+    ],
+    "adaptiveFormats": [
+      {
+        "itag": 137,
+        "mimeType": "video/mp4; codecs=\"avc1.640028\"",
+        "bitrate": 4000000,
+        "width": 1920,
+        "height": 1080,
+        "fps": 30,
+        "qualityLabel": "1080p",
+        "contentLength": "2048",
+        "approxDurationMs": "300000",
+        "signatureCipher": {
+          "s": "SYNTHETICSIG",
+          "sp": "sig",
+          "url": "https://example.invalid/synthetic-adaptive"
+        }
+      },
+      {
+        "itag": 140,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 128000,
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "contentLength": "512",
+        "approxDurationMs": "300000",
+        "url": "https://example.invalid/synthetic-audio"
+      }
+    ]
+  },
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        {
+          "languageCode": "en",
+          "name": {
+            "simpleText": "English"
+          },
+          "vssId": ".en",
+          "baseUrl": "https://example.invalid/timedtext?lang=en",
+          "isTranslatable": true,
+          "translationLanguages": [
+            {
+              "languageCode": "de",
+              "languageName": {
+                "simpleText": "German"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "class": "derived_malformed",
+  "derived_from": "recorded/browse_channel_search_2023-12-06.json",
+  "operation": "replaced the whole document with {\"estimatedResults\": 0}: `contents` is absent",
+  "purpose": "the parser must report `no_renderers` and return an empty page rather than fail or invent items"
+}

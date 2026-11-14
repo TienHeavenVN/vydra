@@ -1,0 +1,37 @@
+{
+  "contents": {
+    "twoColumnWatchNextResults": {
+      "results": {
+        "results": {
+          "contents": [
+            {
+              "videoPrimaryInfoRenderer": {
+                "title": {
+                  "runs": [
+                    {
+                      "text": "A video with comments turned off"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "itemSectionRenderer": {
+                "sectionIdentifier": "merchandise-shelf",
+                "contents": [
+                  {
+                    "shelfRenderer": {
+                      "title": {
+                        "simpleText": "Merch"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

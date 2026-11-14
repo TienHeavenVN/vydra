@@ -1,0 +1,17 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube browse renderer trees documented in docs/research/CHANNEL_CONTRACT.md and docs/research/PLAYLIST_CONTRACT.md. It is NOT a captured response and must not be described as one: every value, URL, id, count and token here is a placeholder.",
+  "endpoint": "browse, WEB client",
+  "created": "2026-11-13",
+  "purpose": "Channel videos page with a real page cursor, a sort chip carrying a continuation token, and a duplicated row.",
+  "sections_exercised": [
+    "tabRenderer.content.richGridRenderer.contents[]",
+    "continuationItemRenderer.continuationEndpoint.continuationCommand",
+    "chipCloud.chipCloudChipRenderer.navigationEndpoint.continuationCommand"
+  ],
+  "not_verified": [
+    "that sort chips carry continuationCommand tokens upstream (reference-derived, not captured)",
+    "that chips and page cursors are distinguishable in every surface"
+  ]
+}

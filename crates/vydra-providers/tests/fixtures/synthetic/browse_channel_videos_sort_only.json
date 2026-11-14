@@ -1,0 +1,119 @@
+{
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZ2aWRlb3PyBgQKAjoA"
+              }
+            },
+            "content": {
+              "richGridRenderer": {
+                "contents": [
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000000",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000000/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000000/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video one"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "1 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "10:01"
+                          },
+                          "viewCountText": {
+                            "simpleText": "1000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000000"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "sortFilterSubMenu": {
+                  "items": [
+                    {
+                      "title": "Newest",
+                      "serviceEndpoint": {
+                        "continuationCommand": {
+                          "token": "SORT-NEWEST-TOKEN",
+                          "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                        }
+                      }
+                    },
+                    {
+                      "title": "Oldest",
+                      "serviceEndpoint": {
+                        "continuationCommand": {
+                          "token": "SORT-OLDEST-TOKEN",
+                          "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

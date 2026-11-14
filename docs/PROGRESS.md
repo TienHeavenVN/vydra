@@ -1,0 +1,262 @@
+# Progress and Verification Status
+
+Last updated: 2026-11-13. This file is the authoritative answer to "does it work?".
+
+## Blocked verification (read first)
+
+The development sandbox for this branch provides:
+
+- no Rust toolchain (`cargo`/`rustc` absent; `static.rust-lang.org` and `index.crates.io` are
+  unreachable, and the two binaries that appeared in `/usr/local/bin` were dead macOS builds),
+- no access to `www.youtube.com` or `googleapis.com`.
+
+**Compilation and test authority is GitHub Actions**, which is available and is where every
+`cargo` command actually runs. The workflow (`ci.yml`) was extended in Phase 4.1 so that rustc,
+clippy and rustfmt diagnostics are converted into check-run annotations
+(`scripts/ci/annotate.sh`), because job logs cannot be downloaded from the sandbox.
+
+Consequences, stated plainly:
+
+1. **Nothing in this repository has been compiled in the sandbox.** Local verification was limited to
+   manifest consistency checks, a tree-sitter parse of every Rust file, `redocly lint` on the OpenAPI
+   document, and `bash -n` on CI helper scripts. See
+   `docs/security/PROVIDER_ENGINE_AUDIT.md` §0 for the exact method.
+2. **No test result is reported as passing unless a CI run says so.** Every claim below names the run
+   it came from; unexecuted tests stay labelled unexecuted.
+3. **Upstream requests are made only from CI, and only by the probe.** Phase 4.3 changed this: on
+   2026-11-14 five `/youtubei/v1/search` requests were sent through the production transport from a
+   GitHub-hosted runner (runs `43541388070`, `43542839419`) and reduced into
+   `crates/vydra-providers/tests/fixtures/recorded/search_web_probe_*.json`. The sandbox still cannot
+   reach YouTube, so everything about live behaviour outside those captures is derived from the
+   reference implementations in `docs/research/`.
+4. Because of (3), capabilities that depend on unverified encodings are **not declared** by default
+   (see "Conservative capability policy").
+5. The CI status of any commit is a moving target; the authoritative source is the Actions run for the
+   current head of `arena/06c8b7fc-vydra`.
+
+## Phase status
+
+| Phase | State | Evidence |
+|---|---|---|
+| 1 — Multi-repository research | complete | 5 documents in `docs/research/`, 12 repositories cloned and read |
+| 2 — Architecture design | complete | `ARCHITECTURE.md`, `PROVIDER_INTERFACE.md`, `API_CONTRACTS.md`, 19 ADRs (`docs/research/IMPLEMENTATION_DECISIONS.md`) |
+| 3 — Rust foundation | compiles in CI | 12 crates, workspace manifests, CI, Docker, migrations |
+| 4 — Provider engine | **audited, remediated, verification in CI** | contract, transport, InnerTube search/player/captions, registry, fixtures; 20 findings closed (see `docs/security/PROVIDER_ENGINE_AUDIT.md`) |
+| 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
+| 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
+| 4.3 — Search evidence & reliability | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43545086009, 22/22) | 5 live captures from 3 runs, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
+| 5A — Player endpoint verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43552284213, 22/22); metadata + verdicts verified live, formats/captions unverified live | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
+| 5B — Video metadata engine | **complete; metadata live-verified, an `OK` verdict still blocked** | domain evidence/conflict model, microformat + broadcast + storyboard mapping, `DocumentCachePolicy`, `hl`/`gl` on the video endpoints; `docs/reports/PHASE_5B_REPORT.md`, `docs/research/{VIDEO_METADATA_CONTRACT,VIDEO_METADATA_FIXTURE_PROVENANCE}.md`; ADR-021, ADR-022 |
+| 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
+| 6 — Channel & playlist engines | **complete; channel and playlist documents, listings and cursors verified live, playlist paging limited to page 1** | four endpoints, signed cursors, per-resource cache classes, 12 fixtures with sidecars; `docs/reports/PHASE_6_REPORT.md`, `docs/research/{CHANNEL_CONTRACT,PLAYLIST_CONTRACT,CHANNEL_PLAYLIST_FIXTURE_PROVENANCE}.md`; ADR-023, ADR-024. Comments still **not implemented** |
+| **7 — Comments engine** | **written; compile/test verification in CI, live probe pending (see `docs/reports/PHASE_7_REPORT.md`)** | two endpoints, provider-independent comment/thread/reply documents, relayed order tokens, parent-scoped reply cursors, `409 comments_disabled`; `docs/research/{COMMENTS_REQUEST_CONTRACT,COMMENTS_RESPONSE_ANALYSIS,COMMENTS_FIXTURE_PROVENANCE}.md`; ADR-025 |
+| 7b — Advanced modules | not started | live, music, trending, related, discovery |
+| 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
+| 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 6 — channels and playlists (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| A channel page maps end to end from a live capture | probe run 43561555917: id, 7 tabs, `subscribers=21 400 000` (approximate), `videos=550`, 0 parse warnings |
+| The videos tab needs the relayed `params` blob, and upstream accepts it | same run: 20-byte relayed blob, 136-byte page cursor returned |
+| Current listing rows are `lockupViewModel` | same run: shape inventory reported by the probe |
+| The lockup mapper works on a real page | probe run 43570063308: live Videos tab → **30 items, 0 duplicates**, cursor present, page 2 mapped |
+| A live playlist page maps to entries | same run: 30 entries, `item_count=550`, every entry `position: None` + `availability: Unknown`, and **no page cursor** (`next_cursor: null`) |
+| A `@handle` is not a browse id | same run: `browseId "@veritasium"` → `HTTP 400`; the API refuses handles with 400 `handle_not_supported` |
+| Positions are never computed, unavailability never shifts a list | `playlist_parser::lockup_entries_keep_an_unknown_position_and_an_unknown_availability`, `playlist_parser` page-2 position test |
+| Chip and sort tokens never become cursors | `channel_parser` sort-token test, `parse::find_page_cursor` |
+| Cache TTLs differ per resource class | `vydra-engines` browse tests, `cache.listing_ttl_secs` / `cache.cursor_page_ttl_secs` |
+| Playlist paging stops at page 1 live | same run: `playlist_token=none`, page 2 `no_page_cursor` — served honestly as `next_cursor: null` |
+
+## Phase 5B — video metadata (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Every field of a video document names its source | `data.evidence` (`sections`, `fallbacks`, `conflicts`) — asserted on the live capture by `player_parser::live_capture_maps_the_microformat_facts_and_records_the_disagreement` |
+| Two upstream sections disagree and the document says so | live capture: `videoDetails.lengthSeconds = 213` vs `microformat…lengthSeconds = 214`; the document reports 213 and records the conflict |
+| A wrong-typed member costs one field, not the document | `map::tests::a_wrong_typed_member_costs_one_field_not_the_document` |
+| Missing is not zero | `lengthSeconds: "0"` → `Some(0)`; absent `likeCount` → `None` |
+| Timestamps are UTC with the source offset preserved | `publication.{published_at,upstream_text,upstream_offset_seconds}` = `2009-10-25T06:57:33Z`, `2009-10-24T23:57:33-07:00`, `-25200` |
+| Cache TTL follows the fact | `DocumentCachePolicy`: available 300 s, live 30 s, unavailable 60 s, unknown never, errors never (`engines` tests) |
+| A client-profile bump invalidates the cache | `ProviderRegistry::config_fingerprint()` covers id + client label |
+| `/videos/{id}` honours `hl`/`gl` | `api::tests::video_query_validates_and_normalises_locales`; both reach the cache key |
+| Fixtures cannot be added without provenance | `tests/fixture_provenance.rs` (3 tests) over the whole corpus |
+| Storyboards never expose a template URL or signature | `storyboard_spec_is_reduced_to_geometry_and_never_to_a_url` |
+
+Not verified live: an `OK` verdict, `live`/`upcoming`, `broadcast`, `storyboards` (see the report's §7).
+
+## Phase 5A — player endpoint (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Vydra can call `POST /youtubei/v1/player` through its own transport and client | 8 raw requests across runs [43549141233](https://github.com/TienHeavenVN/vydra/actions/runs/43549141233) and [43549736295](https://github.com/TienHeavenVN/vydra/actions/runs/43549736295): **8× HTTP 200**, `application/json; charset=UTF-8` |
+| The request body is exactly `{context, videoId, contentCheckOk, racyCheckOk}` | accepted on every attempt; `request_contract::player_body_is_byte_exact` pins the bytes — key-sorted (`BTreeMap`), not struct order |
+| `contentCheckOk`/`racyCheckOk` do not change the verdict | same video sent with `true/true` and `false/false`: byte-identical redacted responses in run `43549736295` |
+| Playability verdicts are mapped, not guessed | `UNPLAYABLE` ("The page needs to be reloaded.") → `unavailable{other}` with the metadata document; `LOGIN_REQUIRED` ("Sign in to confirm you're not a bot") → 409 `content_unavailable{login_required}`; `ERROR` ("This video is unavailable") → 409 `content_unavailable{other}` |
+| A missing verdict never becomes `available` | `Availability::Unknown`, never cached; `tests/player_parser::transformed_capture_without_a_verdict_is_unknown` |
+| Metadata sections verified against live bytes | title, duration, view count, channel id, author, 27 keywords, 2 375-char description, 5 thumbnail sizes, `publishDate`, category |
+| Formats/captions are **not** live-verified | every capture was refused playback: no `streamingData`, no `captions`, no `storyboards` (see the report's verification matrix) |
+| Playback URLs, signatures and PoToken stay out of scope | nothing extracted, nothing requested, `signatureCipher`/`cipher` dropped at capture time (ADR-006) |
+
+Detail and limitations: `docs/reports/PHASE_5A_REPORT.md`. The phase ended green on run
+[43552284213](https://github.com/TienHeavenVN/vydra/actions/runs/43552284213) (22/22 jobs) after six
+pushing fixes: the player had to import `ProviderError` from `vydra_errors`, the publish date had to be
+normalised to UTC, the byte-exact body had to be key-sorted, and the locale assertion had to move to
+`ProviderContext`.
+
+## Phase 4.3 — search evidence and reliability (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Vydra can talk to `/youtubei/v1/search` through its own transport | 5 captures, statuses 200×4 + 400, run [43544223832](https://github.com/TienHeavenVN/vydra/actions/runs/43544223832); earlier runs [43541388070](https://github.com/TienHeavenVN/vydra/actions/runs/43541388070), [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419) |
+| A search continuation works with the token alone, and pages the *same* query | page 2 with a `{context, continuation}` body: 200, 488 298 B, 18 items, and the same total estimate as page 1 (23 544 805 vs 23 544 604) |
+| The page cursor is not a filter chip | the cursor bug and its live before/after comparison are in `SEARCH_RESPONSE_ANALYSIS.md` §2.1 |
+| A malformed search body is rejected, not silently emptied | 400 `FAILED_PRECONDITION`, 274 B, captured verbatim |
+| Request bodies are typed, not assembled ad hoc | `innertube/request.rs` (7 unit tests) + `tests/request_contract.rs` |
+| The parser cannot turn unknown content into an item | `tests/search_parser.rs` (19 tests, 5 of them on the probe recordings) |
+| Transport failures are typed and not retried | `tests/transport_reliability.rs` (6 tests) |
+| Type-scoped filters are still disabled | `enable_unverified_filters: false`; no `params` on any request the probe sent |
+
+Full detail, including what the captures *do not* prove, is in `docs/reports/PHASE_4_3_REPORT.md`.
+
+## Phase 4.1 — compile stabilisation (what CI actually proved)
+
+Run `43448221721` on commit `524b0d7`: **every job green** — `fmt`, `check`, `clippy`
+(`-D warnings`), `test` (14 packages, one job each), `audit`, `deny`, `secrets`, `openapi`,
+`docker` (23 jobs including the temporary `fmt-apply`; 22/22 on every run since). Every `cargo`
+command behind that result ran on a GitHub runner, not in this sandbox.
+
+The loop took eighteen pushes; each failing run exposed a real defect rather than a CI quirk.
+Bugs found by first executing the tests (`docs/security/PROVIDER_ENGINE_AUDIT.md` has the detail):
+
+| Finding | What it meant in production |
+| --- | --- |
+| A-21 | The metadata cache could never hit — unset optional fields were skipped on write and required on read. |
+| A-22 | Every channel handle was rejected, so handle-based channel lookup never worked. |
+| A-23 | The session bootstrap discarded the API key it had just downloaded. |
+| A-24 | Search results came back in reverse document order. |
+| A-25 | The "unknown renderer" counter reported layout containers instead of unmapped content. |
+| A-26 | A test fixture that doubled per iteration (2^200 nodes) hung the test job for 20 minutes. |
+| A-27 | Unused dependencies at crate and workspace level failed the build under `-D warnings`. |
+
+CI itself needed three fixes to be usable as a compiler of record: `cargo` was run with
+`--message-format=short`, so diagnostics never start with `error` and every `grep '^error'`
+matched nothing (now `scripts/ci/report.sh`); annotations were emitted from a *separate* step,
+which the runner skips when the build step is killed; and a workspace-wide `cargo test` was killed
+after ~3 minutes, so the suite now runs as a fail-fast:false matrix of one job per package with a
+240 s cap and a per-test probe (`scripts/ci/test-package.sh`) that names a hanging test.
+
+The temporary `fmt-apply` job (which pushed rustfmt commits to the branch) is retired now that
+`fmt` has been green for nine consecutive runs.
+
+## Phase 4.2 — request contracts, fixtures, rebinding (what CI actually proved)
+
+Scope: verify what Vydra *sends* and what it *expects back*, before any further engine work. No new
+endpoint, no new capability, no signature/PoToken handling, no live request.
+
+| Item | Result |
+| --- | --- |
+| Request shapes pinned | search `{context, query[, params]}`, continuation `{context, continuation}`, player `{context, videoId, contentCheckOk, racyCheckOk}`, exact URL including `?prettyPrint=false&key=…`, header set, context object — `tests/request_contract.rs` |
+| Fixture corpus | 3 recorded subsets (MIT, `yuliskov/MediaServiceCore` @ `b3d561f`), 1 synthetic, 3 derived malformed, each with a `*.meta.json` sidecar; layout `tests/fixtures/{synthetic,recorded,malformed}/` |
+| Recorded surface coverage | browse page with search-tab renderers, browse continuation (582-char token), web player response (availability, 4 formats, ASR caption) |
+| Still unrecorded | global `/youtubei/v1/search` response, search continuation envelope, current bootstrap document — all marked *inferred* |
+| Defects found | A-29 (api key never sent), A-30 (`reqwest` ambient proxy defeated the DNS guard), A-31 (two parse warnings did not count), A-32 (fixture misnamed after `/search`) |
+| Security | A-28 DNS rebinding closed (`GuardedResolver`), A-30 closed (`no_proxy()`); residual risks listed in `docs/security/DNS_REBINDING_ANALYSIS.md` §6 |
+| `Cargo.lock` | ADR-019 executed: generated in CI, validated with `cargo check --locked`, committed |
+
+What this phase deliberately did **not** establish: that YouTube accepts these requests today, that the
+recordings still match upstream, or that any search-continuation works. Those need a live request or a
+newer recording, and they are listed as such in every document that touches them.
+
+## Implemented (code exists)
+
+- `vydra-common`: validated ids, localized count/duration parsing, signed cursors, pagination.
+- `vydra-errors`: provider error taxonomy with fallback eligibility, public error contract.
+- `vydra-config`: env-layered config, secret redaction, production guardrails.
+- `vydra-domain`: provider-neutral models with provenance/availability/precision.
+- `vydra-providers`: `Transport` (reqwest + replay), InnerTube session bootstrap, request/context
+  building, search + player parsing, mapping, capabilities, parse reports.
+- `vydra-provider-registry`: capability selection, sliding-window health, circuit breaker,
+  bounded fallback, attempt accounting.
+- `vydra-engines`: search/video/chapters/captions orchestration with caching and cursor minting.
+- `vydra-auth`, `vydra-cache`, `vydra-observability`, `vydra-database`: keys/limits, cache contract
+  and in-memory implementation, tracing/metrics, Postgres pool + migrations.
+- `vydra-api`: envelope, error mapping, request-id/auth/rate-limit middleware, search + video routes
+  mounted by capability.
+- `apps/api-server`, `apps/worker`.
+
+## Not implemented (do not pretend otherwise)
+
+- Channel `about` tab (links, join date, country, total views) — never requested.
+- Channel and playlist *paging* beyond page 1: the endpoint exists and is honest (`next_cursor: null`) but
+  no live capture has produced a page cursor for a playlist.
+- Absolute comment timestamps (`published_at`): the page renders a relative label, so it is always absent.
+- Comment reply pages for threads that are not on the first three comment pages in the default order.
+- Comment counts derived from the comments header — not served, and not treated as a video total.
+- Related videos (`next` endpoint) — returns `capability_unavailable`.
+- Live metadata and live chat.
+- Trending, categories, recommendations, music search.
+- Transcript fetching (`timedtext`) — metadata only.
+- Player storyboards — implemented in Phase 5B from the *synthetic* fixture only; never observed live.
+- Comment counts — the player response does not carry one; needs the `next` endpoint.
+- Stale-while-revalidate — configured (`cache.stale_while_revalidate_secs`) but not implemented: the
+  in-memory cache sets a zero stale window.
+- Playback URLs, signature deciphering, `n-sig`, PoToken — excluded by policy (ADR-006), not by backlog.
+- Redis cache implementation, quota counters in Redis, OpenTelemetry export, worker jobs.
+- Benchmarks, load tests, Kubernetes manifests.
+
+## Conservative capability policy
+
+The InnerTube provider declares only what does **not** depend on unverified encodings:
+
+| Capability | Declared | Why |
+|---|---|---|
+| `search_all` | yes | `{"query": …}` needs no params token |
+| `video_metadata`, `video_chapters`, `video_formats_metadata`, `video_subtitles_metadata`, `captions_metadata` | yes | stable player response shape |
+| `search_filters`, `search_videos`, `search_channels`, `search_playlists` | **no** (opt-in) | depend on the protobuf `params` builder in `innertube/params.rs`, which is not live-verified |
+| everything else | no | not implemented |
+
+Route mounting follows from this table, so `/api/v1/search/videos` is absent unless the operator
+enables unverified params. This is the mechanism behind execution rule 7 ("only expose endpoints when
+the underlying functionality is implemented and tested").
+
+## Tests added in Phase 4.1 (run in CI)
+
+- transport: userinfo/port/fragment/IP-literal/scheme rejection, header-count and body-size bounds.
+- registry: half-open success closes, failed probe re-opens, saturation fails fast, token bucket,
+  concurrent successes keep the breaker closed, duplicate ids rejected, observer receives attempts.
+- engines: type-scoped search filters foreign item kinds.
+- config: `VYDRA__PROVIDERS__ENABLE_UNVERIFIED_FILTERS` parsing and defaults.
+- api: filter opt-in gate, malformed filter values, deduplicated feature lists, locale normalisation.
+- observability: every metric vector is registered and renders; sensitive headers are redacted.
+
+## Tests written but not executed
+
+- `vydra-common`: id validation/injection rejection, view-count and duration parsing (including the
+  documented false-positive cases), property tests (no panic, round-trip), cursor HMAC/expiry/tamper.
+- `vydra-providers`: transport allowlist/SSRF/header-injection, replay transport, parse-report
+  budgets, renderer discovery, HTML `ytInitialData` recovery, session caching and error
+  classification, player mapping (protection flags, availability, chapters, captions), and a
+  fixture-driven mixed-search test using a **synthetic** payload.
+- `vydra-provider-registry`: fallback on transient errors, no fallback on content facts, attempt
+  bounding, circuit opening, registry-enforced timeout.
+- `vydra-engines`: signed cursor substitution and validation, metadata caching, search caching off by
+  default.
+- `vydra-auth`: key hashing/verification, rate limiting, constant-time comparison.
+- `vydra-api`: request id shape, query validation, meta exposure.
+
+## Next steps (in order)
+
+1. Capture one player response with an `OK` verdict from a non-datacenter egress, which would upgrade
+   `available`, `live`/`upcoming`, `broadcast`, `storyboards`, `streamingData` and `captions` from
+   fixture-verified to live-verified (Phase 5A §11–12, Phase 5B §7.3). The probe already accepts the video
+   ids as inputs.
+2. Run the probe matrix over `gl`/`hl` before adding endpoints: localization is the untested axis of
+   every parser.
+3. `params` encoding (search filters) is still unverified; enable it only after a live capture shows the
+   server honouring it.
+4. ~~Channels + playlists (browse endpoint)~~ (done, Phase 6), then ~~comments (`next` + continuations)~~
+   (implemented and unit/fixture-tested in Phase 7; awaiting a live probe run and CI verification).
+5. Redis cache + quota; OpenTelemetry; worker jobs with a Postgres lease.
+6. Benchmarks + load tests; publish measured numbers instead of claims.

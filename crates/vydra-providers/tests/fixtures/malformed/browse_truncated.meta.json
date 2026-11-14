@@ -1,0 +1,12 @@
+{
+  "class": "derived_malformed",
+  "provenance": "derived_truncated_json",
+  "note": "Derived, not captured: the first 160 bytes of the synthetic channel page fixture, cut mid-string so that the document cannot be parsed. It exists to prove the provider fails closed instead of returning a partial channel.",
+  "endpoint": "browse, WEB client",
+  "created": "2026-11-13",
+  "reduction_method": "truncate synthetic/browse_channel_page.json at 160 bytes; no other edit",
+  "not_verified": [
+    "nothing about upstream: this input is not a response any server sent",
+    "the exact truncation byte index is arbitrary"
+  ]
+}

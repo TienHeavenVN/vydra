@@ -1,0 +1,50 @@
+{
+  "class": "recorded_vydra_probe",
+  "source_class": "live",
+  "note": "Captured by Vydra itself through the production transport and client, on a GitHub Actions runner; archived bytes, unmodified.",
+  "captured_by": "vydra-providers example probe_player (GitHub Actions runner)",
+  "capture_workflow": "temporary gated CI job; permanent entry point .github/workflows/probe.yml",
+  "capture_run": "43549736295",
+  "captured_at": "2026-11-14T03:05:36.574513145Z",
+  "capture_commit": "cf5aa84901b67c48781ec7fd9be713c8328a52df",
+  "request": {
+    "endpoint": "https://www.youtube.com/youtubei/v1/player",
+    "query_string": "prettyPrint=false&key=<redacted>",
+    "body_keys": [
+      "contentCheckOk",
+      "context",
+      "racyCheckOk",
+      "videoId"
+    ],
+    "client": {
+      "clientName": "WEB",
+      "clientVersion": "2.20260805.01.00",
+      "hl": "en",
+      "gl": "US"
+    },
+    "had_api_key": true,
+    "had_visitor_data": true
+  },
+  "http": {
+    "status": 200,
+    "bytes": 14534,
+    "content_type": "application/json; charset=UTF-8",
+    "upstream_date": "Sat, 14 Nov 2026 03:05:36 GMT"
+  },
+  "verdict": {
+    "has_error_screen": true,
+    "messages": null,
+    "reason": "The page needs to be reloaded.",
+    "status": "UNPLAYABLE"
+  },
+  "redaction": "identity/session/tracking keys removed; cipher blobs dropped; every URL string value has its query string stripped; bodies that still matched an api-key or signature marker were withheld",
+  "transformation": "none — archived bytes, verbatim",
+  "sha256": "99e1a0145e7929e4d592dce55b1a7c2f3244f562e128c15ec213abff1335cbe4",
+  "bytes": 12879,
+  "description": "Public video answered UNPLAYABLE ('The page needs to be reloaded.') while still carrying videoDetails and microformat: the hybrid document case.",
+  "not_verified": [
+    "that upstream still answers this way (a snapshot, not a contract)",
+    "that every region, account or network sees this verdict",
+    "playback URLs, signatures, n-sig or captions content: never captured, never requested"
+  ]
+}

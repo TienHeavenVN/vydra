@@ -1,0 +1,29 @@
+[package]
+name = "vydra-api-server"
+description = "Vydra HTTP API server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "vydra-api-server"
+path = "src/main.rs"
+
+[dependencies]
+vydra-api = { workspace = true }
+vydra-auth = { workspace = true }
+vydra-cache = { workspace = true }
+vydra-common = { workspace = true }
+vydra-config = { workspace = true }
+vydra-engines = { workspace = true }
+vydra-observability = { workspace = true }
+vydra-provider-registry = { workspace = true }
+vydra-providers = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

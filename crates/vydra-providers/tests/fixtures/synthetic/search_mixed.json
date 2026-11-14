@@ -1,0 +1,54 @@
+{
+  "estimatedResults": 4210,
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "videoRenderer": {
+                      "videoId": "dQw4w9WgXcQ",
+                      "title": {"runs": [{"text": "Never Gonna Give You Up"}]},
+                      "ownerText": {"runs": [{"text": "Rick Astley", "navigationEndpoint": {"browseEndpoint": {"browseId": "UCuAXFkgsw1L7xaCfnd5JJOw"}}}]},
+                      "lengthText": {"simpleText": "3:33"},
+                      "shortViewCountText": {"simpleText": "1.6B views"},
+                      "publishedTimeText": {"simpleText": "16 years ago"},
+                      "thumbnail": {"thumbnails": [
+                        {"url": "//i.ytimg.com/vi/dQw4w9WgXcQ/default.jpg", "width": 120, "height": 90},
+                        {"url": "//i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", "width": 480, "height": 360}
+                      ]}
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "channelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+                      "title": {"simpleText": "Rick Astley"},
+                      "subscriberCountText": {"simpleText": "4.2M subscribers"},
+                      "videoCountText": {"simpleText": "312 videos"}
+                    }
+                  },
+                  {
+                    "playlistRenderer": {
+                      "playlistId": "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI",
+                      "title": {"simpleText": "80s Classics"},
+                      "videoCount": "48",
+                      "shortBylineText": {"runs": [{"text": "Some Chan"}]}
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "continuationEndpoint": {"continuationCommand": {"token": "CBQSCBg"}}
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

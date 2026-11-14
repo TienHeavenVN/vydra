@@ -1,0 +1,17 @@
+[package]
+name = "vydra-database"
+description = "PostgreSQL pool, repositories and migration runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vydra-config = { workspace = true }
+vydra-errors = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

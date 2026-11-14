@@ -1,0 +1,39 @@
+{
+  "class": "recorded_upstream_subset",
+  "note": "Subset of a recorded player response. No request was made by Vydra.",
+  "upstream": {
+    "repository": "https://github.com/yuliskov/MediaServiceCore",
+    "commit": "b3d561f53cedca04d642b6e7f914f19b4536ce69",
+    "path": "youtubeapi/src/test/resources/player/web/2025.11.10_player_regular.json",
+    "license": "MIT",
+    "recorded_by_upstream_on": "2025-11-10"
+  },
+  "acquired": "2026-11-13",
+  "acquired_by": "scripts/fixtures/extract_recorded.py",
+  "endpoint": "player, WEB client",
+  "locale_observed": "ru (title and description are Russian)",
+  "reduction": [
+    "kept playabilityStatus.status/reason, the videoDetails fields the mapper reads",
+    "kept the first muxed format and the first three adaptive formats, projected to the fields the mapper reads",
+    "kept the first two caption tracks with baseUrl preserved as a *presence* signal (query string removed)",
+    "kept microformat.playerMicroformatRenderer publishDate/uploadDate/category/lengthSeconds/thumbnail"
+  ],
+  "removed": [
+    "responseContext",
+    "playbackTracking",
+    "annotations",
+    "cards",
+    "storyboards",
+    "playerConfig",
+    "adPlacements",
+    "paidContentOverlay",
+    "serverAbrStreamingUrl",
+    "signatureCipher",
+    "every URL query string"
+  ],
+  "not_verified": [
+    "that the player endpoint answers with this shape today",
+    "that any playback URL in the recording still resolves (query strings were removed on purpose)",
+    "signature/n-sig handling: deliberately out of scope, and no signature data is retained"
+  ]
+}

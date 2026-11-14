@@ -1,0 +1,6 @@
+Touching this file runs `.github/workflows/probe.yml` from a branch.
+
+It exists because `workflow_dispatch` is only dispatchable once the workflow definition is present on
+the default branch, which it is not for the phase branches. Last used: Phase 6 browse captures, fifth
+run (2026-11-13), which puts every probe line into one annotation so the ten-annotation budget cannot
+hide the mapping results.

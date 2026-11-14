@@ -1,0 +1,19 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube browse renderer trees documented in docs/research/CHANNEL_CONTRACT.md and docs/research/PLAYLIST_CONTRACT.md. It is NOT a captured response and must not be described as one: every value, URL, id, count and token here is a placeholder.",
+  "endpoint": "browse, WEB client",
+  "created": "2026-11-13",
+  "purpose": "Exercise channel metadata, the current pageHeaderRenderer header shape, tab discovery and count-precision handling.",
+  "sections_exercised": [
+    "metadata.channelMetadataRenderer",
+    "header.pageHeaderRenderer.content.pageHeaderViewModel",
+    "contents...tabRenderer[]",
+    "badges.metadataBadgeRenderer"
+  ],
+  "not_verified": [
+    "that a current channel page still nests the header this way",
+    "that the metadata row order is subscribers-then-videos in every locale",
+    "any id, count or URL in the file"
+  ]
+}

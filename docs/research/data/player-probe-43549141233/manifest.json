@@ -1,0 +1,339 @@
+{
+  "schema": 1,
+  "kind": "player",
+  "capture_run": "43549141233",
+  "archived_at": "2026-11-14T02:59:52Z",
+  "captured_at": "2026-11-14T02:59:51.459313216Z",
+  "commit": "50466cc43b144afecc36d6d19257ed44228f45c8",
+  "source_class": "live",
+  "captured_by": "vydra provider engine (ReqwestTransport + InnertubeClient, production code path)",
+  "redaction": "identity/session/tracking keys removed; cipher blobs dropped; every URL string value has its query string stripped; bodies that still matched an api-key or signature marker were withheld",
+  "restore": "gunzip -c <name>.gz > <raw_name>",
+  "probe": {
+    "captions_video_id": "9Umm2MAKsMc",
+    "client_name": "WEB",
+    "client_name_id": "1",
+    "client_version": "2.20260805.01.00",
+    "commit": "50466cc43b144afecc36d6d19257ed44228f45c8",
+    "endpoint": "POST /youtubei/v1/player",
+    "generated_at": "2026-11-14T02:59:51.459313216Z",
+    "gl": "US",
+    "has_api_key": true,
+    "has_visitor_data": true,
+    "hl": "en",
+    "missing_video_id": "AAAAAAAAAAA",
+    "probe_version": "0.1.0",
+    "provider_mapping": {
+      "captions": {
+        "code": "provider_parse",
+        "message": "parse error: player response without videoDetails",
+        "ok": false
+      },
+      "missing": {
+        "code": "provider_parse",
+        "message": "parse error: player response without videoDetails",
+        "ok": false
+      },
+      "public": {
+        "availability": {
+          "reason": "age_restricted",
+          "state": "unavailable"
+        },
+        "caption_tracks": 0,
+        "category": "Music",
+        "channel_id": "UCuAXFkgsw1L7xaCfnd5JJOw",
+        "chapters": 0,
+        "duration_seconds": 213,
+        "endpoint": "player",
+        "formats": 0,
+        "keywords": 27,
+        "live_state": null,
+        "ok": true,
+        "parse_warnings": 0,
+        "thumbnails": 1,
+        "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+        "view_count": 1836978582
+      }
+    },
+    "public_video_id": "dQw4w9WgXcQ",
+    "run_id": "43549141233"
+  },
+  "requests": [
+    {
+      "bytes": 14536,
+      "content_type": "application/json; charset=UTF-8",
+      "elapsed_ms": 84,
+      "json": true,
+      "label": "public",
+      "method": "POST",
+      "redaction_ok": true,
+      "request_body_keys": [
+        "contentCheckOk",
+        "context",
+        "racyCheckOk",
+        "videoId"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+      "response_top_level_keys": [
+        "adBreakHeartbeatParams",
+        "frameworkUpdates",
+        "messages",
+        "microformat",
+        "playabilityStatus",
+        "responseContext",
+        "trackingParams",
+        "videoDetails"
+      ],
+      "status": 200,
+      "upstream_date": "Sat, 14 Nov 2026 02:59:51 GMT",
+      "verdict": {
+        "captions": {
+          "present": false,
+          "track_count": null,
+          "tracks": []
+        },
+        "microformat": {
+          "category": "Music",
+          "has_description": true,
+          "is_live": false,
+          "length_seconds": "214",
+          "owner_channel_name": "Rick Astley",
+          "publish_date": "2009-10-24T23:57:33-07:00",
+          "thumbnail_versions": 1,
+          "upload_date": "2009-10-24T23:57:33-07:00"
+        },
+        "playability": {
+          "has_error_screen": true,
+          "messages": null,
+          "reason": "The page needs to be reloaded.",
+          "status": "UNPLAYABLE"
+        },
+        "storyboards": {
+          "has_spec": false,
+          "present": false
+        },
+        "streaming_data": null,
+        "video_details": {
+          "author": "Rick Astley",
+          "channel_id": "UCuAXFkgsw1L7xaCfnd5JJOw",
+          "is_live_content": false,
+          "is_live_now": null,
+          "is_upcoming": null,
+          "keywords": 27,
+          "length_seconds": "213",
+          "short_description_len": 2434,
+          "thumbnail_versions": 5,
+          "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+          "video_id": "dQw4w9WgXcQ",
+          "view_count": "1836978582"
+        }
+      },
+      "video_id": "dQw4w9WgXcQ"
+    },
+    {
+      "bytes": 14133,
+      "content_type": "application/json; charset=UTF-8",
+      "elapsed_ms": 80,
+      "json": true,
+      "label": "public_no_checks",
+      "method": "POST",
+      "redaction_ok": true,
+      "request_body_keys": [
+        "contentCheckOk",
+        "context",
+        "racyCheckOk",
+        "videoId"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+      "response_top_level_keys": [
+        "adBreakHeartbeatParams",
+        "frameworkUpdates",
+        "messages",
+        "microformat",
+        "playabilityStatus",
+        "responseContext",
+        "trackingParams",
+        "videoDetails"
+      ],
+      "status": 200,
+      "upstream_date": "Sat, 14 Nov 2026 02:59:51 GMT",
+      "verdict": {
+        "captions": {
+          "present": false,
+          "track_count": null,
+          "tracks": []
+        },
+        "microformat": {
+          "category": "Music",
+          "has_description": true,
+          "is_live": false,
+          "length_seconds": "214",
+          "owner_channel_name": "Rick Astley",
+          "publish_date": "2009-10-24T23:57:33-07:00",
+          "thumbnail_versions": 1,
+          "upload_date": "2009-10-24T23:57:33-07:00"
+        },
+        "playability": {
+          "has_error_screen": true,
+          "messages": null,
+          "reason": "The page needs to be reloaded.",
+          "status": "UNPLAYABLE"
+        },
+        "storyboards": {
+          "has_spec": false,
+          "present": false
+        },
+        "streaming_data": null,
+        "video_details": {
+          "author": "Rick Astley",
+          "channel_id": "UCuAXFkgsw1L7xaCfnd5JJOw",
+          "is_live_content": false,
+          "is_live_now": null,
+          "is_upcoming": null,
+          "keywords": 27,
+          "length_seconds": "213",
+          "short_description_len": 2434,
+          "thumbnail_versions": 5,
+          "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+          "video_id": "dQw4w9WgXcQ",
+          "view_count": "1836978582"
+        }
+      },
+      "video_id": "dQw4w9WgXcQ"
+    },
+    {
+      "bytes": 7541,
+      "content_type": "application/json; charset=UTF-8",
+      "elapsed_ms": 86,
+      "json": true,
+      "label": "captions",
+      "method": "POST",
+      "redaction_ok": true,
+      "request_body_keys": [
+        "contentCheckOk",
+        "context",
+        "racyCheckOk",
+        "videoId"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+      "response_top_level_keys": [
+        "adBreakHeartbeatParams",
+        "frameworkUpdates",
+        "messages",
+        "playabilityStatus",
+        "responseContext",
+        "trackingParams"
+      ],
+      "status": 200,
+      "upstream_date": "Sat, 14 Nov 2026 02:59:51 GMT",
+      "verdict": {
+        "captions": {
+          "present": false,
+          "track_count": null,
+          "tracks": []
+        },
+        "microformat": null,
+        "playability": {
+          "has_error_screen": true,
+          "messages": null,
+          "reason": "Sign in to confirm you’re not a bot",
+          "status": "LOGIN_REQUIRED"
+        },
+        "storyboards": {
+          "has_spec": false,
+          "present": false
+        },
+        "streaming_data": null,
+        "video_details": null
+      },
+      "video_id": "9Umm2MAKsMc"
+    },
+    {
+      "bytes": 2235,
+      "content_type": "application/json; charset=UTF-8",
+      "elapsed_ms": 40,
+      "json": true,
+      "label": "missing",
+      "method": "POST",
+      "redaction_ok": true,
+      "request_body_keys": [
+        "contentCheckOk",
+        "context",
+        "racyCheckOk",
+        "videoId"
+      ],
+      "request_url": "https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+      "response_top_level_keys": [
+        "frameworkUpdates",
+        "playabilityStatus",
+        "responseContext",
+        "trackingParams"
+      ],
+      "status": 200,
+      "upstream_date": "Sat, 14 Nov 2026 02:59:52 GMT",
+      "verdict": {
+        "captions": {
+          "present": false,
+          "track_count": null,
+          "tracks": []
+        },
+        "microformat": null,
+        "playability": {
+          "has_error_screen": true,
+          "messages": null,
+          "reason": "This video is unavailable",
+          "status": "ERROR"
+        },
+        "storyboards": {
+          "has_spec": false,
+          "present": false
+        },
+        "streaming_data": null,
+        "video_details": null
+      },
+      "video_id": "AAAAAAAAAAA"
+    }
+  ],
+  "files": [
+    {
+      "raw_name": "player_captions.json",
+      "name": "player_captions.json.gz",
+      "raw_bytes": 8443,
+      "gz_bytes": 2059,
+      "sha256_raw": "b2f87471ab60d302949eb6d769191bdc99ba71e37d2ca697a3fc0a0c1f165b6e",
+      "sha256": "cb844ef5f7f19a4ea0c63e941764d015dd8763b4481cbfa79c45977247dd2bc2"
+    },
+    {
+      "raw_name": "player_missing.json",
+      "name": "player_missing.json.gz",
+      "raw_bytes": 628,
+      "gz_bytes": 273,
+      "sha256_raw": "f49b08f0867b505dd2c8cbfccfe387886a6ebf549ae176eda247442fda6f7d8e",
+      "sha256": "779d293833186a1751e0ec6c6f79802c88c67ae91bb87b6122e2c8c63d91b579"
+    },
+    {
+      "raw_name": "player_public.json",
+      "name": "player_public.json.gz",
+      "raw_bytes": 17650,
+      "gz_bytes": 4349,
+      "sha256_raw": "c91f6e3ad63582efb9dbce00ff476cc981cfea5fe8f732e121211d403bdab826",
+      "sha256": "261d9465989742e8a8da39ec2ec6f403e5ab391f6bcab7fa99b4b9cb84fb27d8"
+    },
+    {
+      "raw_name": "player_public_no_checks.json",
+      "name": "player_public_no_checks.json.gz",
+      "raw_bytes": 17015,
+      "gz_bytes": 4202,
+      "sha256_raw": "046a566d160cbc002c9f3c0e2aaa15c65ca57b83e33da448aa5125b0667a4211",
+      "sha256": "0c09a94aa5d80107cdffac40da7a79e1c5eff29369f981c1c21fcf88be9e1c21"
+    },
+    {
+      "raw_name": "summary.json",
+      "name": "summary.json.gz",
+      "raw_bytes": 8248,
+      "gz_bytes": 1498,
+      "sha256_raw": "391eb5bcd1db45165e3a4c45e2dbbaa7fc2c242027c006361142ec316ba3afe6",
+      "sha256": "7e0608e3ebf587afaa8d5743452d1a16b20c8c9ffd80fe01f3a46164d6f0f526"
+    }
+  ]
+}

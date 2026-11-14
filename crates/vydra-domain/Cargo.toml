@@ -1,0 +1,20 @@
+[package]
+name = "vydra-domain"
+description = "Provider-neutral domain models for the Vydra API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vydra-common = { workspace = true }
+vydra-errors = { workspace = true }
+serde = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

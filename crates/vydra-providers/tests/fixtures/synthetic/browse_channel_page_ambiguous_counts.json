@@ -1,0 +1,153 @@
+{
+  "trackingParams": "PLACEHOLDER_TRACKING",
+  "metadata": {
+    "channelMetadataRenderer": {
+      "title": "Placeholder Artist - Topic",
+      "description": "Placeholder channel description.\nSecond line of the description.",
+      "externalId": "UCdddddddddddddddddddddd",
+      "channelUrl": "http://www.youtube.com/channel/UCdddddddddddddddddddddd",
+      "vanityChannelUrl": "http://www.youtube.com/@placeholderartist",
+      "isFamilySafe": true,
+      "avatar": {
+        "thumbnails": [
+          {
+            "url": "https://example.invalid/avatar=s88",
+            "width": 88,
+            "height": 88
+          },
+          {
+            "url": "https://example.invalid/avatar=s176",
+            "width": 176,
+            "height": 176
+          }
+        ]
+      }
+    }
+  },
+  "header": {
+    "pageHeaderRenderer": {
+      "pageTitle": "Placeholder Artist - Topic",
+      "content": {
+        "pageHeaderViewModel": {
+          "title": {
+            "dynamicTextViewModel": {
+              "text": {
+                "content": "Placeholder Artist - Topic"
+              }
+            }
+          },
+          "image": {
+            "decoratedAvatarViewModel": {
+              "avatar": {
+                "avatarViewModel": {
+                  "image": {
+                    "sources": [
+                      {
+                        "url": "https://example.invalid/avatar=s48",
+                        "width": 48,
+                        "height": 48
+                      },
+                      {
+                        "url": "https://example.invalid/avatar=s160",
+                        "width": 160,
+                        "height": 160
+                      }
+                    ]
+                  },
+                  "a11yLabel": "Placeholder Studio"
+                }
+              }
+            }
+          },
+          "metadata": {
+            "contentMetadataViewModel": {
+              "metadataRows": [
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "78 videos"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Home",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZob21l"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCdddddddddddddddddddddd",
+                "params": "EgZ2aWRlb3PyBgQKAjoA"
+              }
+            },
+            "content": {
+              "richGridRenderer": {
+                "contents": [],
+                "trackingParams": "PLACEHOLDER_TAB"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Shorts",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZzaG9ydHM"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Playlists",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EglwbGF5bGlzdHM"
+              }
+            }
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "About",
+            "selected": false,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgVhYm91dA"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

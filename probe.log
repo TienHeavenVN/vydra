@@ -1,0 +1,19 @@
+    Updating crates.io index
+   Compiling vydra-errors v0.1.0 (/home/runner/work/vydra/vydra/crates/vydra-errors)
+   Compiling vydra-common v0.1.0 (/home/runner/work/vydra/vydra/crates/vydra-common)
+   Compiling vydra-domain v0.1.0 (/home/runner/work/vydra/vydra/crates/vydra-domain)
+   Compiling vydra-providers v0.1.0 (/home/runner/work/vydra/vydra/crates/vydra-providers)
+    Finished `release` profile [optimized] target(s) in 9.65s
+     Running `target/release/examples/probe_search`
+search_page_1: status=200 bytes=660981 elapsed_ms=672 -> probe-out/search_page_1.json
+search_page_2: status=200 bytes=488298 elapsed_ms=609 -> probe-out/search_page_2.json
+search_mixed: status=200 bytes=1236535 elapsed_ms=802 -> probe-out/search_mixed.json
+search_empty: status=200 bytes=21754 elapsed_ms=1456 -> probe-out/search_empty.json
+search_error: status=400 bytes=274 elapsed_ms=20 -> probe-out/search_error.json
+summary -> probe-out/summary.json
+::notice::probe "search_page_1" status=200 bytes=660981 token_len=638
+::notice::probe "search_page_2" status=200 bytes=488298 token_len=670
+::notice::probe "search_mixed" status=200 bytes=1236535 token_len=612
+::notice::probe "search_empty" status=200 bytes=21754 token_len=null
+::notice::probe "search_error" status=400 bytes=274 token_len=null
+::notice::probe provider_mapping ok=true

@@ -1,0 +1,27 @@
+{
+  "playabilityStatus": {
+    "contextParams": "Q0FBU0FnZ0E=",
+    "errorScreen": {
+      "playerInterstitialRenderer": {
+        "content": {
+          "interstitialViewModel": {
+            "description": {
+              "content": "This video is unavailable"
+            },
+            "loggingDirectives": {
+              "visibility": {
+                "types": "12"
+              }
+            },
+            "title": {
+              "content": "Video unavailable"
+            }
+          }
+        },
+        "stateEntityStoreKey": ""
+      }
+    },
+    "reason": "This video is unavailable",
+    "status": "ERROR"
+  }
+}

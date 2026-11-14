@@ -1,0 +1,21 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube comment renderer trees documented in docs/research/COMMENTS_REQUEST_CONTRACT.md and docs/research/COMMENTS_RESPONSE_ANALYSIS.md. It is NOT a captured response and must not be described as one: every comment, author, id, count and continuation token here is a placeholder.",
+  "endpoint": "next, WEB client",
+  "created": "2026-11-13",
+  "purpose": "The same page shape with hostile and incomplete rows: an unknown renderer, a thread with no body, an entity with no comment id, an invalid comment id, a duplicated row, and a second continuation token.",
+  "sections_exercised": [
+    "commentThreadRenderer without commentViewModel or comment",
+    "unknown renderer keys inside the item array",
+    "frameworkUpdates entity present but commentId absent",
+    "commentId that fails CommentId validation",
+    "duplicate comment id within one page",
+    "two continuationItemRenderer rows on one page"
+  ],
+  "not_verified": [
+    "that upstream ever emits an invalid comment id",
+    "that upstream ever emits two page cursors on one page",
+    "that duplicate rows appear on real pages"
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "onResponseReceivedEndpoints": [
+    {
+      "appendContinuationItemsAction": {
+        "targetId": "comments-section",
+        "continuationItems": [
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentId": "UgxAAAAAAAAAAAAAAAAAAAA",
+                "commentKey": "ENTITY-COMMENT-PINNED"
+              }
+            }
+          },
+          {
+            "someUnknownRenderer": {
+              "foo": "bar"
+            }
+          },
+          {
+            "commentThreadRenderer": {}
+          },
+          {
+            "commentViewModel": {
+              "commentKey": "ENTITY-COMMENT-ORPHAN"
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentId": "UgxDDDDDDDDDDDDDDDDDDDD",
+                "commentKey": "ENTITY-COMMENT-NEWEST"
+              }
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentId": "UgxDDDDDDDDDDDDDDDDDDDD",
+                "commentKey": "ENTITY-COMMENT-NEWEST"
+              }
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "commentViewModel": {
+                "commentViewModel": {
+                  "commentId": "not a valid id!",
+                  "commentKey": "ENTITY-COMMENT-BAD"
+                }
+              }
+            }
+          },
+          {
+            "continuationItemRenderer": {
+              "continuationEndpoint": {
+                "continuationCommand": {
+                  "token": "PLACEHOLDER-COMMENTS-PAGE2"
+                }
+              }
+            }
+          },
+          {
+            "continuationItemRenderer": {
+              "continuationEndpoint": {
+                "continuationCommand": {
+                  "token": "PLACEHOLDER-SECOND-CURSOR"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "frameworkUpdates": {
+    "entityBatchUpdate": {
+      "mutations": [
+        {
+          "entityKey": "ENTITY-COMMENT-PINNED",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "UgxAAAAAAAAAAAAAAAAAAAA",
+                "content": {
+                  "content": "The pinned comment."
+                },
+                "publishedTime": "2 days ago"
+              },
+              "author": {
+                "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "displayName": "Pinned Author"
+              },
+              "toolbar": {
+                "likeCountNotliked": "1.2K",
+                "replyCount": "14"
+              }
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-COMMENT-NEWEST",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "UgxDDDDDDDDDDDDDDDDDDDD",
+                "content": {
+                  "content": "A duplicated comment."
+                },
+                "publishedTime": "1 hour ago"
+              },
+              "author": {
+                "channelId": "UCdddddddddddddddddddddd",
+                "displayName": "Third Author"
+              },
+              "toolbar": {}
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-COMMENT-ORPHAN",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "content": {
+                  "content": "An entity with no comment id."
+                },
+                "publishedTime": "just now"
+              },
+              "author": {
+                "channelId": "UCoooooooooooooooooooooo",
+                "displayName": "Orphan Author"
+              }
+            }
+          }
+        },
+        {
+          "entityKey": "ENTITY-COMMENT-BAD",
+          "payload": {
+            "commentEntityPayload": {
+              "properties": {
+                "commentId": "not a valid id!",
+                "content": {
+                  "content": "An id that fails validation."
+                }
+              },
+              "author": {
+                "displayName": "Bad Id Author"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

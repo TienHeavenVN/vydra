@@ -1,0 +1,347 @@
+{
+  "metadata": {
+    "playlistMetadataRenderer": {
+      "title": "Placeholder playlist",
+      "description": "A playlist used to exercise the parser."
+    }
+  },
+  "header": {
+    "playlistHeaderRenderer": {
+      "playlistId": "PLcccccccccccccccccccccc",
+      "title": {
+        "simpleText": "Placeholder playlist"
+      },
+      "description": {
+        "simpleText": "A playlist used to exercise the parser."
+      },
+      "numVideosText": {
+        "runs": [
+          {
+            "text": "1,204 videos"
+          }
+        ]
+      },
+      "viewCountText": {
+        "simpleText": "3,456 views"
+      },
+      "ownerText": {
+        "runs": [
+          {
+            "text": "Placeholder Owner",
+            "navigationEndpoint": {
+              "browseEndpoint": {
+                "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                "canonicalBaseUrl": "/@placeholderowner"
+              }
+            }
+          }
+        ]
+      },
+      "playlistHeaderBanner": {
+        "heroPlaylistThumbnailRenderer": {
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://example.invalid/plbanner=1060",
+                "width": 1060,
+                "height": 250
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "sidebar": {
+    "playlistSidebarPrimaryInfoRenderer": {
+      "title": {
+        "simpleText": "Placeholder playlist"
+      },
+      "stats": [
+        {
+          "runs": [
+            {
+              "text": "1,204"
+            }
+          ]
+        },
+        {
+          "runs": [
+            {
+              "text": "3,456"
+            }
+          ]
+        },
+        {
+          "runs": [
+            {
+              "text": "Updated 3 days ago"
+            }
+          ]
+        }
+      ],
+      "thumbnailRenderer": {
+        "playlistVideoThumbnailRenderer": {
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://example.invalid/plthumb",
+                "width": 360,
+                "height": 202
+              }
+            ]
+          }
+        }
+      }
+    },
+    "playlistSidebarSecondaryInfoRenderer": {
+      "videoOwner": {
+        "videoOwnerRenderer": {
+          "title": {
+            "runs": [
+              {
+                "text": "Placeholder Owner",
+                "navigationEndpoint": {
+                  "browseEndpoint": {
+                    "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                    "canonicalBaseUrl": "/@placeholderowner"
+                  }
+                }
+              }
+            ]
+          },
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://example.invalid/owner=s48",
+                "width": 48,
+                "height": 48
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Playlist",
+            "selected": true,
+            "content": {
+              "playlistVideoListRenderer": {
+                "contents": [
+                  {
+                    "playlistVideoRenderer": {
+                      "videoId": "vid00000000",
+                      "index": {
+                        "simpleText": "1"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://example.invalid/vi/vid00000000/mqdefault.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "Placeholder video one"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "text": "Placeholder Owner",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                "canonicalBaseUrl": "/@placeholderowner"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "10:01"
+                      },
+                      "lengthSeconds": "601",
+                      "isPlayable": true,
+                      "navigationEndpoint": {
+                        "watchEndpoint": {
+                          "videoId": "vid00000000"
+                        }
+                      },
+                      "trackingParams": "PLACEHOLDER_ROW"
+                    }
+                  },
+                  {
+                    "playlistVideoRenderer": {
+                      "videoId": "AAAAAAAAAAA",
+                      "index": {
+                        "simpleText": "2"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://example.invalid/vi/AAAAAAAAAAA/mqdefault.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "[Deleted video]"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "text": "Placeholder Owner",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                "canonicalBaseUrl": "/@placeholderowner"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "0:00"
+                      },
+                      "lengthSeconds": "0",
+                      "isPlayable": false,
+                      "navigationEndpoint": {
+                        "watchEndpoint": {
+                          "videoId": "AAAAAAAAAAA"
+                        }
+                      },
+                      "trackingParams": "PLACEHOLDER_ROW"
+                    }
+                  },
+                  {
+                    "playlistVideoRenderer": {
+                      "videoId": "vid00000001",
+                      "index": {
+                        "simpleText": "3"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://example.invalid/vi/vid00000001/mqdefault.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "Placeholder video two"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "text": "Placeholder Owner",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                "canonicalBaseUrl": "/@placeholderowner"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "4:32"
+                      },
+                      "lengthSeconds": "272",
+                      "isPlayable": true,
+                      "navigationEndpoint": {
+                        "watchEndpoint": {
+                          "videoId": "vid00000001"
+                        }
+                      },
+                      "trackingParams": "PLACEHOLDER_ROW"
+                    }
+                  },
+                  {
+                    "playlistVideoRenderer": {
+                      "videoId": "vid00000000",
+                      "index": {
+                        "simpleText": "4"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://example.invalid/vi/vid00000000/mqdefault.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "Placeholder video one"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "text": "Placeholder Owner",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                "canonicalBaseUrl": "/@placeholderowner"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "10:01"
+                      },
+                      "lengthSeconds": "601",
+                      "isPlayable": true,
+                      "navigationEndpoint": {
+                        "watchEndpoint": {
+                          "videoId": "vid00000000"
+                        }
+                      },
+                      "trackingParams": "PLACEHOLDER_ROW"
+                    }
+                  },
+                  {
+                    "continuationItemRenderer": {
+                      "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                      "continuationEndpoint": {
+                        "continuationCommand": {
+                          "token": "PLAYLIST-PAGE-1-TOKEN",
+                          "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

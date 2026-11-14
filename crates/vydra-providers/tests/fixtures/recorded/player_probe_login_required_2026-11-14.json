@@ -1,0 +1,102 @@
+{
+  "playabilityStatus": {
+    "contextParams": "Q0FFU0FnZ0M=",
+    "errorScreen": {
+      "playerInterstitialRenderer": {
+        "content": {
+          "interstitialViewModel": {
+            "description": {
+              "content": "This helps protect our community"
+            },
+            "loggingDirectives": {
+              "visibility": {
+                "types": "12"
+              }
+            },
+            "primaryButton": {
+              "buttonViewModel": {
+                "accessibilityId": "id.interstitial_sign_in_button",
+                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_LARGE",
+                "isFullWidth": false,
+                "loggingDirectives": {
+                  "visibility": {
+                    "types": "12"
+                  }
+                },
+                "onTap": {
+                  "innertubeCommand": {
+                    "commandMetadata": {
+                      "webCommandMetadata": {
+                        "rootVe": 83769,
+                        "url": "https://accounts.google.com/ServiceLogin",
+                        "webPageType": "WEB_PAGE_TYPE_UNKNOWN"
+                      }
+                    },
+                    "signInEndpoint": {
+                      "nextEndpoint": {
+                        "urlEndpoint": {
+                          "url": ""
+                        }
+                      }
+                    }
+                  }
+                },
+                "shouldLogGestures": true,
+                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY",
+                "titleFormatted": {
+                  "content": "Sign in"
+                },
+                "type": "BUTTON_VIEW_MODEL_TYPE_FILLED",
+                "useYoutubeLoggingDirectives": true
+              }
+            },
+            "secondaryButton": {
+              "buttonViewModel": {
+                "accessibilityId": "id.interstitial_learn_more_button",
+                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_DEFAULT",
+                "isFullWidth": false,
+                "loggingDirectives": {
+                  "visibility": {
+                    "types": "12"
+                  }
+                },
+                "onTap": {
+                  "innertubeCommand": {
+                    "commandMetadata": {
+                      "webCommandMetadata": {
+                        "rootVe": 83769,
+                        "url": "https://support.google.com/youtube/answer/3037019#zippy=%2Ccheck-that-youre-signed-into-youtube",
+                        "webPageType": "WEB_PAGE_TYPE_UNKNOWN"
+                      }
+                    },
+                    "urlEndpoint": {
+                      "url": "https://support.google.com/youtube/answer/3037019#zippy=%2Ccheck-that-youre-signed-into-youtube"
+                    }
+                  }
+                },
+                "shouldLogGestures": true,
+                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY",
+                "titleFormatted": {
+                  "content": "Learn more"
+                },
+                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                "useYoutubeLoggingDirectives": true
+              }
+            },
+            "title": {
+              "content": "Sign in to confirm you’re not a bot"
+            }
+          }
+        },
+        "stateEntityStoreKey": ""
+      }
+    },
+    "reason": "Sign in to confirm you’re not a bot",
+    "skip": {
+      "playabilityErrorSkipConfig": {
+        "skipOnPlayabilityError": false
+      }
+    },
+    "status": "LOGIN_REQUIRED"
+  }
+}

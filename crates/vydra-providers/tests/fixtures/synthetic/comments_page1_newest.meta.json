@@ -1,0 +1,16 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube comment renderer trees documented in docs/research/COMMENTS_REQUEST_CONTRACT.md and docs/research/COMMENTS_RESPONSE_ANALYSIS.md. It is NOT a captured response and must not be described as one: every comment, author, id, count and continuation token here is a placeholder.",
+  "endpoint": "next, WEB client",
+  "created": "2026-11-13",
+  "purpose": "The same page shape with the second sort-menu entry selected, i.e. what a page fetched with the menu's second token looks like.",
+  "sections_exercised": [
+    "commentsHeaderRenderer.sortMenu.sortFilterSubMenuRenderer.subMenuItems[].selected",
+    "onResponseReceivedEndpoints[].appendContinuationItemsAction.continuationItems[]"
+  ],
+  "not_verified": [
+    "that selecting the second entry actually changes the order upstream",
+    "that a response states which order it was fetched in"
+  ]
+}

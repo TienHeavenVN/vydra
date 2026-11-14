@@ -1,0 +1,1194 @@
+openapi: 3.1.0
+info:
+  title: Vydra API
+  version: 0.1.0
+  description: |
+    Backend-only YouTube data API. Responses use a common envelope (`data` + `meta`) and a closed
+    error-code set. Only endpoints whose capability is implemented and tested are described here;
+    `docs/PROGRESS.md` is authoritative for implementation state.
+
+    Ops endpoints (`/health`, `/ready`, `/status`, `/metrics`) are deliberately unauthenticated so
+    orchestrators and scrapers can reach them. Every content endpoint requires an API key, sent as
+    `x-api-key` or as `Authorization: Bearer <key>`.
+  license:
+    name: MIT OR Apache-2.0
+security:
+  - ApiKeyAuth: []
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': {description: Process is alive}
+  /ready:
+    get:
+      operationId: ready
+      summary: Readiness probe
+      security: []
+      responses:
+        '200': {description: Ready to serve}
+        '503': {description: A dependency is unavailable}
+  /status:
+    get:
+      operationId: status
+      summary: Build info, capabilities and provider health
+      security: []
+      responses:
+        '200':
+          description: Status document
+          content:
+            application/json:
+              schema: {type: object}
+  /metrics:
+    get:
+      operationId: metrics
+      summary: Prometheus exposition
+      description: |
+        Unauthenticated by design. Deployments that expose the service publicly should scrape
+        through an internal listener or block this path at the ingress.
+      security: []
+      responses:
+        '200':
+          description: Metrics in text exposition format
+          content:
+            text/plain: {schema: {type: string}}
+  /search:
+    get:
+      operationId: search
+      summary: Mixed search (videos, channels and playlists)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Duration'
+        - $ref: '#/components/parameters/Filter'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/videos:
+    get:
+      operationId: searchVideos
+      summary: Video-only search (mounted only when a provider declares `search_videos`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Since'
+        - $ref: '#/components/parameters/Duration'
+        - $ref: '#/components/parameters/Filter'
+      responses:
+        '200':
+          description: Search results filtered to videos
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/channels:
+    get:
+      operationId: searchChannels
+      summary: Channel-only search (mounted only when a provider declares `search_channels`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Search results filtered to channels
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /search/playlists:
+    get:
+      operationId: searchPlaylists
+      summary: Playlist-only search (mounted only when a provider declares `search_playlists`)
+      parameters:
+        - $ref: '#/components/parameters/Query'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Search results filtered to playlists
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /videos/{id}:
+    get:
+      operationId: video
+      summary: Video metadata
+      description: |
+        Returns the video document when upstream can be read. Playability is reported in
+        `data.availability` (`available`, `upcoming`, `live`, `unavailable` with a closed-set `reason`,
+        or `unknown` when upstream stated no verdict). A `409` is returned only when upstream refused
+        the metadata itself, in which case `details[0].reason` carries the same closed set.
+
+        `data.evidence` states what the response contained and where the values came from: which sections
+        were present, which fields were filled from the secondary section, and which fields the two
+        sections disagreed about (the accepted value is the one reported). `like_count`,
+        `publication.upstream_text` and `storyboards` are Phase 5B additions; all are omitted when
+        upstream did not send them, and none are inferred.
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Video document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VideoEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/metadata:
+    get:
+      operationId: videoMetadata
+      summary: Alias of `/videos/{id}`
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Video document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VideoEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/chapters:
+    get:
+      operationId: videoChapters
+      summary: Chapter markers derived from the description
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200': {description: Chapter list}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/captions:
+    get:
+      operationId: videoCaptions
+      summary: Caption track metadata (no transcript download)
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200': {description: Caption tracks}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /videos/{id}/comments:
+    get:
+      operationId: videoComments
+      summary: One page of a video's comments
+      description: |
+        Read-only. Vydra never posts, edits, deletes, likes or subscribes, and never signs in: every request
+        behind this endpoint is a read of a public page.
+
+        **Order.** `sort` accepts the two orders whose request contract is verified — `top` (default) and
+        `newest`. Both are addressed with a continuation token the page's *own* sort menu carried; Vydra
+        never encodes one. Any other value is `400 invalid_request`, and an order the page does not offer is
+        `503 capability_unavailable`: it is never approximated with the default order. A response cannot
+        prove its own order, so `data.sort` states the order that was requested — that is a statement about
+        Vydra's request, not an upstream claim.
+
+        **Empty is not unavailable.** `200` with `data.items: []` means the page was read and contained no
+        comments. Comments that the uploader turned off are `409 content_unavailable` with
+        `details[0].issue: comments_disabled`, and a video that does not exist is `404`.
+
+        **Missing is not zero.** A comment whose row stated no like count has no `like_count`; one whose row
+        stated none has no `reply_count`. Both are omitted rather than reported as `0`.
+
+        **Pagination.** `data.next_cursor` is opaque and signed, bound to the video id, the order, the locale,
+        the provider client profile and the upstream token. Replaying it against another video, another order
+        or another parent comment is `400 invalid_cursor`. An expired cursor is the same error: no upstream
+        request is made for a cursor Vydra cannot verify.
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/CommentSort'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: One page of top-level comments
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CommentListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /videos/{id}/comments/{comment_id}/replies:
+    get:
+      operationId: videoCommentReplies
+      summary: One page of replies under a comment
+      description: |
+        A reply page is a separate operation because replies have their own continuation: the token exists
+        only inside the comment page that rendered the thread, and a reply cursor is bound to its parent
+        comment id, so a cursor minted for one thread is `400 invalid_cursor` on another.
+
+        **Loaded is not total.** `data.items` is this page. `data.total_reply_count` is what the *parent*
+        comment claimed and is omitted when the reply page did not restate it — a reply page that carries
+        two of fourteen replies does not claim two. `data.next_cursor` says whether more are available, and
+        the parent's `reply_count` in the comment listing remains the only statement of the total.
+
+        A reply that upstream has deleted is served with `availability.state: unavailable` and
+        `reason: deleted`, keeping its place, rather than being dropped and renumbering the page.
+
+        When the thread is not among the comment pages Vydra is willing to scan (a bounded three), the
+        endpoint answers `404 not_found` with a message saying so. It never constructs a token for a comment
+        id it has not seen.
+      parameters:
+        - $ref: '#/components/parameters/VideoId'
+        - name: comment_id
+          in: path
+          required: true
+          description: The parent comment id, exactly as a comment document carried it.
+          schema: {type: string, minLength: 8, maxLength: 200}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: One page of replies
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReplyListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /channels/{id}:
+    get:
+      operationId: channel
+      summary: Channel metadata
+      description: |
+        Accepts a `UC…` channel id. The reference is validated before any upstream call: a malformed id is a
+        `400`, and a `@handle` is refused with `issue: handle_not_supported` rather than being resolved.
+
+        `data.summary.id` is the canonical id the page reported. When upstream answers under a different
+        canonical id (localized and auto-generated channels do this), the document carries the canonical
+        id and `data.evidence.conflicts` records the substitution.
+
+        `subscriber_count` and `video_count` are omitted when the page did not state them, and are marked
+        `precision: approximate` with the rendered text preserved when they came from an abbreviated label
+        such as "1.24M subscribers". A channel that hides its subscriber count therefore has no
+        `subscriber_count` — never `0`.
+
+        `data.links`, `data.joined_at`, `data.country` and `data.total_view_count` live on the `about`
+        tab, which this phase does not request; they are currently always absent.
+      parameters:
+        - $ref: '#/components/parameters/ChannelIdOrHandle'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Channel document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /channels/{id}/videos:
+    get:
+      operationId: channelVideos
+      summary: One page of a channel's videos
+      description: |
+        Entries are ordered as upstream served them. `data.next_cursor` is an opaque, signed token bound to
+        this channel: a cursor minted for one channel is rejected by another with
+        `400 invalid_cursor`, and a tampered cursor is rejected the same way.
+
+        `data.duplicates_removed` counts rows dropped because the same video id appeared twice in the same
+        page. It is a count of removed rows, not a claim about the channel.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Channel video listing
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelVideoListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /playlists/{id}:
+    get:
+      operationId: playlist
+      summary: Playlist metadata and its first page of entries
+      description: |
+        `data.items` is the first page of entries in upstream order. Every entry keeps its own `position`
+        (the number the owner sees), its validated `video_id` when it has one, and its own `availability`:
+
+        * `unavailable` means the row states that the entry cannot be played (deleted, private, blocked);
+          the title is preserved verbatim so a client can show what the owner sees;
+        * `unknown` means the row stated no playability at all, which is not the same as available;
+        * an entry whose id fails validation keeps its position with no `video_id`, so positions never
+          shift.
+
+        A playlist that legitimately contains the same video twice keeps both entries and reports the
+        repetition in `data.repeated_entries`.
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Playlist document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlaylistEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /playlists/{id}/videos:
+    get:
+      operationId: playlistVideos
+      summary: One page of a playlist's entries
+      description: |
+        Same entry semantics as `/playlists/{id}`, without the header. Positions come from the row's own
+        index, never from the offset inside the page, so a continuation page starts at the position the
+        playlist is actually at.
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Playlist entry listing
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlaylistVideoListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  parameters:
+    Query:
+      name: q
+      in: query
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 50, default: 20}
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque, HMAC-signed cursor minted by a previous response. Never a provider token.
+      schema: {type: string}
+    Hl:
+      name: hl
+      in: query
+      description: Content language, validated as ASCII letters/digits plus `-` (2-10 chars).
+      schema: {type: string, minLength: 2, maxLength: 10}
+    Gl:
+      name: gl
+      in: query
+      schema: {type: string, minLength: 2, maxLength: 2}
+    Sort:
+      name: sort
+      in: query
+      description: |
+        Requires `VYDRA__PROVIDERS__ENABLE_UNVERIFIED_FILTERS=true`. The mapping to upstream search
+        parameters is unverified, so the default deployment answers `capability_unavailable`.
+      schema:
+        type: string
+        enum: [relevance, upload_date, view_count, rating]
+    Since:
+      name: since
+      in: query
+      schema: {type: string, enum: [hour, day, week, month, year]}
+    Duration:
+      name: duration
+      in: query
+      schema: {type: string, enum: [short, medium, long]}
+    Filter:
+      name: filter
+      in: query
+      description: Comma-separated feature list.
+      schema:
+        type: string
+        example: live,hd,subtitles
+    CommentSort:
+      name: sort
+      in: query
+      required: false
+      description: |
+        Comment order. Only the two orders with a verified request contract are accepted. An unknown value is
+        `400 invalid_request`; an order the page's own menu does not offer is `503 capability_unavailable`.
+      schema:
+        type: string
+        enum: [top, newest]
+        default: top
+    VideoId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}
+    ChannelIdOrHandle:
+      name: id
+      in: path
+      required: true
+      description: |
+        A canonical channel id (`UC` + 22 characters). A `@handle` is **refused** with
+        `400 validation_failed{field: id, issue: handle_not_supported}`: upstream does not accept a handle as
+        a browse id (Phase 6 probe: `HTTP 400`), and resolving one through a search would be a guess about
+        which channel the caller meant.
+      schema:
+        type: string
+        pattern: '^UC[A-Za-z0-9_-]{22}$'
+    ChannelId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Channel id (`UC` + 22 characters). Handles are not accepted on listing endpoints.
+      schema:
+        type: string
+        pattern: '^UC[A-Za-z0-9_-]{22}$'
+    PlaylistId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Playlist id: one of the prefixes `PL`, `UU`, `LL`, `OL`, `RD`, `FL`, followed by the rest of the id,
+        12 to 64 characters in total.
+      schema:
+        type: string
+        pattern: '^(PL|UU|LL|OL|RD|FL)[A-Za-z0-9_-]{9,61}$'
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    NotFound:
+      description: Content does not exist
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    RateLimited:
+      description: Rate limited or quota exhausted
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    Unavailable:
+      description: No provider can serve the capability
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+    ContentUnavailable:
+      description: Content exists but is unavailable (not a 404)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorEnvelope'}
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, status, request_id, retryable]
+          properties:
+            code:
+              type: string
+              enum: [invalid_request, validation_failed, invalid_cursor, unauthorized, forbidden,
+                     not_found, content_unavailable, quota_exceeded, rate_limited,
+                     provider_rate_limited, capability_unavailable, provider_unavailable,
+                     provider_circuit_open, timeout, internal_error]
+            message: {type: string}
+            status: {type: integer}
+            request_id: {type: string}
+            retryable: {type: boolean}
+            retry_after_ms: {type: integer}
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field: {type: string}
+                  issue: {type: string}
+    Meta:
+      type: object
+      properties:
+        request_id: {type: string}
+        provider: {type: string}
+        cached: {type: boolean}
+        fetched_at: {type: string, format: date-time}
+        warnings: {type: array, items: {type: string}}
+        parse_warnings: {type: integer}
+        sources:
+          type: array
+          description: Every provider attempt that contributed to this document, including failures.
+          items:
+            type: object
+            properties:
+              provider: {type: string}
+              endpoint: {type: string}
+              attempt: {type: integer}
+              latency_ms: {type: integer}
+              outcome: {type: string, enum: [ok, empty, skipped, failed]}
+        pagination:
+          type: object
+          properties:
+            next_cursor: {type: [string, 'null']}
+            prev_cursor: {type: [string, 'null']}
+            limit: {type: integer}
+            returned: {type: integer}
+    SearchEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          properties:
+            items: {type: array, items: {type: object}}
+            next_cursor: {type: [string, 'null']}
+            estimated_results: {type: object}
+            provenance: {type: object}
+        meta: {$ref: '#/components/schemas/Meta'}
+    VideoEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/VideoDocument'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ChannelEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ChannelDocument'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ChannelDocument:
+      type: object
+      required: [summary, availability, provenance]
+      properties:
+        summary: {$ref: '#/components/schemas/ChannelSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        banner: {$ref: '#/components/schemas/Thumbnail'}
+        links:
+          type: array
+          description: Empty today; channel links live on the `about` tab, which is not requested.
+          items: {type: object, properties: {title: {type: string}, url: {type: string}}}
+        joined_at: {type: string, format: date-time}
+        country: {type: string}
+        total_view_count: {$ref: '#/components/schemas/Count'}
+        tabs:
+          type: array
+          items: {$ref: '#/components/schemas/ChannelTab'}
+        verification:
+          type: array
+          description: |
+            Verification indicators as the page rendered them. An empty array means no badge was read, not
+            that the channel is unverified.
+          items: {$ref: '#/components/schemas/ChannelVerification'}
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance: {type: object}
+    ChannelSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string, description: Canonical channel id.}
+        title: {type: string}
+        handle: {type: string, description: Handle without the leading `@`.}
+        description: {type: string}
+        thumbnails:
+          type: array
+          description: Ordered smallest to largest.
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        subscriber_count: {$ref: '#/components/schemas/Count'}
+        video_count: {$ref: '#/components/schemas/Count'}
+    ChannelTab:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string, description: 'Upstream title, localized.'}
+        slug:
+          type: string
+          description: |
+            Set only for recognized titles (`home`, `videos`, `shorts`, `live`, `playlists`, `podcasts`,
+            `releases`, `courses`, `community`, `about`, `store`, `channels`). An unrecognized tab has no
+            slug rather than a guessed one.
+        selected: {type: boolean}
+    ChannelVerification:
+      type: object
+      required: [style]
+      properties:
+        style: {type: string, description: 'Badge style as rendered, e.g. `BADGE_STYLE_TYPE_VERIFIED`.'}
+        label: {type: string}
+    ChannelVideoListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ChannelVideoList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ChannelVideoList:
+      type: object
+      required: [items, provenance]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/VideoSummary'}
+        next_cursor: {type: [string, 'null']}
+        duplicates_removed:
+          type: integer
+          minimum: 0
+          description: Rows dropped because the same video id appeared more than once in this page.
+        provenance: {type: object}
+    PlaylistEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/PlaylistDocument'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    PlaylistDocument:
+      type: object
+      required: [summary, availability, provenance]
+      properties:
+        summary: {$ref: '#/components/schemas/PlaylistSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/PlaylistItem'}
+        next_cursor: {type: [string, 'null']}
+        view_count: {$ref: '#/components/schemas/Count'}
+        last_updated_text:
+          type: string
+          description: The page's own wording for "last updated", untranslated.
+        repeated_entries:
+          type: integer
+          minimum: 0
+          description: |
+            How many entries repeated a video id already seen in the same page. Nothing is dropped: a
+            playlist may legally contain the same video twice.
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance: {type: object}
+    PlaylistSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        description: {type: string}
+        item_count: {$ref: '#/components/schemas/Count'}
+        thumbnails:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+    PlaylistItem:
+      type: object
+      required: [title, availability, source]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: 1-based position exactly as the row reported it. Never derived from the page offset.
+        video_id: {type: string, description: Present only when the id passed validation.}
+        title: {type: string, description: 'Verbatim, including placeholders such as `[Deleted video]`.'}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        duration_seconds: {type: integer}
+        thumbnails:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        source:
+          type: string
+          enum: [playlist_video, lockup, other]
+    PlaylistVideoListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/PlaylistVideoList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    PlaylistVideoList:
+      type: object
+      required: [items, provenance]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/PlaylistItem'}
+        next_cursor: {type: [string, 'null']}
+        repeated_entries:
+          type: integer
+          minimum: 0
+          description: Repeated ids counted, never dropped.
+        provenance: {type: object}
+    CommentListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/CommentList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+      example:
+        data:
+          items:
+            - comment:
+                id: UgxAAAAAAAAAAAAAAAAAAAA
+                text: The pinned comment.
+                author:
+                  channel_id: UCaaaaaaaaaaaaaaaaaaaaaa
+                  display_name: Pinned Author
+                  avatars: [{url: 'https://example.invalid/avatar-pinned.jpg'}]
+                  is_creator: true
+                  is_verified: true
+                published_text: 2 days ago
+                like_count: {value: 1200, precision: approximate, raw: 1.2K}
+                reply_count: 14
+                is_pinned: true
+                is_hearted: true
+                availability: {state: available}
+              total_reply_count: 14
+              loaded_replies:
+                - id: UgxREPLYAAAAAAAAAAAAAAA
+                  text: A loaded reply.
+                  author: {channel_id: UCrrrrrrrrrrrrrrrrrrrrrr, display_name: Reply Author}
+                  published_text: 1 day ago (edited)
+                  like_count: {value: 3, precision: exact}
+                  reply_count: 0
+                  parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+                  availability: {state: available}
+              has_more_replies: true
+          sort: top
+          next_cursor: eyJ2IjoxLCJrIjoiY29tbWVudHM6ZFF3NHc5V2dYY1E6dG9wIn0.c2ln
+          duplicates: 0
+          availability: {state: available}
+          provenance: {provider: innertube-web, endpoint: next, client: web, cached: false, parse_warnings: 0}
+        meta:
+          request_id: 6f1c2a9e-0b7e-4a4a-9d0f-2d3c4b5a6e7f
+          provider: innertube-web
+          cached: false
+          fetched_at: '2026-11-13T09:41:07Z'
+          pagination: {limit: 20, returned: 1, next_cursor: eyJ2IjoxLCJrIjoiY29tbWVudHM6ZFF3NHc5V2dYY1E6dG9wIn0.c2ln}
+    CommentList:
+      type: object
+      required: [items, sort, availability, provenance]
+      description: |
+        One page of top-level comments. Three facts about replies are kept apart on every thread, because
+        conflating them is how "we did not fetch it" becomes "it does not exist":
+        `total_reply_count` is what the row claimed, `loaded_replies` is what this response carried, and
+        `has_more_replies` is whether upstream offered a continuation for the rest.
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CommentThread'}
+        sort:
+          type: string
+          enum: [top, newest]
+          description: The order Vydra requested. A page cannot state its own order, so this is not an upstream claim.
+        next_cursor:
+          type: [string, 'null']
+          description: Opaque, signed, bound to this video id and this order. Omitted when no further page was offered.
+        duplicates:
+          type: integer
+          minimum: 0
+          description: Rows dropped because the same comment id appeared more than once in this page.
+        availability: {$ref: '#/components/schemas/Availability'}
+        provenance: {type: object}
+    CommentThread:
+      type: object
+      required: [comment]
+      properties:
+        comment: {$ref: '#/components/schemas/CommentDocument'}
+        total_reply_count:
+          type: integer
+          minimum: 0
+          description: Replies the row claimed. Omitted when the row stated no count — never `0` for that reason.
+        loaded_replies:
+          type: array
+          items: {$ref: '#/components/schemas/CommentDocument'}
+          description: Replies that came with this page. Not a statement about how many exist.
+        has_more_replies:
+          type: boolean
+          description: Upstream offered a continuation for further replies.
+    CommentDocument:
+      type: object
+      required: [id, text, author, published_text, availability]
+      description: |
+        Provider-neutral comment. Omitted members were not stated by the page:
+        `published_at` is present only when an absolute time was stated (a relative label such as "2 days ago"
+        is kept verbatim in `published_text` and never converted), and an absent `like_count` or `reply_count`
+        is not a zero.
+      properties:
+        id: {type: string, description: Validated comment id. Never derived from an author name.}
+        text:
+          type: string
+          description: |
+            Plain text with line breaks preserved and markup not interpreted. An empty string is how a comment
+            whose body upstream no longer renders is served; its `availability` says `unavailable/deleted`.
+        author: {$ref: '#/components/schemas/CommentAuthor'}
+        published_text: {type: string, description: 'Relative label exactly as rendered and localized, e.g. `2 days ago`, `vor 2 Tagen`.'}
+        published_at: {type: string, format: date-time, description: Present only when the page stated an absolute instant.}
+        like_count: {$ref: '#/components/schemas/Count'}
+        reply_count:
+          type: integer
+          minimum: 0
+          description: The thread's total as the row claimed it — not the number of replies in this document.
+        is_pinned: {type: boolean}
+        is_hearted: {type: boolean}
+        parent_id: {type: string, description: Present on replies; the parent comment id.}
+        availability: {$ref: '#/components/schemas/Availability'}
+    CommentAuthor:
+      type: object
+      required: [display_name]
+      description: |
+        `channel_id` is present only when the page carried a validated `UC…` id. It is never derived from
+        `display_name`, and a name is never parsed as a handle.
+      properties:
+        channel_id: {type: string}
+        display_name: {type: string}
+        avatars:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        is_creator: {type: boolean, description: The author owns the video being commented on.}
+        is_verified: {type: boolean}
+        is_member: {type: boolean, description: The author carries a membership badge.}
+    ReplyListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ReplyList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+      example:
+        data:
+          parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+          items:
+            - id: UgxREPLYAAAAAAAAAAAAAAA
+              text: A loaded reply.
+              author: {channel_id: UCrrrrrrrrrrrrrrrrrrrrrr, display_name: Reply Author}
+              published_text: 1 day ago
+              like_count: {value: 3, precision: exact}
+              reply_count: 0
+              parent_id: UgxAAAAAAAAAAAAAAAAAAAA
+              availability: {state: available}
+          duplicates: 0
+          availability: {state: available}
+          provenance: {provider: innertube-web, endpoint: next, client: web, cached: false, parse_warnings: 0}
+        meta:
+          request_id: 6f1c2a9e-0b7e-4a4a-9d0f-2d3c4b5a6e7f
+          provider: innertube-web
+          cached: false
+          fetched_at: '2026-11-13T09:41:07Z'
+          pagination: {limit: 20, returned: 1}
+    ReplyList:
+      type: object
+      required: [parent_id, items, availability, provenance]
+      properties:
+        parent_id: {type: string, description: Always present. A reply page is never served without knowing its thread.}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/CommentDocument'}
+        total_reply_count:
+          type: integer
+          minimum: 0
+          description: Omitted unless the reply page itself restated the parent's total.
+        next_cursor: {type: [string, 'null']}
+        duplicates:
+          type: integer
+          minimum: 0
+          description: Reply ids that repeated within this page.
+        availability: {$ref: '#/components/schemas/Availability'}
+        provenance: {type: object}
+    VideoDocument:
+      type: object
+      required: [summary, availability, provenance]
+      description: |
+        Provider-neutral video metadata. Omitted members are values upstream did not send: an absent
+        `like_count` is not zero, an absent `duration_seconds` is not "live and indefinite", and an
+        absent `publication` is not "unpublished".
+      properties:
+        summary: {$ref: '#/components/schemas/VideoSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        description: {type: string}
+        category: {type: string}
+        keywords: {type: array, items: {type: string}}
+        like_count: {$ref: '#/components/schemas/Count'}
+        comment_count: {$ref: '#/components/schemas/Count'}
+        chapters:
+          type: array
+          items:
+            type: object
+            properties:
+              title: {type: string}
+              start_seconds: {type: integer}
+              end_seconds: {type: integer}
+              thumbnail: {$ref: '#/components/schemas/Thumbnail'}
+        caption_tracks:
+          type: array
+          items:
+            type: object
+            properties:
+              language_code: {type: string}
+              name: {type: string}
+              kind: {type: string, enum: [manual, automatic, unknown]}
+              is_translatable: {type: boolean}
+              base_url_present: {type: boolean}
+              translation_languages: {type: array, items: {type: string}}
+        formats:
+          type: array
+          description: Format metadata only. No media URL is ever returned (ADR-006).
+          items:
+            type: object
+            properties:
+              itag: {type: integer}
+              mime_type: {type: string}
+              codecs: {type: string}
+              bitrate: {type: integer}
+              width: {type: integer}
+              height: {type: integer}
+              fps: {type: integer}
+              quality_label: {type: string}
+              audio_quality: {type: string}
+              content_length: {type: integer}
+              approx_duration_ms: {type: integer}
+              audio_only: {type: boolean}
+              has_drm: {type: boolean}
+              delivery:
+                type: string
+                enum: [not_inspected, direct, signature_protected, token_protected, drm, unknown]
+        storyboards: {$ref: '#/components/schemas/Storyboard'}
+        publication: {$ref: '#/components/schemas/Publication'}
+        broadcast: {$ref: '#/components/schemas/Broadcast'}
+        unlisted: {type: boolean}
+        family_safe: {type: boolean}
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance:
+          type: object
+          description: Where the document came from and how many parse warnings it carries.
+          properties:
+            provider: {type: string}
+            endpoint: {type: string}
+            client: {type: string}
+            fetched_at: {type: string, format: date-time}
+            cached: {type: boolean}
+            parse_warnings: {type: integer}
+      example:
+        summary:
+          id: dQw4w9WgXcQ
+          title: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
+          channel_id: UCuAXFkgsw1L7xaCfnd5JJOw
+          channel_title: Rick Astley
+          duration_seconds: 213
+          view_count: {value: 1836979877, precision: exact}
+          published_at: '2009-10-25T06:57:33Z'
+          thumbnails:
+            - {url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg', width: 1280, height: 720}
+        availability: {state: unavailable, reason: other}
+        description: The official video for “Never Gonna Give You Up” by Rick Astley.
+        category: Music
+        keywords: [rick astley, never gonna give you up]
+        like_count: {value: 19503628, precision: exact}
+        caption_tracks: []
+        formats: []
+        unlisted: false
+        family_safe: true
+        publication:
+          published_at: '2009-10-25T06:57:33Z'
+          upstream_text: '2009-10-24T23:57:33-07:00'
+          upstream_offset_seconds: -25200
+          uploaded_at: '2009-10-25T06:57:33Z'
+          uploaded_text: '2009-10-24T23:57:33-07:00'
+        evidence:
+          sections: [video_details, microformat]
+          conflicts:
+            - field: duration_seconds
+              kept: video_details
+              kept_value: '213'
+              rejected: microformat
+              rejected_value: '214'
+        provenance:
+          provider: innertube-web
+          endpoint: player
+          client: web-2.20260805.01.00
+          fetched_at: '2026-11-14T03:05:36Z'
+          cached: false
+          parse_warnings: 0
+    VideoSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        duration_seconds:
+          type: integer
+          description: Whole seconds. Omitted for live items and when upstream did not state it.
+        view_count: {$ref: '#/components/schemas/Count'}
+        published_text: {type: string, description: 'Localized relative date, verbatim.'}
+        published_at: {type: string, format: date-time}
+        thumbnails:
+          type: array
+          description: Ordered smallest to largest.
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        live_state: {type: string, enum: [not_live, live, upcoming, ended]}
+        badges: {type: array, items: {type: string}}
+    Count:
+      type: object
+      required: [value, precision]
+      properties:
+        value: {type: integer, minimum: 0}
+        precision:
+          type: string
+          enum: [exact, approximate]
+          description: |
+            `approximate` is used only when the number came from abbreviated localized text ("1.2K
+            views"); an exact upstream integer is never downgraded and an approximation is never
+            presented as exact.
+        raw: {type: string, description: The localized text the approximation came from.}
+    Thumbnail:
+      type: object
+      required: [url]
+      properties:
+        url: {type: string}
+        width: {type: integer}
+        height: {type: integer}
+    Availability:
+      type: object
+      required: [state]
+      description: |
+        Content existence and content availability are separate facts, so an unavailable video is a 200
+        with an explicit state (never a 404). `unknown` means upstream stated no verdict; it is never
+        cached and never reported as playable.
+      properties:
+        state: {type: string, enum: [available, upcoming, live, unavailable, unknown]}
+        reason:
+          type: string
+          enum: [deleted, private, members_only, login_required, age_restricted, geo_restricted,
+                 not_broadcasting, copyright_blocked, drm_protected, comments_disabled, other]
+      example: {state: unavailable, reason: other}
+    Publication:
+      type: object
+      required: [published_at, upstream_text, upstream_offset_seconds]
+      description: |
+        The instant is normalised to UTC (ADR-016); the upstream string and the publisher's offset are
+        kept beside it so normalization loses nothing.
+      properties:
+        published_at: {type: string, format: date-time}
+        upstream_text: {type: string, example: '2009-10-24T23:57:33-07:00'}
+        upstream_offset_seconds: {type: integer, example: -25200}
+        uploaded_at: {type: string, format: date-time}
+        uploaded_text: {type: string}
+    Broadcast:
+      type: object
+      description: Present only when upstream stated a live-broadcast window.
+      properties:
+        live_now: {type: boolean}
+        start_at: {type: string, format: date-time}
+        end_at: {type: string, format: date-time}
+    Storyboard:
+      type: object
+      required: [levels, url_template_present]
+      description: |
+        Geometry only. The upstream spec also carries a signed image URL template; it is never stored or
+        returned, so `url_template_present` reports its existence without echoing it.
+      properties:
+        url_template_present: {type: boolean}
+        levels:
+          type: array
+          items:
+            type: object
+            properties:
+              width: {type: integer}
+              height: {type: integer}
+              frame_count: {type: integer}
+              columns: {type: integer}
+              rows: {type: integer}
+              interval_ms: {type: integer}
+              name: {type: string}
+              sigh_present: {type: boolean}
+    MetadataEvidence:
+      type: object
+      description: |
+        What the response contained and where the document's values came from. A field with no fallback
+        and no conflict, from a present section, is as strong as this provider can make it.
+      properties:
+        sections:
+          type: array
+          items: {type: string, enum: [video_details, microformat, streaming_data, captions, storyboards, description, request, channel_metadata, channel_header, tabs, playlist_header, playlist_metadata, playlist_sidebar, playlist_video_list, alerts]}
+        fallbacks:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              source: {type: string}
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              kept: {type: string}
+              kept_value: {type: string}
+              rejected: {type: string}
+              rejected_value: {type: string}
