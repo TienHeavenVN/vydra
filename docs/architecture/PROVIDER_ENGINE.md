@@ -235,8 +235,9 @@ compile-time property, not a convention.
 3. Talk to the network exclusively through the `Transport` trait, so tests can use `ReplayTransport`.
 4. Add fixtures under `tests/fixtures/{synthetic,recorded,malformed}/` plus a `.meta.json` sidecar
    describing provenance and a `not_verified` list — see `docs/research/FIXTURE_PROVENANCE.md`.
-   Vydra has never captured a fixture itself; a recording must come from a project whose licence
-   permits reuse, and it must never be described as live verification.
+   A recording is either a reduced third-party capture (licence permitting reuse) or a
+   `recorded_vydra_probe` capture made by Vydra itself through the probe in `ci.yml`/`probe.yml`;
+   neither may be described as live verification of *current* upstream behaviour.
 5. Register it in `apps/api-server/src/main.rs` (`providers.push(Arc::new(...))`). Nothing else
    changes: no handler, no engine, no domain type.
 6. Add a registry test only if the provider has unusual failure semantics; the shared contract tests
