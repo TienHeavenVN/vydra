@@ -152,7 +152,24 @@ jobs:
       - name: summarise (annotations)
         if: always()
         run: |
-          grep '^PROBE' browse-probe.log | cut -c1-900 | tail -60 || true
+          # The job log is not downloadable from the build sandbox, so the probe's own summary lines are
+          # republished as annotations. `b64` chunks carry the capture itself and are counted, not
+          # republished.
+          python3 - browse-probe.log <<'PY'
+          import os
+          import re
+          import sys
+
+          path = sys.argv[1]
+          if not os.path.exists(path):
+              sys.exit(0)
+          lines = [line.rstrip() for line in open(path, errors="replace") if line.startswith("PROBE")]
+          b64 = [line for line in lines if line.startswith("PROBE b64 ")]
+          rest = [line for line in lines if not line.startswith("PROBE b64 ")]
+          print("::notice title=probe::%d lines, %d base64 chunk lines" % (len(rest), len(b64)))
+          for line in rest[-45:]:
+              print("::error title=probe::" + line[:900].replace("%", "%25"))
+          PY
       - name: archive preview (not committed by this workflow)
         if: always()
         run: |

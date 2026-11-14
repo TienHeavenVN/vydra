@@ -1,5 +1,5 @@
 Touching this file runs `.github/workflows/probe.yml` from a branch.
 
 It exists because `workflow_dispatch` is only dispatchable once the workflow definition is present on
-the default branch, which it is not for the phase branches. Last used: Phase 6 browse captures
-(2026-11-13).
+the default branch, which it is not for the phase branches. Last used: Phase 6 browse captures,
+second run (2026-11-13) after the summary step was taught to republish its lines as annotations.
