@@ -546,7 +546,10 @@ fn recorded_continuation_page_maps_every_result() {
             .count(),
         18
     );
-    let cursor = results.next_cursor.as_deref().expect("second page has a cursor");
+    let cursor = results
+        .next_cursor
+        .as_deref()
+        .expect("second page has a cursor");
     assert_eq!(cursor.len(), 670);
     assert_eq!(
         report.unmapped_results(),
