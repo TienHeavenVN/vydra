@@ -7,8 +7,10 @@
 //! * a continuation request **cannot** carry a `query` — the type has no such field;
 //! * `params` exists only on [`SearchRequest`], is `None` unless a caller explicitly passes verified
 //!   bytes, and is skipped when serializing (so the wire format is `{context, query}`);
-//! * field order is the struct order, so serialization is byte-deterministic (same request → same
-//!   body), which is what makes an exact-string contract test meaningful;
+//! * serialization is byte-deterministic (same request → same body bytes), which is what makes an
+//!   exact-string contract test meaningful. On the wire the keys are sorted, because the body goes
+//!   through `serde_json::Value` before encoding; struct order applies to direct serialization of the
+//!   type itself (see the unit tests below);
 //! * the `context` object is built once from the client profile and the session, instead of being
 //!   assembled with `json!` in each call site.
 //!

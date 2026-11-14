@@ -65,7 +65,9 @@ accept-language: en,en;q=0.8     x-goog-visitor-id: <bootstrap visitor id>
 ```
 
 * The key is a **query parameter**, never a header (`request_contract` asserts no header contains `AIza`).
-* The body has exactly four members, in a fixed order; `player_body_is_byte_exact` pins the bytes.
+* The body has exactly four members; `player_body_is_byte_exact` pins the bytes. Wire order is
+  key-sorted (`serde_json::Value` is a `BTreeMap` here), which is deterministic but is *not* struct
+  order — see §5 defect 8.
 * No search-only field (`query`, `params`, `continuation`, cursor) can appear — the type has no such
   field, and a test asserts it.
 * `contentCheckOk`/`racyCheckOk` were sent both ways: `true/true` and `false/false` produced
@@ -110,6 +112,8 @@ Every one was found in a live capture or in a reproducible transformation of one
 | 4 | `playabilityStatus.messages` / `errorScreen` ignored, so the age gate's wording was invisible | live `errorScreen` renderers (`playerErrorMessageRenderer`, `playerInterstitialRenderer`) | used for classification only; never copied into a document |
 | 5 | `videoDetails.thumbnail` ignored when `microformat` absent → 0 thumbnails for a real document | live capture has 5 thumbnail sizes in `videoDetails`, 1 in the microformat | fallback to `videoDetails.thumbnail` |
 | 6 | Missing `videoDetails.videoId` accepted; the requested id was used instead | code review against the capture set | identity is required; a missing id is a structured parse failure |
+| 7 | `publishDate` kept the publisher's offset (`…-07:00`) even though ADR-016 says timestamps are RFC 3339 UTC, so one instant had two wire forms | live capture's `publishDate` asserted in `player_parser` | normalised with `to_offset(UtcOffset::UTC)`; the fixture test asserts `2009-10-25T06:57:33Z` and `offset() == UTC` |
+| 8 | Documentation claimed the request body was serialized in struct order; the bytes are key-sorted | `player_body_is_byte_exact` failing on the first run, with both strings in the annotation | test now pins the real bytes; `request.rs`, `INNERTUBE_REQUEST_CONTRACTS.md` and this phase's contract doc corrected |
 
 Public-API consequence of 3: `Availability` gained a variant. Additive, serialization-stable
 (`{"state":"unknown"}`), documented in `API_CONTRACTS.md` §1 and covered by a domain test. No other

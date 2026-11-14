@@ -271,14 +271,12 @@ async fn player_body_is_byte_exact() {
     let sent = calls[1].body.as_deref().expect("player request body");
     let sent = std::str::from_utf8(sent).expect("body is utf-8");
 
+    // Wire order is *alphabetical*, not struct order: the typed body is converted to
+    // `serde_json::Value` before encoding (`provider.rs::serialize_body`), and `serde_json::Map` is a
+    // `BTreeMap` without the `preserve_order` feature. The bytes are still deterministic, which is
+    // what makes this assertion meaningful; the docs say "key-sorted" and this test is the proof.
     let expected = format!(
-        concat!(
-            r#"{{"context":{{"client":{{"hl":"en","gl":"US","clientName":"WEB","clientVersion":"{}","#,
-            r#""originalUrl":"https://www.youtube.com","platform":"DESKTOP","visitorData":"VISITOR-FIXTURE"}},"#,
-            r#""user":{{"lockedSafetyMode":false}},"#,
-            r#""request":{{"useSsl":true,"internalExperimentFlags":[]}}}},"#,
-            r#""videoId":"9Umm2MAKsMc","contentCheckOk":true,"racyCheckOk":true}}"#
-        ),
+        r#"{{"contentCheckOk":true,"context":{{"client":{{"clientName":"WEB","clientVersion":"{}","gl":"US","hl":"en","originalUrl":"https://www.youtube.com","platform":"DESKTOP","visitorData":"VISITOR-FIXTURE"}},"request":{{"internalExperimentFlags":[],"useSsl":true}},"user":{{"lockedSafetyMode":false}}}},"racyCheckOk":true,"videoId":"9Umm2MAKsMc"}}"#,
         provider.profile().version
     );
     assert_eq!(sent, expected);

@@ -28,11 +28,18 @@ user-agent: Mozilla/5.0 (…) Cobalt/Version          ← depends on the client 
 x-goog-visitor-id: <bootstrap visitor id>            ← only when the bootstrap produced one
 ```
 
-Body (byte-exact, field order included — `innertube/request.rs::PlayerRequest`):
+Body, byte-exact as it appears on the wire (keys alphabetical — see the note below):
 
 ```json
-{"context":{"client":{"hl":"en","gl":"US","clientName":"WEB","clientVersion":"2.20260805.01.00","originalUrl":"https://www.youtube.com","platform":"DESKTOP","visitorData":"<visitor>"},"user":{"lockedSafetyMode":false},"request":{"useSsl":true,"internalExperimentFlags":[]}},"videoId":"9Umm2MAKsMc","contentCheckOk":true,"racyCheckOk":true}
+{"contentCheckOk":true,"context":{"client":{"clientName":"WEB","clientVersion":"2.20260805.01.00","gl":"US","hl":"en","originalUrl":"https://www.youtube.com","platform":"DESKTOP","visitorData":"<visitor>"},"request":{"internalExperimentFlags":[],"useSsl":true},"user":{"lockedSafetyMode":false}},"racyCheckOk":true,"videoId":"9Umm2MAKsMc"}
 ```
+
+**Wire ordering note (Phase 5A).** The typed body has a fixed struct order, but it is converted to
+`serde_json::Value` before encoding (`provider.rs::serialize_body`), and `serde_json::Map` is a
+`BTreeMap` unless the `preserve_order` feature is enabled — so the bytes on the wire are key-sorted.
+That is deterministic (the same request always produces the same bytes, which is what
+`player_body_is_byte_exact` pins) but it is *not* struct order. The earlier wording in this repository
+that claimed struct order on the wire was wrong; the test that compares bytes caught it.
 
 | Element | Value | Verified how |
 | --- | --- | --- |
@@ -81,7 +88,7 @@ the metadata path is Vydra's only interest; a deployment that wants the conserva
 
 | Level | Mechanism |
 | --- | --- |
-| type | `PlayerRequest` has exactly four fields, `Serialize`/`Deserialize`, deterministic field order |
+| type | `PlayerRequest` has exactly four fields, `Serialize`/`Deserialize`; deterministic wire bytes (key-sorted, see the note in §1) |
 | construction | `InnertubeProvider::video` → `serialize_body(&PlayerRequest::new(context, id))`; no `json!` at the call site |
 | validation | `VideoId` is a newtype: an invalid id cannot reach this layer, so the id cannot be used to build an arbitrary URL |
 | transport | https-only, host allowlist, `Policy::none()` redirects, 3 s connect timeout, per-request deadline, 4 MiB body cap, ≤32 headers, no IP literals/userinfo/fragments (`docs/security/TRANSPORT_RELIABILITY.md`) |
@@ -93,7 +100,7 @@ the metadata path is Vydra's only interest; a deployment that wants the conserva
 
 | Test | Assertion |
 | --- | --- |
-| `player_body_is_byte_exact` | the serialized body equals a literal string, field order included |
+| `player_body_is_byte_exact` | the serialized body equals a literal string, byte for byte |
 | `player_posts_the_video_id_with_the_check_flags` | endpoint, query string, sorted body keys, flag values |
 | `player_request_carries_no_search_only_fields` | no `query`, `params`, `continuation`, `cursor`, `browseId` |
 | `player_headers_match_the_web_client_profile` | header set, `accept-language` follows `hl`, no `cookie` unless configured, key only in the query |

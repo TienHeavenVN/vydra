@@ -125,7 +125,9 @@ rather than by review:
 | `ContinuationRequest` | `{context, continuation}` | **structurally cannot** carry `query` or `params` (no such fields) |
 | `PlayerRequest` | `{context, videoId, contentCheckOk, racyCheckOk}` | the two flags are always present, as the web client sends them |
 
-Field order is struct order, so the same request always serializes to the same bytes; the seven unit
+A request always serializes to the same bytes, so the body is byte-deterministic; note that the *wire*
+order is key-sorted (`serde_json::Value` is a `BTreeMap` here), not struct order — Phase 5A's
+byte-exact player test caught the old wording. The seven unit
 tests in `request.rs` assert the exact string, including `"platform":"DESKTOP"` for the web profile
 and the absence of `visitorData` when it is empty. `tests/request_contract.rs` keeps the endpoint,
 query-string and header assertions on top.
