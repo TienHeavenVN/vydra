@@ -46,6 +46,13 @@ on:
         required: false
         default: '@veritasium'
 
+  # Not dispatchable until this file exists on the default branch (GitHub resolves `workflow_dispatch`
+  # against `main`). Touching the marker file runs the same probe from a branch, which is how the Phase 6
+  # browse captures were made.
+  push:
+    paths:
+      - '.github/probe-trigger'
+
 permissions:
   contents: read
 
@@ -138,8 +145,8 @@ jobs:
       - name: run the browse evidence probe
         env:
           VYDRA_PROBE_OUT: probe-out
-          VYDRA_PROBE_CHANNEL_ID: ${{ inputs.channel_id }}
-          VYDRA_PROBE_CHANNEL_HANDLE: ${{ inputs.channel_handle }}
+          VYDRA_PROBE_CHANNEL_ID: ${{ inputs.channel_id || 'UCHnyfMqiRRG1u-2MsSQLbXA' }}
+          VYDRA_PROBE_CHANNEL_HANDLE: ${{ inputs.channel_handle || '@veritasium' }}
           RUST_LOG: info
         run: cargo run --release -p vydra-providers --example probe_browse 2>&1 | tee browse-probe.log
       - name: summarise (annotations)
