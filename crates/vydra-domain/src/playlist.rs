@@ -167,9 +167,9 @@ mod tests {
 
     #[test]
     fn an_entry_without_a_position_omits_it() {
-        let value: Value =
-            serde_json::from_str(&serde_json::to_string(&item(None, Availability::Unknown)).expect("serialize"))
-                .expect("parse");
+        let original = item(None, Availability::Unknown);
+        let json = serde_json::to_string(&original).expect("serialize");
+        let value: Value = serde_json::from_str(&json).expect("parse");
         assert!(value.get("position").is_none(), "{value}");
         assert_eq!(value["source"], json!("lockup"));
         assert_eq!(value["availability"]["state"], json!("unknown"));
@@ -179,9 +179,8 @@ mod tests {
     fn an_unknown_availability_is_not_playable_after_a_round_trip() {
         let original = item(None, Availability::Unknown);
         assert!(!original.is_playable());
-        let back: PlaylistItem =
-            serde_json::from_str(&serde_json::to_string(&original).expect("serialize"))
-                .expect("deserialize");
+        let json = serde_json::to_string(&original).expect("serialize");
+        let back: PlaylistItem = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back, original);
         assert!(!back.is_playable());
     }
@@ -207,8 +206,8 @@ mod tests {
             evidence: MetadataEvidence::default(),
             provenance: provenance(),
         };
-        let value: Value =
-            serde_json::from_str(&serde_json::to_string(&document).expect("serialize")).expect("parse");
+        let json = serde_json::to_string(&document).expect("serialize");
+        let value: Value = serde_json::from_str(&json).expect("parse");
         assert!(value.get("items").is_none(), "{value}");
         // An empty playlist states `0`; a hidden one would be `None`. Both exist and differ.
         assert_eq!(value["summary"]["item_count"]["value"], json!(0));

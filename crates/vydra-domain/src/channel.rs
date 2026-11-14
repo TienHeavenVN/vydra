@@ -202,8 +202,8 @@ mod tests {
             Some(Count::approximate(21_400_000, "21.4M subscribers")),
             Some(Count::exact(550)),
         );
-        let value: Value =
-            serde_json::from_str(&serde_json::to_string(&document).expect("serialize")).expect("parse");
+        let json = serde_json::to_string(&document).expect("serialize");
+        let value: Value = serde_json::from_str(&json).expect("parse");
 
         let subscribers = &value["summary"]["subscriber_count"];
         assert_eq!(subscribers["precision"], json!("approximate"));
@@ -222,8 +222,8 @@ mod tests {
             slug: None,
             selected: false,
         };
-        let value: Value = serde_json::from_str(&serde_json::to_string(&tab).expect("serialize"))
-            .expect("parse");
+        let json = serde_json::to_string(&tab).expect("serialize");
+        let value: Value = serde_json::from_str(&json).expect("parse");
         assert_eq!(value["title"], json!("Communauté"));
         assert!(value.get("slug").is_none(), "{value}");
     }

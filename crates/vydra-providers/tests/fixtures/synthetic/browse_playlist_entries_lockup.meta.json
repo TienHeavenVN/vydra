@@ -1,7 +1,7 @@
 {
   "class": "synthetic",
   "provenance": "synthetic_from_live_shape_sample",
-  "note": "Hand-built playlist page whose entry rows are lockup rows in the structure the Phase 6 probe sampled for channel tabs (probe run 43561555917). A live playlist page was not sampled as a lockup page; the fixture exists to prove the mapper does not invent a position or an availability for a row that has neither. Every value is a placeholder.",
+  "note": "Hand-built fixture. It is not a capture and must not be described as one. The entry rows use the lockup structure that the Phase 6 probe sampled for channel tabs (probe run 43561555917); a live playlist page was not sampled as a lockup page, and the fixture exists to prove the mapper does not invent a position or an availability for a row that states neither. Every value is a placeholder.",
   "endpoint": "browse, WEB client (playlist id VL\u2026)",
   "created": "2026-11-13",
   "purpose": "Playlist entries as lockup rows: no index, no isPlayable, so position is None and availability is Unknown.",
