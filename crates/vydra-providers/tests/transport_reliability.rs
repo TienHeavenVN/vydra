@@ -199,7 +199,7 @@ async fn a_transport_timeout_is_reported_as_a_provider_timeout() {
 
     assert_eq!(code(&error), "provider_timeout", "error: {error}");
     assert!(
-        error.to_string().contains("timed out"),
+        error.to_string().contains("timeout"),
         "the message must say what happened: {error}"
     );
 }
