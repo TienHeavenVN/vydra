@@ -1378,10 +1378,7 @@ mod tests {
             cursor_page_ttl: Duration::from_secs(30),
             ..EnginesConfig::default()
         };
-        (
-            Engines::new(registry, cache, cursors, config),
-            calls,
-        )
+        (Engines::new(registry, cache, cursors, config), calls)
     }
 
     fn channel_input(id: &str, hl: Option<&str>) -> ChannelVideosInput {
@@ -1437,7 +1434,8 @@ mod tests {
             .await
             .expect_err("tampered cursor must be rejected");
         assert!(matches!(error, Error::InvalidCursor));
-        assert_eq!(calls.load(Ordering::SeqCst), 1, "no provider call for a bad cursor");
+        let provider_calls = calls.load(Ordering::SeqCst);
+        assert_eq!(provider_calls, 1, "no provider call for a bad cursor");
     }
 
     #[tokio::test]
