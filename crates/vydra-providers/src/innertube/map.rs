@@ -1291,8 +1291,8 @@ mod tests {
         });
         let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
         let mut report = ParseReport::new();
-        let error = map_player(&payload, &id, &mut report, provenance())
-            .expect_err("identity is required");
+        let error =
+            map_player(&payload, &id, &mut report, provenance()).expect_err("identity is required");
         assert_eq!(error.code(), "provider_parse");
         assert!(error.to_string().contains("videoId"), "{error}");
     }
