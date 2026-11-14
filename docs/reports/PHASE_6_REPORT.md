@@ -158,10 +158,14 @@ Not unit-tested, stated rather than implied: the live path itself (needs egress)
 
 ## 9. CI
 
-Final state: **22/22 jobs green** on run [43569267185](https://github.com/TienHeavenVN/vydra/actions/runs/43569267185)
-(`push`, HEAD `78655a01`) and [43569274250](https://github.com/TienHeavenVN/vydra/actions/runs/43569274250)
-(`pull_request`, same SHA). 14 of the 22 jobs are per-crate test jobs; the rest are `fmt`, `check`, `clippy`,
-`docker`, `audit`, `deny`, `secrets`, `openapi`.
+Final state: **22/22 jobs green** on push run
+[43570443829](https://github.com/TienHeavenVN/vydra/actions/runs/43570443829) and pull-request run
+[43570449481](https://github.com/TienHeavenVN/vydra/actions/runs/43570449481), both at HEAD `599ba91f`. Fourteen of
+the 22 jobs are per-crate test jobs; the rest are `fmt`, `check`, `clippy`, `docker`, `audit`, `deny`, `secrets` and
+`openapi`. The last green run before the documentation-only commits that follow was
+[43569267185](https://github.com/TienHeavenVN/vydra/actions/runs/43569267185) at `78655a01`; the live evidence in §7.1
+comes from probe run [43570063308](https://github.com/TienHeavenVN/vydra/actions/runs/43570063308) (2026-11-14
+07:14:06 UTC).
 
 What the phase cost to get there, recorded because it is the useful part:
 
