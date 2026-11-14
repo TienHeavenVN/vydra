@@ -76,6 +76,10 @@ pub const STRUCTURAL_RENDERERS: &[&str] = &[
     "playlistSidebarPrimaryInfoRenderer",
     "playlistSidebarSecondaryInfoRenderer",
     "videoOwnerRenderer",
+    // Wraps a thumbnail shape (`playlistVideoThumbnailRenderer`, `playlistCustomThumbnailRenderer`).
+    // The playlist header mapper reads it by key; it holds no list items, so counting it as unread
+    // content made a complete playlist page fail strict parsing.
+    "thumbnailRenderer",
     "playlistVideoThumbnailRenderer",
     "playlistCustomThumbnailRenderer",
     "heroPlaylistThumbnailRenderer",

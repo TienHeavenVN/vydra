@@ -443,13 +443,16 @@ impl Engines {
         let cache_key = match &input.reference {
             ChannelRef::Id(id) => Engines::channel_cache_key(id, &hl, &gl),
             ChannelRef::Handle(handle) => {
-                format!("channel:@{}:{hl}:{gl}", handle.as_str().trim_start_matches('@'))
+                format!(
+                    "channel:@{}:{hl}:{gl}",
+                    handle.as_str().trim_start_matches('@')
+                )
             }
         };
 
-        if let Lookup::Fresh(json) = self
-            .cache
-            .get(CacheClass::Channel, &cache_key, self.config_hash)
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Channel, &cache_key, self.config_hash)
             && let Ok(mut document) = serde_json::from_str::<ChannelDocument>(&json)
         {
             document.provenance.cached = true;
@@ -519,9 +522,9 @@ impl Engines {
 
         let cache_key =
             Engines::channel_listing_cache_key(&input.id, token.as_deref(), limit, &hl, &gl);
-        if let Lookup::Fresh(json) = self
-            .cache
-            .get(CacheClass::Channel, &cache_key, self.config_hash)
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Channel, &cache_key, self.config_hash)
             && let Ok(mut cached) = serde_json::from_str::<ChannelVideoList>(&json)
         {
             cached.provenance.cached = true;
@@ -587,9 +590,9 @@ impl Engines {
         let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
         let cache_key = Engines::playlist_cache_key(&input.id, &hl, &gl);
 
-        if let Lookup::Fresh(json) = self
-            .cache
-            .get(CacheClass::Playlist, &cache_key, self.config_hash)
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Playlist, &cache_key, self.config_hash)
             && let Ok(mut document) = serde_json::from_str::<PlaylistDocument>(&json)
         {
             document.provenance.cached = true;
@@ -654,9 +657,9 @@ impl Engines {
 
         let cache_key =
             Engines::playlist_listing_cache_key(&input.id, token.as_deref(), limit, &hl, &gl);
-        if let Lookup::Fresh(json) = self
-            .cache
-            .get(CacheClass::Playlist, &cache_key, self.config_hash)
+        if let Lookup::Fresh(json) =
+            self.cache
+                .get(CacheClass::Playlist, &cache_key, self.config_hash)
             && let Ok(mut cached) = serde_json::from_str::<PlaylistVideoList>(&json)
         {
             cached.provenance.cached = true;
