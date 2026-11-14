@@ -82,7 +82,8 @@ fn playlist(id: &str, title: &str) -> Value {
 
 #[test]
 fn channel_renderer_maps_every_documented_field() {
-    let document = json!({"contents": [channel("UCa8RiU2st_48AA4WscbwYVQ", "Captain Jack Official")]});
+    let document =
+        json!({"contents": [channel("UCa8RiU2st_48AA4WscbwYVQ", "Captain Jack Official")]});
     let (results, _report) = parse(&document);
 
     assert_eq!(results.items.len(), 1);
@@ -114,7 +115,10 @@ fn playlist_renderer_maps_the_item_count_from_runs() {
     };
     assert_eq!(mapped.id.as_str(), "PL6nHXviN_VZE92k6frgzKQP75CTeT8GRR");
     assert_eq!(mapped.title, "Mix");
-    assert_eq!(mapped.item_count.as_ref().map(|count| count.value), Some(20));
+    assert_eq!(
+        mapped.item_count.as_ref().map(|count| count.value),
+        Some(20)
+    );
 }
 
 #[test]
@@ -124,7 +128,10 @@ fn a_channel_without_an_id_is_skipped_not_invented() {
 
     assert!(results.items.is_empty(), "nothing may be synthesised");
     assert!(
-        report.messages().iter().any(|message| message.contains("channel_without_id")),
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("channel_without_id")),
         "messages: {:?}",
         report.messages()
     );
@@ -139,7 +146,10 @@ fn an_invalid_video_id_is_skipped_not_truncated() {
 
     assert!(results.items.is_empty());
     assert!(
-        report.messages().iter().any(|message| message.contains("video_id_invalid")),
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("video_id_invalid")),
         "messages: {:?}",
         report.messages()
     );
@@ -154,7 +164,10 @@ fn a_video_without_a_title_is_skipped_and_counted() {
 
     assert!(results.items.is_empty());
     assert!(
-        report.messages().iter().any(|message| message.contains("videoRenderer.title")),
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("videoRenderer.title")),
         "messages: {:?}",
         report.messages()
     );
@@ -192,7 +205,11 @@ fn containers_are_transparent_for_mapped_renderers() {
 
     let kinds: Vec<&str> = results.items.iter().map(|item| item.kind()).collect();
     assert_eq!(kinds, vec!["video", "channel", "playlist"]);
-    assert_eq!(report.unknown_renderers(), 0, "containers are not unknown content");
+    assert_eq!(
+        report.unknown_renderers(),
+        0,
+        "containers are not unknown content"
+    );
 }
 
 #[test]
@@ -240,9 +257,16 @@ fn duplicates_collapse_to_the_first_occurrence_and_are_counted() {
             _ => None,
         })
         .collect();
-    assert_eq!(ids, vec!["dQw4w9WgXcQ", "9Umm2MAKsMc"], "order preserved, repeat dropped");
+    assert_eq!(
+        ids,
+        vec!["dQw4w9WgXcQ", "9Umm2MAKsMc"],
+        "order preserved, repeat dropped"
+    );
     assert!(
-        report.messages().iter().any(|message| message.contains("duplicate_item")),
+        report
+            .messages()
+            .iter()
+            .any(|message| message.contains("duplicate_item")),
         "messages: {:?}",
         report.messages()
     );
@@ -269,7 +293,12 @@ fn the_same_id_in_two_kinds_is_not_a_duplicate() {
 #[test]
 fn localized_counts_and_clock_durations_are_parsed() {
     let cases = [
-        ("25 399 352 просмотра", "1:43:17", Some(25_399_352), Some(6197)),
+        (
+            "25 399 352 просмотра",
+            "1:43:17",
+            Some(25_399_352),
+            Some(6197),
+        ),
         ("1,2 Mio. Aufrufe", "12:34", Some(1_200_000), Some(754)),
         ("1.2B views", "3:05", Some(1_200_000_000), Some(185)),
         ("172 371 просмотр", "2:45", Some(172_371), Some(165)),
@@ -291,7 +320,10 @@ fn localized_counts_and_clock_durations_are_parsed() {
             expected_views,
             "views {views:?}"
         );
-        assert_eq!(mapped.duration_seconds, expected_duration, "duration {duration:?}");
+        assert_eq!(
+            mapped.duration_seconds, expected_duration,
+            "duration {duration:?}"
+        );
     }
 }
 
@@ -324,7 +356,10 @@ fn thumbnails_are_sorted_and_protocol_relative_urls_are_normalised() {
     let widths: Vec<Option<u32>> = mapped.thumbnails.iter().map(|thumb| thumb.width).collect();
     assert_eq!(widths, vec![Some(120), Some(480)], "smallest → largest");
     assert!(
-        mapped.thumbnails.iter().all(|thumb| thumb.url.starts_with("https://")),
+        mapped
+            .thumbnails
+            .iter()
+            .all(|thumb| thumb.url.starts_with("https://")),
         "protocol-relative urls must be normalised: {:?}",
         mapped.thumbnails
     );
@@ -365,7 +400,11 @@ fn a_page_without_renderers_is_empty_and_counted() {
         Some(0),
         "an explicit zero is reported as zero, not as unknown"
     );
-    assert_eq!(report.count(), 0, "the provider adds `no_renderers`; the mapper alone is quiet");
+    assert_eq!(
+        report.count(),
+        0,
+        "the provider adds `no_renderers`; the mapper alone is quiet"
+    );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -396,12 +435,18 @@ fn recorded_first_page_has_no_unknown_content_and_no_duplicates() {
         report.messages()
     );
     assert!(
-        !report.messages().iter().any(|message| message.contains("duplicate_item")),
+        !report
+            .messages()
+            .iter()
+            .any(|message| message.contains("duplicate_item")),
         "capture contained duplicates: {:?}",
         report.messages()
     );
     assert!(
-        results.next_cursor.as_deref().is_some_and(|token| token.len() > 40),
+        results
+            .next_cursor
+            .as_deref()
+            .is_some_and(|token| token.len() > 40),
         "the recorded token must be a real one, not a placeholder"
     );
 }

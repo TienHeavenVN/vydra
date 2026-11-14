@@ -244,7 +244,9 @@ async fn a_connection_failure_is_wrapped_and_not_retried() {
 async fn a_redirect_is_surfaced_and_never_followed() {
     // A redirect to a host outside the allowlist is exactly what an open redirect would try. The
     // provider must report it as an upstream status; a second call would mean it was followed.
-    let transport = ScriptedTransport::new(Script::Redirect("https://169.254.169.254/latest/meta-data/"));
+    let transport = ScriptedTransport::new(Script::Redirect(
+        "https://169.254.169.254/latest/meta-data/",
+    ));
     let provider = provider(transport.clone());
 
     let error = provider
@@ -253,7 +255,10 @@ async fn a_redirect_is_surfaced_and_never_followed() {
         .expect_err("a redirect must not be treated as success");
 
     assert_eq!(code(&error), "provider_upstream", "error: {error}");
-    assert!(error.to_string().contains("302"), "status must be reported: {error}");
+    assert!(
+        error.to_string().contains("302"),
+        "status must be reported: {error}"
+    );
     assert_eq!(
         transport.calls(),
         2,
