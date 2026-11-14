@@ -166,13 +166,16 @@ jobs:
           lines = [line.rstrip() for line in open(path, errors="replace") if line.startswith("PROBE")]
           b64 = [line for line in lines if line.startswith("PROBE b64 ")]
           rest = [line for line in lines if not line.startswith("PROBE b64 ")]
+          # One annotation per group: the check-run annotation budget here is ten, so a line per
+          # annotation would hide the interesting ones.
           print("::notice title=probe::%d lines, %d base64 chunk lines" % (len(rest), len(b64)))
-          for line in rest[-45:]:
-              print("::error title=probe::" + line[:900].replace("%", "%25"))
           structural = [line for line in rest if " struct_" in line]
-          if structural:
-              payload = "\n".join(line[:1200] for line in structural)
-              print("::error title=struct::" + payload.replace("%", "%25").replace("\n", "%0A"))
+          summary = [line for line in rest if " struct_" not in line]
+          for title, lines in (("probe", summary), ("struct", structural)):
+              if not lines:
+                  continue
+              payload = "\n".join(line[:1400] for line in lines)
+              print("::error title=%s::" % title + payload.replace("%", "%25").replace("\n", "%0A"))
           PY
       - name: archive preview (not committed by this workflow)
         if: always()
