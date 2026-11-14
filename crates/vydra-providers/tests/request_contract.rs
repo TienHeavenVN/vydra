@@ -248,6 +248,123 @@ async fn player_posts_the_video_id_with_the_check_flags() {
     assert_eq!(body["context"]["client"]["clientName"], "WEB");
 }
 
+/// The player body is byte-exact: field order included, because a reordered body is a changed
+/// contract even when the JSON is equivalent.
+#[tokio::test]
+async fn player_body_is_byte_exact() {
+    let transport = replay(BOOTSTRAP, PLAYER_BODY);
+    let provider = innertube(transport.clone());
+
+    provider
+        .fetch(
+            ProviderRequest::Video {
+                id: VideoId::parse("9Umm2MAKsMc").expect("valid id"),
+                hl: "en".into(),
+                gl: "US".into(),
+            },
+            &context(Strictness::Lenient),
+        )
+        .await
+        .expect("player response");
+
+    let calls = transport.calls();
+    let sent = calls[1].body.as_deref().expect("player request body");
+    let sent = std::str::from_utf8(sent).expect("body is utf-8");
+
+    let expected = format!(
+        concat!(
+            r#"{{"context":{{"client":{{"hl":"en","gl":"US","clientName":"WEB","clientVersion":"{}","#,
+            r#""originalUrl":"https://www.youtube.com","platform":"DESKTOP","visitorData":"VISITOR-FIXTURE"}},"#,
+            r#""user":{{"lockedSafetyMode":false}},"#,
+            r#""request":{{"useSsl":true,"internalExperimentFlags":[]}}}},"#,
+            r#""videoId":"9Umm2MAKsMc","contentCheckOk":true,"racyCheckOk":true}}"#
+        ),
+        provider.profile().version
+    );
+    assert_eq!(sent, expected);
+}
+
+/// A player request must not inherit anything from search: no query, no filters, no cursor.
+#[tokio::test]
+async fn player_request_carries_no_search_only_fields() {
+    let transport = replay(BOOTSTRAP, PLAYER_BODY);
+    let provider = innertube(transport.clone());
+
+    provider
+        .fetch(
+            ProviderRequest::Video {
+                id: VideoId::parse("9Umm2MAKsMc").expect("valid id"),
+                hl: "en".into(),
+                gl: "US".into(),
+            },
+            &context(Strictness::Lenient),
+        )
+        .await
+        .expect("player response");
+
+    let calls = transport.calls();
+    let body = body_of(&calls[1]).to_string();
+    for forbidden in ["query", "params", "continuation", "cursor", "browseId"] {
+        assert!(
+            !body.contains(forbidden),
+            "player body must not carry `{forbidden}`: {body}"
+        );
+    }
+}
+
+/// The player request is a web-client request: same header set as search, key only in the query
+/// string, and no cookie unless a consent cookie was configured explicitly.
+#[tokio::test]
+async fn player_headers_match_the_web_client_profile() {
+    let transport = replay(BOOTSTRAP, PLAYER_BODY);
+    let provider = innertube(transport.clone());
+
+    provider
+        .fetch(
+            ProviderRequest::Video {
+                id: VideoId::parse("9Umm2MAKsMc").expect("valid id"),
+                hl: "de".into(),
+                gl: "DE".into(),
+            },
+            &context(Strictness::Lenient),
+        )
+        .await
+        .expect("player response");
+
+    let calls = transport.calls();
+    let player = &calls[1];
+    assert_eq!(header(player, "content-type"), Some("application/json"));
+    assert_eq!(header(player, "x-youtube-client-name"), Some("1"));
+    assert_eq!(
+        header(player, "x-youtube-client-version"),
+        Some(provider.profile().version.as_str())
+    );
+    assert_eq!(header(player, "origin"), Some("https://www.youtube.com"));
+    assert_eq!(header(player, "referer"), Some("https://www.youtube.com/"));
+    assert_eq!(header(player, "accept-language"), Some("de,en;q=0.8"));
+    assert_eq!(header(player, "x-goog-visitor-id"), Some("VISITOR-FIXTURE"));
+    assert!(
+        header(player, "cookie").is_none(),
+        "no consent cookie was configured, so no cookie may be sent"
+    );
+    let user_agent = header(player, "user-agent").expect("user agent");
+    assert!(user_agent.contains("Chrome/"), "{user_agent}");
+
+    // The path is the player endpoint, not search, and the key stays in the query string.
+    assert!(
+        player.url.path().ends_with("/youtubei/v1/player"),
+        "{}",
+        player.url
+    );
+    assert_eq!(player.url.query_pairs().count(), 2);
+    for (name, value) in &player.headers {
+        assert!(
+            !value.contains("AIza"),
+            "the api key must never travel in header {name}"
+        );
+    }
+}
+
 // --------------------------------------------------------------------------------------------
 // Bootstrap and key handling
 // --------------------------------------------------------------------------------------------
