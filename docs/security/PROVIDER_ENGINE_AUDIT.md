@@ -168,6 +168,25 @@ Residual, **unsolvable by an allowlist** (documented rather than hidden):
 | `npx @redocly/cli lint docs/api/openapi.yaml` | local + CI job `openapi` | **passing** (local: 0 errors; CI green on run 43420663966) |
 | `docker build` | CI job `docker` | **passing** (run 43457728940) |
 
+## 5a. Phase 5A re-audit of the player path
+
+Scope: the player request/response path, re-read before it was changed. No security control was
+weakened; two were exercised for the first time against real bytes.
+
+| Control | State after Phase 5A |
+| --- | --- |
+| Single HTTP path (allowlist, DNS guard, redirect policy, size cap, deadline, header validation) | unchanged — the probe uses `ReqwestTransport` through `InnertubeClient`; no second client exists |
+| Redirects not followed | re-verified for the player endpoint (`player_parser::redirect_is_surfaced_not_followed`: one request, `provider_upstream`) |
+| Response size cap | unchanged (4 MiB); the largest live player body was 14.5 KB |
+| Secret hygiene in errors/logs | **strengthened**: a playability error message carries at most 200 printable characters of upstream's `reason` phrase, never the body, never `visitorData`, never a URL; `player_parser::live_login_required_capture_is_a_typed_unavailability` asserts the message contains no `visitorData` and no `AIza` |
+| Playback URL / cipher handling | unchanged and still absent: `signatureCipher`/`cipher` are dropped at capture time and never read by the mapper; no URL is stored, logged or returned (ADR-006) |
+| Anti-bot / age / region behaviour | **not circumvented**. The live captures *are* the bot check (`UNPLAYABLE`, `LOGIN_REQUIRED`); they were recorded, not defeated, and the probe sends no consent, cookie or attestation material |
+| Capture redaction | **strengthened**: the probe refuses to write a body that still matches an api-key or signature marker, or that still contains a URL with a query string; run `43549736295` passes with `?` count 0 |
+
+Residual risks are the same class as before: a host allowlist does not defeat DNS rebinding (mitigated by
+`GuardedResolver`, see `DNS_REBINDING_ANALYSIS.md`), and a bot-checked egress can only be recorded, not
+argued with.
+
 ## 6. Remaining blockers
 
 Tracked honestly, with the reason each one cannot be closed from this sandbox:
@@ -178,7 +197,9 @@ Tracked honestly, with the reason each one cannot be closed from this sandbox:
    one-shot CI job, validated with `cargo check --locked`, and committed. ADR-019 records the decision
    and the evidence.
 3. **Live InnerTube verification** — needs egress to YouTube; blocked by the sandbox and by the
-   deliberate refusal to bypass anti-bot measures.
+   deliberate refusal to bypass anti-bot measures. Phase 5A closed the *player request and metadata*
+   part from CI runners (`docs/reports/PHASE_5A_REPORT.md`); `streamingData`/`captions` remain open
+   because those runners are bot-checked, which is an access decision, not a Vydra defect.
 4. ~~**DNS-rebinding hardening**~~ — **closed (A-28)**, see `docs/security/DNS_REBINDING_ANALYSIS.md`.
 5. ~~**Fixture capture**~~ — **closed (Phase 4.2)** for the player and browse surfaces: three reduced
    subsets of MIT-licensed third-party captures, with provenance sidecars, plus three derived malformed

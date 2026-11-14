@@ -1,4 +1,5 @@
 {
+  "class": "derived_malformed",
   "source_class": "transformed",
   "derived_from": "recorded/player_probe_public_unplayable_2026-11-14.json",
   "derivation": "playabilityStatus removed; every other byte of the redacted capture preserved (keys re-sorted, indentation normalised)",

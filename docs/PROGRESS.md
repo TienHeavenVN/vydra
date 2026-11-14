@@ -45,11 +45,27 @@ Consequences, stated plainly:
 | 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
 | 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
 | 4.3 — Search evidence & reliability | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43545086009, 22/22) | 5 live captures from 3 runs, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
+| 5A — Player endpoint verification | **complete; metadata + verdicts verified live, formats/captions unverified live** | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
-| 6 — Metadata engines | video + chapters + captions metadata | channels, playlists, comments **not implemented** |
+| 6 — Metadata engines | video metadata verified live (5A); chapters + captions from fixtures | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 5A — player endpoint (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Vydra can call `POST /youtubei/v1/player` through its own transport and client | 8 raw requests across runs [43549141233](https://github.com/TienHeavenVN/vydra/actions/runs/43549141233) and [43549736295](https://github.com/TienHeavenVN/vydra/actions/runs/43549736295): **8× HTTP 200**, `application/json; charset=UTF-8` |
+| The request body is exactly `{context, videoId, contentCheckOk, racyCheckOk}` | accepted on every attempt; `request_contract::player_body_is_byte_exact` pins the bytes |
+| `contentCheckOk`/`racyCheckOk` do not change the verdict | same video sent with `true/true` and `false/false`: byte-identical redacted responses in run `43549736295` |
+| Playability verdicts are mapped, not guessed | `UNPLAYABLE` ("The page needs to be reloaded.") → `unavailable{other}` with the metadata document; `LOGIN_REQUIRED` ("Sign in to confirm you're not a bot") → 409 `content_unavailable{login_required}`; `ERROR` ("This video is unavailable") → 409 `content_unavailable{other}` |
+| A missing verdict never becomes `available` | `Availability::Unknown`, never cached; `tests/player_parser::transformed_capture_without_a_verdict_is_unknown` |
+| Metadata sections verified against live bytes | title, duration, view count, channel id, author, 27 keywords, 2 375-char description, 5 thumbnail sizes, `publishDate`, category |
+| Formats/captions are **not** live-verified | every capture was refused playback: no `streamingData`, no `captions`, no `storyboards` (see the report's verification matrix) |
+| Playback URLs, signatures and PoToken stay out of scope | nothing extracted, nothing requested, `signatureCipher`/`cipher` dropped at capture time (ADR-006) |
+
+Detail and limitations: `docs/reports/PHASE_5A_REPORT.md`.
 
 ## Phase 4.3 — search evidence and reliability (what CI actually proved)
 
@@ -141,6 +157,8 @@ newer recording, and they are listed as such in every document that touches them
 - Live metadata and live chat.
 - Trending, categories, recommendations, music search.
 - Transcript fetching (`timedtext`) — metadata only.
+- Player storyboards — the section is not parsed at all (Phase 5A left it `NOT_IMPLEMENTED`).
+- Playback URLs, signature deciphering, `n-sig`, PoToken — excluded by policy (ADR-006), not by backlog.
 - Redis cache implementation, quota counters in Redis, OpenTelemetry export, worker jobs.
 - Benchmarks, load tests, Kubernetes manifests.
 
@@ -186,10 +204,13 @@ the underlying functionality is implemented and tested").
 
 ## Next steps (in order)
 
-1. Drive the CI pipeline to green (`fmt`, `check`, `clippy`, `test`, `audit`, `deny`, `openapi`,
-   `docker`) and record the run id here once all jobs pass.
-2. Live-verify InnerTube bootstrap (`sw.js_data` + `ytcfg`) and the `params` encoder; only then enable
-   `search_filters`/type-scoped search by default and capture real fixtures.
-3. Channels + playlists (browse endpoint), then comments (`next` + continuations).
-4. Redis cache + quota; OpenTelemetry; worker jobs with a Postgres lease.
-5. Benchmarks + load tests; publish measured numbers instead of claims.
+1. Capture one player response with an `OK` verdict from a non-datacenter egress, which would upgrade
+   `streamingData` and `captions` from fixture-verified to live-verified (Phase 5A §11–12). The probe
+   already accepts the video ids as inputs.
+2. Run the probe matrix over `gl`/`hl` before adding endpoints: localization is the untested axis of
+   every parser.
+3. `params` encoding (search filters) is still unverified; enable it only after a live capture shows the
+   server honouring it.
+4. Channels + playlists (browse endpoint), then comments (`next` + continuations).
+5. Redis cache + quota; OpenTelemetry; worker jobs with a Postgres lease.
+6. Benchmarks + load tests; publish measured numbers instead of claims.

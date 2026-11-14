@@ -421,3 +421,54 @@ all require one; the original `Dockerfile` did `COPY Cargo.lock` and could not b
 reproducible builds and a lock that `cargo audit` can check without a network resolve. Doing it
 requires one real `cargo generate-lockfile` run, which this sandbox cannot perform. Until then the
 lock policy is a known, documented limitation rather than a silent one.
+
+---
+
+## ADR-020 — A playability verdict is a value, not an HTTP status
+
+**Status:** accepted (Phase 5A)
+**Context.** `POST /youtubei/v1/player` answered **HTTP 200** on all eight Phase 5A requests, including
+the three refusals: `UNPLAYABLE` ("The page needs to be reloaded.") with a full metadata document,
+`LOGIN_REQUIRED` ("Sign in to confirm you're not a bot") and `ERROR` ("This video is unavailable") with
+no document at all. The HTTP status is therefore uninformative, and the parser has to answer two
+independent questions: *is there a document?* and *what does upstream say about playing it?*
+
+Before this decision the code answered them with one branch and got three outcomes wrong: a substring
+match on `"age"` inside `"page"` invented `age_restricted`; a refusal without `videoDetails` was reported
+as `provider_parse` (blaming the parser for an upstream decision); and a response with no verdict at all
+became `Available`, which would have been cached and served as playable.
+
+**Decision.**
+
+1. **The verdict is mapped first, and it never silently becomes success.** `OK` → `available`; a
+   recognised restriction → `unavailable { reason }`; an unrecognised status → `unavailable { reason:
+   other }` plus a `playability:<STATUS>` message and a `tracing` warning; a missing verdict →
+   `Availability::Unknown` (new variant) plus a counted `missing_field`.
+2. **The document is returned when it exists, regardless of the verdict.** A `UNPLAYABLE` answer that
+   carries `videoDetails` and `microformat` is real metadata; discarding it would be as wrong as calling
+   it playable. The API serves it with an explicit `availability`.
+3. **No metadata means a typed error, not an empty document.** A refusal without `videoDetails` becomes
+   `ProviderError::Unavailable { reason, message }` → `409 content_unavailable`, which is deterministic
+   and therefore never fallback-eligible — another provider must not be asked for a different video.
+4. **Reason selection is whole-word/phrase over `reason`, `messages[*].text` and `errorScreen`.** Text
+   is used for classification only and is never copied into a document; the error message carries at
+   most 200 printable characters of the `reason` phrase.
+5. **`Availability::Unknown` is additive.** `{"state":"unknown"}` on the wire, `is_available() == false`,
+   never cached. No existing variant changed its wire form.
+
+**Rejected alternatives.** (a) Map every non-OK verdict to `409` and drop the metadata — loses verified
+data, and makes `/videos/{id}` useless for the most common real case (content exists, playback refused).
+(b) Keep the old "200 with `availability`, default `Available` when absent" — it manufactured a success
+upstream never claimed. (c) Return `404` for `ERROR` — upstream does not distinguish deleted from
+never-existed, so `other` is the honest reason and `409` keeps existence and availability separate
+(ADR-016).
+
+**Evidence.** `docs/research/data/player-probe-43549141233/` (where the `age_restricted`
+misclassification is visible in the recorded provider projection) and
+`docs/research/data/player-probe-43549736295/` (the fixture source);
+`docs/research/PLAYER_RESPONSE_ANALYSIS.md` §4–5; `crates/vydra-providers/tests/player_parser.rs`.
+
+**Residual.** Wording-based classification can lag a new upstream phrasing. That failure mode is
+deliberate: an unrecognised phrase maps to `other` and surfaces the raw status rather than guessing a
+restriction. A Rust client matching exhaustively on `Availability` must handle the new variant; there is
+none in this workspace.

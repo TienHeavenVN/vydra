@@ -5,6 +5,10 @@ declared in a `*.meta.json` sidecar next to the fixture and repeated here, becau
 origin is unclear is worse than no fixture: it invites "the parser matches upstream" claims that the
 evidence does not support.
 
+**Phase 5A update.** The player endpoint has its own capture set and its own fixture appendix —
+`docs/research/PLAYER_FIXTURE_PROVENANCE.md` — including the redaction rules applied at capture time and
+the list of live sections that were *not* obtained (formats, captions, storyboards).
+
 **Phase 4.3 update.** Vydra now has its own captures: on 2026-11-14 it sent five requests to
 `/youtubei/v1/search` through the production transport from a GitHub-hosted runner and reduced the
 responses into `recorded/search_web_probe_*.json` (class `recorded_vydra_probe`). Everything captured
@@ -50,6 +54,10 @@ Rules that were applied when the corpus was built:
 | `synthetic/search_mixed.json` | synthetic | 2 139 | hand-written, shaped after `EXTRACTION_METHODS.md` §5.2 | 2026-11-13 | `search_fixture::mixed_search_fixture_maps_to_domain_items` |
 | `malformed/search_without_contents.json` | derived | 28 | `browse_channel_search_2023-12-06.json` with `contents` removed (`{"estimatedResults":0}`) | 2026-11-13 | `recorded_fixture::malformed_search_without_contents_is_an_empty_page` |
 | `malformed/player_without_playability.json` | derived | 6 652 | `player_web_2025-11-10.json` with `playabilityStatus` removed | 2026-11-13 | `recorded_fixture::malformed_player_without_playability_warns_but_keeps_the_document` |
+| `recorded/player_probe_public_unplayable_2026-11-14.json` | recorded_vydra_probe | 12 879 | run `43549736295`, `POST /youtubei/v1/player`, 200, 14 534 B body, `UNPLAYABLE` with metadata | 2026-11-14 | `player_parser::live_unplayable_capture_*` |
+| `recorded/player_probe_login_required_2026-11-14.json` | recorded_vydra_probe | 3 536 | same run, bot check (`LOGIN_REQUIRED`), no `videoDetails` | 2026-11-14 | `player_parser::live_login_required_capture_is_a_typed_unavailability` |
+| `recorded/player_probe_error_unavailable_2026-11-14.json` | recorded_vydra_probe | 628 | same run, non-existent id (`ERROR`) | 2026-11-14 | `player_parser::live_error_capture_is_a_typed_unavailability_without_inventing_a_reason` |
+| `malformed/player_probe_without_playability_2026-11-14.json` | derived | 11 662 | the player probe capture with `playabilityStatus` removed | 2026-11-14 | `player_parser::transformed_capture_without_a_verdict_is_unknown` |
 | `malformed/search_truncated.json` | derived | 14 615 | `browse_channel_search_2023-12-06.json` truncated mid-document (invalid JSON) | 2026-11-13 | `recorded_fixture::truncated_search_document_is_a_parse_error` |
 
 All three recordings come from the same upstream commit, so the corpus is internally consistent about

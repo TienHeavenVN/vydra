@@ -27,6 +27,26 @@ Success:
 `data` is either an object or, for list endpoints, an object with a named collection
 (`{"items": [...]}`) — never a bare array, so the envelope can grow without breaking clients.
 
+### Availability of a video document (Phase 5A)
+
+Video documents carry `data.availability`:
+
+| Wire form | Meaning | Served as 200? |
+| --- | --- | --- |
+| `{"state":"available"}` | upstream said `OK` | yes |
+| `{"state":"upcoming"}` / `{"state":"live"}` | scheduled / broadcasting | yes |
+| `{"state":"unavailable","reason":"<enum>"}` | upstream refused playback but returned the metadata (title, duration, channel, description) | yes — the document is real, its availability is explicit |
+| `{"state":"unknown"}` | upstream answered without stating playability | yes, and `meta.parse_warnings >= 1`; never cached |
+
+`reason` is a closed set: `deleted`, `private`, `members_only`, `login_required`, `age_restricted`,
+`geo_restricted`, `not_broadcasting`, `copyright_blocked`, `drm_protected`, `other`. There is no
+`unknown` reason — "we could not classify the wording" is `other`, and the raw upstream status stays in
+the provider error message and the logs, never in the API response.
+
+When upstream refuses the *metadata* as well (a bot check, a deleted id), there is no document and the
+request fails with `409 content_unavailable` (§ table below), which is the only shape that carries a
+reason without data.
+
 Error (ADR-009):
 
 ```json
@@ -52,7 +72,7 @@ Error (ADR-009):
 | `unauthorized` | 401 | no | missing/invalid API key |
 | `forbidden` | 403 | no | key lacks scope |
 | `not_found` | 404 | no | resource does not exist upstream |
-| `content_unavailable` | 409 | no | deleted/private/geo-blocked/age-gated — `details[0].reason` |
+| `content_unavailable` | 409 | no | deleted/private/geo-blocked/age-gated — `details[0].reason`. Emitted only when upstream returned no metadata document; when it did, the reason rides on `data.availability` instead (Phase 5A) |
 | `quota_exceeded` | 429 | no (until reset) | monthly/key quota |
 | `rate_limited` | 429 | yes | short-term limiter, `retry_after_ms` present |
 | `provider_rate_limited` | 429 | yes | upstream rate-limited us |
@@ -89,7 +109,7 @@ Mounted only when a provider declares the capability (see `ARCHITECTURE.md` §5)
 | `GET /search/videos` | `SEARCH_VIDEOS` | yes | fixture |
 | `GET /search/channels` | `SEARCH_CHANNELS` | yes | fixture |
 | `GET /search/playlists` | `SEARCH_PLAYLISTS` | yes | fixture |
-| `GET /videos/{id}` | `VIDEO_METADATA` | yes | fixture |
+| `GET /videos/{id}` | `VIDEO_METADATA` | yes | fixture + live capture (metadata fields; refusals return 409) |
 | `GET /videos/{id}/metadata` | `VIDEO_METADATA` | yes | fixture |
 | `GET /videos/{id}/related` | `VIDEO_RELATED` | yes | fixture |
 | `GET /videos/{id}/chapters` | `VIDEO_CHAPTERS` | yes | fixture |

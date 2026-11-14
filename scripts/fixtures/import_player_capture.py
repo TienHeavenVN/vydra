@@ -84,24 +84,50 @@ def main() -> int:
             )
             return 1
 
+        record = next(
+            (entry for entry in manifest.get("requests", []) if entry.get("label") == label), {}
+        )
         target = FIXTURES / relative
         meta = {
+            "class": "recorded_vydra_probe",
             "source_class": "live",
-            "captured_by": "vydra provider engine (examples/probe_player.rs, production transport and client)",
+            "note": "Captured by Vydra itself through the production transport and client, on a "
+            "GitHub Actions runner; archived bytes, unmodified.",
+            "captured_by": "vydra-providers example probe_player (GitHub Actions runner)",
+            "capture_workflow": "temporary gated CI job; permanent entry point .github/workflows/probe.yml",
             "capture_run": manifest.get("capture_run", ""),
             "captured_at": manifest.get("captured_at", ""),
             "capture_commit": manifest.get("commit", ""),
-            "endpoint": "POST https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
-            "request_body": {"context": "see PLAYER_REQUEST_CONTRACT.md", "contentCheckOk": True, "racyCheckOk": True},
-            "client": {
-                "name": probe.get("client_name"),
-                "version": probe.get("client_version"),
+            "request": {
+                "endpoint": "https://www.youtube.com/youtubei/v1/player",
+                "query_string": "prettyPrint=false&key=<redacted>",
+                "body_keys": record.get("request_body_keys", []),
+                "client": {
+                    "clientName": probe.get("client_name"),
+                    "clientVersion": probe.get("client_version"),
+                    "hl": probe.get("hl"),
+                    "gl": probe.get("gl"),
+                },
+                "had_api_key": probe.get("has_api_key"),
+                "had_visitor_data": probe.get("has_visitor_data"),
             },
+            "http": {
+                "status": record.get("status"),
+                "bytes": record.get("bytes"),
+                "content_type": record.get("content_type"),
+                "upstream_date": record.get("upstream_date"),
+            },
+            "verdict": record.get("verdict", {}).get("playability"),
             "redaction": manifest.get("redaction", ""),
             "transformation": "none — archived bytes, verbatim",
             "sha256": digest,
             "bytes": len(body),
             "description": description,
+            "not_verified": [
+                "that upstream still answers this way (a snapshot, not a contract)",
+                "that every region, account or network sees this verdict",
+                "playback URLs, signatures, n-sig or captions content: never captured, never requested",
+            ],
         }
         if args.check:
             print(f"ok {relative} sha256={digest[:16]}…")
@@ -121,6 +147,7 @@ def main() -> int:
     transformed = (json.dumps(document, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode()
     relative = "malformed/player_probe_without_playability_2026-11-14.json"
     meta = {
+        "class": "derived_malformed",
         "source_class": "transformed",
         "derived_from": "recorded/player_probe_public_unplayable_2026-11-14.json",
         "derivation": "playabilityStatus removed; every other byte of the redacted capture preserved "

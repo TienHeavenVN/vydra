@@ -148,6 +148,11 @@ paths:
     get:
       operationId: video
       summary: Video metadata
+      description: |
+        Returns the video document when upstream can be read. Playability is reported in
+        `data.availability` (`available`, `upcoming`, `live`, `unavailable` with a closed-set `reason`,
+        or `unknown` when upstream stated no verdict). A `409` is returned only when upstream refused
+        the metadata itself, in which case `details[0].reason` carries the same closed set.
       parameters:
         - $ref: '#/components/parameters/VideoId'
       responses:

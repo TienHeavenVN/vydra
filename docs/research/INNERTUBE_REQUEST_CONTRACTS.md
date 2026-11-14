@@ -220,7 +220,23 @@ POST /youtubei/v1/player?prettyPrint=false&key=…
 `contentCheckOk`/`racyCheckOk` are the flags the web client sends so that age-restricted *metadata* is
 not filtered out of the response; they are request-side only.
 
-### Response (recorded)
+**Phase 5A: verified live.** Eight `POST /youtubei/v1/player` requests from two CI runs
+(`43549141233`, `43549736295`) were accepted with HTTP 200 and `application/json; charset=UTF-8`. The
+same video was sent with `true/true` and with `false/false`; the redacted responses were byte-identical,
+so the flags did not influence the verdict for that case. Field-by-field contract, plus what is
+deliberately not sent: `docs/research/PLAYER_REQUEST_CONTRACT.md`.
+
+### Response (recorded, and one live shape)
+
+The live captures returned **HTTP 200 with a refusal inside the body**: `UNPLAYABLE` with full metadata
+for one public video, `LOGIN_REQUIRED` and `ERROR` with no metadata for the other two. The HTTP status
+therefore carries no information about usability; see `docs/research/PLAYER_RESPONSE_ANALYSIS.md` §2–4.
+
+Verified live (2026-11-14, run `43549736295`): `playabilityStatus.{status,reason,errorScreen}`,
+`videoDetails.{videoId,title,author,channelId,lengthSeconds,viewCount,keywords,shortDescription,thumbnail}`,
+`microformat.playerMicroformatRenderer.{publishDate,category,ownerChannelName,thumbnail}`.
+**Not** observed live: `streamingData`, `captions`, `storyboards` (playback was refused on every
+capture). Those rows below still rest on the third-party recording:
 
 `recorded/player_web_2025-11-10.json` (MediaServiceCore, web client, 2025-11-10) carries:
 
@@ -232,9 +248,14 @@ not filtered out of the response; they are request-side only.
 | `captions.playerCaptionsTracklistRenderer.captionTracks[]` | `CaptionTrack` (`kind:"asr"` → Automatic, absent → Manual) |
 | `microformat.playerMicroformatRenderer.{publishDate,category,thumbnail}` | `published_at`, `category`, thumbnails |
 
-Guards: `videoDetails` is required; a response whose `videoId` differs from the requested id is a
-`Parse` error (documented stale-client behaviour); a missing `playabilityStatus` is a **counted**
-warning (`missing_field:playabilityStatus.status`) rather than an invented reason.
+Guards (Phase 5A, ADR-020): the verdict is classified **before** `videoDetails` is required, because a
+refusal legitimately arrives without metadata — that case becomes `ProviderError::Unavailable` (409), not
+a parse error. With metadata present, a non-OK verdict yields a document whose `availability` names the
+reason; an unrecognised verdict is never promoted to `Available`, and its raw status stays in the error
+message and the warning list. A missing `playabilityStatus` yields `Availability::Unknown` plus a
+**counted** warning (`missing_field:playabilityStatus.status`); strict mode turns it into `provider_parse`.
+`videoDetails.videoId` is required and must equal the requested id, otherwise the document is a `Parse`
+error (documented stale-client behaviour).
 
 Delivery classification (`map.rs::media_format_from`) never copies a URL: `drmFamilies` → `Drm`,
 `url` present → `Direct`, `signatureCipher`/`cipher` → `SignatureProtected`, else `Unknown`. Nothing
@@ -271,7 +292,8 @@ attempts to decipher, unwrap, or construct a URL.
 | search continuation envelope | **verified_live** | token-only body accepted; different envelope, now documented |
 | `sw.js_data` bootstrap shape | **verified_live (indirectly)** | every run produced a visitor id and an API key and the subsequent request was accepted; the bootstrap document itself is not stored |
 | `params` protobuf encoding | **inferred** | filters stay disabled (`enable_unverified_filters: false`); one filtered request/response pair would be needed, and it is not worth sending unverified bytes |
-| player response *today* | **recorded (2025-11-10)** | the search probe does not call `/player`; a player probe is Phase 4.4 work |
+| player request + playability + metadata sections | **verified_live** (2026-11-14, runs `43549141233`, `43549736295`) | 8 requests, 8× HTTP 200; see `PLAYER_RESPONSE_ANALYSIS.md` |
+| player `streamingData` / `captions` / `storyboards` | **recorded (2025-11-10) only** | every live capture was refused playback (`UNPLAYABLE`, `LOGIN_REQUIRED`, `ERROR`); closing this needs a non-datacenter egress, not a code change |
 | region / language variance | **open** | one capture, `gl=US`, `hl=en` |
 | Shorts / lockup cards | **counted, unmapped** | see `docs/research/SEARCH_RESPONSE_ANALYSIS.md` §3 |
 

@@ -226,6 +226,37 @@ means for the resolver guard — is in `docs/security/TRANSPORT_RELIABILITY.md` 
 Bodies are structs now (`innertube/request.rs`), so "a continuation cannot carry a query" is a
 compile-time property, not a convention.
 
+## 6.2 Player mapping (Phase 5A, ADR-020)
+
+The player endpoint answers with an HTTP 200 in almost every case, including refusals, so the HTTP status
+says nothing about whether the response is usable. Two independent questions are answered separately:
+
+1. **Is there a document?** — `videoDetails` present.
+2. **What is its availability?** — `playabilityStatus.status`.
+
+| `playabilityStatus.status` | `videoDetails` | Result |
+| --- | --- | --- |
+| `OK` | present | document, `availability.state = "available"` |
+| not `OK`, reason classified | present | document, `availability = {state:"unavailable", reason:<mapped>}`, message `playability:<STATUS>` |
+| not `OK`, reason unclassifiable | present | document, `reason: other` — the raw status stays in the message and in `tracing`; it is never promoted to `available` |
+| any not `OK` | **absent** | `ProviderError::Unavailable { reason, message }` → 409 `content_unavailable`; deterministic, so no provider fallback |
+| absent / no `status` member | present | document, `availability.state = "unknown"` + `missing_field:playabilityStatus.status`; strict mode → `provider_parse` |
+
+Rules that hold in every row:
+
+* Reason selection is **whole-word** over `reason`, `playabilityStatus.messages[*].text` and
+  `errorScreen` (two renderer shapes were observed live: `playerErrorMessageRenderer`,
+  `playerInterstitialRenderer`). Substring matching once turned "The page needs to be reloaded." into
+  `age_restricted`.
+* `Availability::Unknown` is not a synonym for `Available`: `is_available()` is false, so the document is
+  never cached and never reported as playable.
+* Nothing from the response is copied into an error message except a bounded, control-character-free
+  copy of the `reason` phrase; the body itself is never quoted, so nothing session-scoped can reach a
+  log or an API response.
+* `streamingData` is read for **format metadata only** (`itag`, mime type, dimensions, bitrate,
+  delivery classification). No URL is stored, no cipher is deciphered, no `n-sig` or PoToken exists in
+  this codebase (ADR-006).
+
 ## 7. Adding a provider (the whole checklist)
 
 1. Implement `Provider` in a new module of `vydra-providers` (or a new crate depending only on
