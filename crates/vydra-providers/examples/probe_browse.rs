@@ -577,8 +577,12 @@ async fn main() -> ProbeResult<()> {
             synthetic_provenance(fetched_at),
         ) {
             Ok(document) => {
-                let positions: Vec<Option<u32>> =
-                    document.items.iter().take(5).map(|item| item.position).collect();
+                let positions: Vec<Option<u32>> = document
+                    .items
+                    .iter()
+                    .take(5)
+                    .map(|item| item.position)
+                    .collect();
                 let unavailable = document
                     .items
                     .iter()
