@@ -72,10 +72,7 @@ fn provider_with_status(body: &str, status: u16) -> (InnertubeProvider, Arc<Repl
         client: ClientProfile::from_kind(ClientKind::Web, None),
         ..Default::default()
     });
-    (
-        InnertubeProvider::new(config, transport.clone()),
-        transport,
-    )
+    (InnertubeProvider::new(config, transport.clone()), transport)
 }
 
 fn provider_with(body: &str) -> InnertubeProvider {
@@ -124,7 +121,11 @@ async fn live_unplayable_capture_keeps_metadata_and_reports_the_verdict() {
     let provider = provider_with(&fixture(
         "recorded/player_probe_public_unplayable_2026-11-14.json",
     ));
-    let document = document(video(&provider, PUBLIC_ID, Strictness::Lenient).await.expect("document"));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Lenient)
+            .await
+            .expect("document"),
+    );
 
     // Availability is a value, not a lie: nothing about this document says "playable".
     assert_eq!(
@@ -141,33 +142,52 @@ async fn live_unplayable_capture_keeps_metadata_and_reports_the_verdict() {
     );
     assert_eq!(document.summary.duration_seconds, Some(213));
     assert_eq!(
-        document.summary.view_count.as_ref().map(|count| count.value),
+        document
+            .summary
+            .view_count
+            .as_ref()
+            .map(|count| count.value),
         Some(1_836_979_877)
     );
     assert_eq!(
         document.summary.channel_id.as_ref().map(|id| id.as_str()),
         Some("UCuAXFkgsw1L7xaCfnd5JJOw")
     );
-    assert_eq!(document.summary.channel_title.as_deref(), Some("Rick Astley"));
+    assert_eq!(
+        document.summary.channel_title.as_deref(),
+        Some("Rick Astley")
+    );
     assert_eq!(document.category.as_deref(), Some("Music"));
     assert_eq!(document.keywords.len(), 27);
-    assert_eq!(document.keywords.first().map(String::as_str), Some("rick astley"));
+    assert_eq!(
+        document.keywords.first().map(String::as_str),
+        Some("rick astley")
+    );
 
     // The description is what chapter extraction reads, so its presence matters.
     let description = document.description.as_deref().expect("description");
-    assert!(description.starts_with("The official video for"), "{description}");
+    assert!(
+        description.starts_with("The official video for"),
+        "{description}"
+    );
     assert!(description.len() > 1_000);
 
     // `publishDate` is `2009-10-24T23:57:33-07:00`: the offset must be applied, not dropped.
     let published = document.summary.published_at.expect("publish date");
     assert_eq!(published.year(), 2009);
-    assert_eq!(published.day(), 25, "UTC day after applying the -07:00 offset");
+    assert_eq!(
+        published.day(),
+        25,
+        "UTC day after applying the -07:00 offset"
+    );
 
     // Thumbnails come from the microformat and are normalised to absolute https URLs.
     assert_eq!(document.summary.thumbnails.len(), 1);
     assert_eq!(document.summary.thumbnails[0].width, Some(1280));
     assert!(
-        document.summary.thumbnails[0].url.starts_with("https://i.ytimg.com/"),
+        document.summary.thumbnails[0]
+            .url
+            .starts_with("https://i.ytimg.com/"),
         "{}",
         document.summary.thumbnails[0].url
     );
@@ -196,7 +216,11 @@ async fn missing_microformat_falls_back_to_video_details_thumbnails() {
         .remove("microformat");
 
     let provider = provider_with(&payload.to_string());
-    let document = document(video(&provider, PUBLIC_ID, Strictness::Lenient).await.expect("document"));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Lenient)
+            .await
+            .expect("document"),
+    );
     assert!(
         document.summary.published_at.is_none(),
         "no microformat, no publish date — invented dates would be fabrication"
@@ -239,9 +263,17 @@ async fn unknown_future_fields_are_ignored() {
     payload["playabilityStatus"]["futureFlag"] = serde_json::json!(true);
 
     let provider = provider_with(&payload.to_string());
-    let document = document(video(&provider, PUBLIC_ID, Strictness::Lenient).await.expect("document"));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Lenient)
+            .await
+            .expect("document"),
+    );
     assert_eq!(
-        document.summary.view_count.as_ref().map(|count| count.value),
+        document
+            .summary
+            .view_count
+            .as_ref()
+            .map(|count| count.value),
         Some(1_836_979_877),
         "an unknown sibling field must not disturb a mapped one"
     );
@@ -318,7 +350,11 @@ async fn transformed_capture_without_a_verdict_is_unknown() {
     let provider = provider_with(&fixture(
         "malformed/player_probe_without_playability_2026-11-14.json",
     ));
-    let document = document(video(&provider, PUBLIC_ID, Strictness::Lenient).await.expect("document"));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Lenient)
+            .await
+            .expect("document"),
+    );
     assert_eq!(document.availability, Availability::Unknown);
     assert!(!document.availability.is_available());
     assert!(
