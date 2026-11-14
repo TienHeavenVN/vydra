@@ -424,8 +424,8 @@ pub enum AttemptOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use time::format_description::well_known::Rfc3339;
     use time::UtcOffset;
+    use time::format_description::well_known::Rfc3339;
 
     #[test]
     fn availability_serializes_with_reason() {
