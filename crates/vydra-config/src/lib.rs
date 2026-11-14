@@ -205,6 +205,11 @@ pub struct CacheConfig {
     /// TTL for content-fact `unavailable` documents — short, because a private video can be published.
     pub unavailable_ttl_secs: u64,
     pub search_ttl_secs: u64,
+    /// TTL for channel/playlist listing pages and for playlist documents (which embed one page).
+    pub listing_ttl_secs: u64,
+    /// TTL for continuation pages: shorter, because a positional slice of a list that can change while a
+    /// client pages through it converges faster with a small TTL.
+    pub cursor_page_ttl_secs: u64,
     /// Serve stale entries for this long while revalidating. `0` disables stale serving.
     pub stale_while_revalidate_secs: u64,
     /// Whether search responses are cached at all (off by default: highest churn).
@@ -221,6 +226,8 @@ impl Default for CacheConfig {
             live_ttl_secs: 30,
             unavailable_ttl_secs: 60,
             search_ttl_secs: 60,
+            listing_ttl_secs: 120,
+            cursor_page_ttl_secs: 60,
             stale_while_revalidate_secs: 0,
             cache_search: false,
         }
@@ -527,6 +534,20 @@ impl Config {
             "VYDRA__CACHE__SEARCH_TTL_SECS",
             &mut config.cache.search_ttl_secs,
             "cache.search_ttl_secs",
+            &mut issues,
+        );
+        set_u64(
+            vars,
+            "VYDRA__CACHE__LISTING_TTL_SECS",
+            &mut config.cache.listing_ttl_secs,
+            "cache.listing_ttl_secs",
+            &mut issues,
+        );
+        set_u64(
+            vars,
+            "VYDRA__CACHE__CURSOR_PAGE_TTL_SECS",
+            &mut config.cache.cursor_page_ttl_secs,
+            "cache.cursor_page_ttl_secs",
             &mut issues,
         );
         set_bool_opt(

@@ -26,6 +26,10 @@ url = { workspace = true }
 [dev-dependencies]
 bytes = { workspace = true }
 tokio = { workspace = true }
+# Phase 6: the browse probe records a SHA-256 for every capture it writes, so a fixture archived from a
+# probe log can be checked against the bytes that produced it. `sha2` is already a workspace dependency
+# (the cache and fixture tooling use it); it is not a new third-party addition.
+sha2 = { workspace = true }
 
 [lints]
 workspace = true

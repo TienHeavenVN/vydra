@@ -17,14 +17,18 @@ pub mod search;
 pub mod video;
 
 pub use captions::CaptionTrackList;
-pub use channel::{ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVideoList};
+pub use channel::{
+    ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVerification, ChannelVideoList,
+};
 pub use common::{
     AttemptOutcome, Availability, BroadcastInfo, CaptionKind, CaptionTrack, Chapter, Count,
     DeliveryKind, FieldConflict, FieldFallback, FieldSource, LiveState, MediaFormatInfo,
     MetadataEvidence, Precision, Provenance, Publication, SourceAttempt, Storyboard,
     StoryboardLevel, Thumbnail,
 };
-pub use playlist::{PlaylistDocument, PlaylistItem, PlaylistSummary};
+pub use playlist::{
+    PlaylistDocument, PlaylistEntrySource, PlaylistItem, PlaylistSummary, PlaylistVideoList,
+};
 pub use search::{SearchItem, SearchResults};
 pub use video::{RelatedVideos, VideoChapters, VideoDocument, VideoSummary};
 pub use vydra_common::{ChannelId, PlaylistId, VideoId};

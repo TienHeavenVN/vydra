@@ -22,7 +22,7 @@ use vydra_errors::{ProviderError, UnavailabilityReason};
 
 use crate::parse::{ParseReport, Renderer, find_continuation, number_of, text_of, thumbnails_of};
 
-fn first_text(value: &Value, keys: &[&str]) -> Option<String> {
+pub(crate) fn first_text(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
         if let Some(text) = value.get(*key).and_then(text_of) {
             return Some(text);
@@ -31,7 +31,7 @@ fn first_text(value: &Value, keys: &[&str]) -> Option<String> {
     None
 }
 
-fn count_from_text(raw: &str) -> Option<Count> {
+pub(crate) fn count_from_text(raw: &str) -> Option<Count> {
     let value = parse_view_count(raw)?;
     if is_abbreviated_count(raw) {
         Some(Count::approximate(value, raw))
@@ -41,7 +41,7 @@ fn count_from_text(raw: &str) -> Option<Count> {
 }
 
 /// Exact numeric fields win over localized text (ADR-016).
-fn count_from_fields(value: &Value, numeric_key: &str, text_keys: &[&str]) -> Option<Count> {
+pub(crate) fn count_from_fields(value: &Value, numeric_key: &str, text_keys: &[&str]) -> Option<Count> {
     if let Some(number) = value.get(numeric_key).and_then(number_of) {
         return Some(Count::exact(number));
     }
@@ -87,7 +87,7 @@ fn live_state_of(renderer: &Value) -> Option<LiveState> {
 }
 
 /// Channel id from `browseEndpoint.browseId` on the owner/byline runs.
-fn channel_id_of(renderer: &Value, keys: &[&str]) -> Option<ChannelId> {
+pub(crate) fn channel_id_of(renderer: &Value, keys: &[&str]) -> Option<ChannelId> {
     for key in keys {
         let Some(field) = renderer.get(*key) else {
             continue;

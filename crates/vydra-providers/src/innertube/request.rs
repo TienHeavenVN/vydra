@@ -17,6 +17,8 @@
 //! Citations for every field are in `docs/research/INNERTUBE_REQUEST_CONTRACTS.md` §3.
 
 use serde::{Deserialize, Serialize};
+use vydra_common::{ChannelId, ChannelRef, PlaylistId};
+use vydra_errors::ProviderError;
 
 use super::ClientProfile;
 use super::client::SessionData;
@@ -175,6 +177,98 @@ impl ContinuationRequest {
             continuation: continuation.into(),
         }
     }
+}
+
+/// Browse body: `{context, browseId[, params]}`.
+///
+/// The browse endpoint serves channels and playlists. Two properties matter and are enforced by the
+/// constructors rather than by call-site discipline:
+///
+/// * **`params` is never invented.** It is a protobuf blob that selects a tab or a view. Reference
+///   clients either hard-code it (`NewPipeExtractor` sends `EgZ2aWRlb3PyBgQKAjoA` for a channel's
+///   videos tab) or relay it from a previous response (`YouTube.js` navigates the tab's own
+///   `NavigationEndpoint`). Vydra takes the second route: the only way to get `params` into this body
+///   is [`BrowseRequest::with_relayed_params`], which is called with the exact string a previous
+///   response carried in `tabRenderer.endpoint.browseEndpoint.params`.
+/// * **`VL` is a wire convention, not a guess.** Playlist pages are addressed as `VL` + playlist id;
+///   `NewPipeExtractor` (`YoutubePlaylistExtractor`) and YouTube.js both do exactly that, so the
+///   concatenation lives in one named constructor instead of in a `format!` at a call site.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowseRequest {
+    pub context: ClientContext,
+    pub browse_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    params: Option<String>,
+}
+
+impl BrowseRequest {
+    /// A bare browse: no `params`, therefore no tab selection and no view selection.
+    pub fn new(context: ClientContext, browse_id: impl Into<String>) -> Self {
+        Self {
+            context,
+            browse_id: browse_id.into(),
+            params: None,
+        }
+    }
+
+    /// A channel page addressed by a validated id or a `@handle`.
+    ///
+    /// A handle is sent as the browse id of its vanity URL (`@name`). It is *not* resolved into a
+    /// channel id locally — doing so would require either a request the caller did not make or an
+    /// invented mapping. The canonical id is read back from `channelMetadataRenderer.externalId` and
+    /// checked against the request (`browse_map::map_channel`).
+    pub fn channel(context: ClientContext, reference: &ChannelRef) -> Self {
+        Self::new(context, reference.as_str())
+    }
+
+    /// A channel tab, addressed with the `params` string relayed from the same channel page.
+    ///
+    /// Empty or obviously invalid blobs are rejected here: relaying a value the parser mis-read (for
+    /// example a chip's `continuationCommand` token picked up as if it were tab `params`) would
+    /// silently request a *different* view, so a malformed relay is a request error, not a warning.
+    pub fn channel_tab(
+        context: ClientContext,
+        id: &ChannelId,
+        params: impl Into<String>,
+    ) -> Result<Self, ProviderError> {
+        let params = params.into();
+        if !is_relayable_params(&params) {
+            return Err(ProviderError::InvalidRequest {
+                field: "params".to_owned(),
+                issue: "not a relayed tab params blob".to_owned(),
+            });
+        }
+        Ok(Self {
+            context,
+            browse_id: id.as_str().to_owned(),
+            params: Some(params),
+        })
+    }
+
+    /// A playlist page: `browseId` is `VL` + the validated playlist id.
+    pub fn playlist(context: ClientContext, id: &PlaylistId) -> Self {
+        Self::new(context, format!("VL{id}"))
+    }
+
+    pub fn params(&self) -> Option<&str> {
+        self.params.as_deref()
+    }
+}
+
+/// Whether a string looks like a relayed `browseEndpoint.params` blob rather than something else.
+///
+/// The check is deliberately structural, not semantic: protobuf is not decoded here, so the only
+/// properties asserted are the ones that separate a params blob from the token shapes that a careless
+/// parser could hand over — URL/JSON punctuation, whitespace, and the base64url alphabet plus the
+/// padding character. Length is bounded because a params blob is tens of bytes, while a continuation
+/// token is hundreds to thousands.
+pub fn is_relayable_params(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 512
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '='))
 }
 
 /// Player body: `{context, videoId, contentCheckOk, racyCheckOk}`.

@@ -5,13 +5,18 @@ use std::time::Instant;
 
 use serde::Serialize;
 use time::OffsetDateTime;
-use vydra_domain::{CaptionTrackList, Provenance, SearchResults, VideoDocument};
+use vydra_common::{ChannelId, ChannelRef, PlaylistId};
+use vydra_domain::{
+    CaptionTrackList, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
+    Provenance, SearchResults, VideoDocument,
+};
 use vydra_errors::ProviderError;
 
+use super::browse_map::{map_channel, map_channel_videos, map_playlist, map_playlist_videos};
 use super::client::InnertubeClient;
 use super::map::{map_player, map_search};
 use super::params::encode_search_filters;
-use super::request::{ContinuationRequest, PlayerRequest, SearchRequest};
+use super::request::{BrowseRequest, ContinuationRequest, PlayerRequest, SearchRequest};
 use super::{ClientKind, ClientProfile, InnertubeProviderConfig};
 use crate::parse::{ParseReport, collect_renderers};
 use crate::transport::Transport;
@@ -19,6 +24,12 @@ use crate::{
     Capability, CapabilitySet, Provider, ProviderContext, ProviderId, ProviderRequest,
     ProviderResponse, SearchFilters, SearchKind,
 };
+
+/// Rows requested from a playlist page when the caller has not stated a page size.
+///
+/// The playlist *document* embeds the first page of entries, so it needs a bound that is independent of
+/// the caller's `limit`; `PlaylistVideoList` is trimmed to the caller's limit afterwards by the engine.
+const PAGE_ROWS: u16 = 100;
 
 /// InnerTube-backed provider.
 #[derive(Debug)]
@@ -42,6 +53,14 @@ impl InnertubeProvider {
             Capability::VideoFormatsMetadata,
             Capability::VideoSubtitlesMetadata,
             Capability::CaptionsMetadata,
+            // Phase 6. Deliberately *not* declared: `ChannelPlaylists`, `ChannelAbout` (the playlists
+            // and about tabs are not requested yet), `LiveMetadata` and everything comments-related.
+            // Undeclared capabilities keep their endpoints unmounted (`router()`), which is the honest
+            // alternative to serving a page this parser does not read.
+            Capability::ChannelMetadata,
+            Capability::ChannelVideos,
+            Capability::PlaylistMetadata,
+            Capability::PlaylistItems,
             Capability::CursorPagination,
             Capability::LocaleSensitive,
         ]);
@@ -195,6 +214,170 @@ impl InnertubeProvider {
         report.check(ctx.strictness)?;
         Ok(document)
     }
+
+    /// Fetch a browse document and build the parse report.
+    ///
+    /// The report is returned with the payload because both map failures (`Err`) and provenance need it;
+    /// `post_json` errors (transport, status) propagate untouched so their fallback semantics are kept.
+    async fn browse(
+        &self,
+        body: BrowseRequest,
+        ctx: &ProviderContext,
+    ) -> Result<(serde_json::Value, ParseReport), ProviderError> {
+        let encoded = serialize_body(&body)?;
+        let started = Instant::now();
+        let (payload, _) = self.client.post_json("browse", encoded, ctx).await?;
+        tracing::debug!(
+            provider = %self.config.provider_id,
+            endpoint = "browse",
+            latency_ms = started.elapsed().as_millis() as u64,
+            "innertube browse"
+        );
+        Ok((payload, ParseReport::new()))
+    }
+
+    async fn channel(
+        &self,
+        reference: ChannelRef,
+        ctx: &ProviderContext,
+    ) -> Result<ChannelDocument, ProviderError> {
+        if !self.capabilities.contains(Capability::ChannelMetadata) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::ChannelMetadata.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+        let context = self.client.context(&session, ctx);
+        let body = BrowseRequest::channel(context, &reference);
+        let (payload, mut report) = self.browse(body, ctx).await?;
+        let provenance = self.provenance("browse", &report, OffsetDateTime::now_utc());
+        let mut document = map_channel(&payload, &reference, &mut report, provenance)?;
+        document.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(document)
+    }
+
+    /// One page of a channel's video list.
+    ///
+    /// The **first** page costs two browse calls: the tab `params` blob is relayed from the channel page
+    /// instead of being hard-coded (`EgZ2aWRlb3PyBgQKAjoA` in the reference extractors is exactly the
+    /// kind of unverified constant this phase refuses to ship). Continuation pages cost one call,
+    /// because the token already encodes the tab and the offset.
+    async fn channel_videos(
+        &self,
+        id: ChannelId,
+        cursor: Option<String>,
+        limit: u16,
+        ctx: &ProviderContext,
+    ) -> Result<ChannelVideoList, ProviderError> {
+        if !self.capabilities.contains(Capability::ChannelVideos) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::ChannelVideos.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+
+        let (payload, mut report) = match cursor {
+            Some(token) => {
+                let context = self.client.context(&session, ctx);
+                self.browse_continuation(context, token, ctx).await?
+            }
+            None => {
+                let page_context = self.client.context(&session, ctx);
+                let (page, mut page_report) = self
+                    .browse(BrowseRequest::channel(page_context, &ChannelRef::Id(id.clone())), ctx)
+                    .await?;
+                let Some(params) = super::browse_map::videos_tab_params(&page) else {
+                    // No videos tab: a channel can legitimately have none (an auto-generated channel, or
+                    // one whose only content is Shorts). That is an unsupported resource, not a 500.
+                    page_report.warn("channel_videos_tab_missing");
+                    return Err(ProviderError::Unsupported {
+                        capability: "channel_videos_tab".to_owned(),
+                    });
+                };
+                let context = self.client.context(&session, ctx);
+                let body = BrowseRequest::channel_tab(context, &id, params)?;
+                self.browse(body, ctx).await?
+            }
+        };
+
+        let provenance = self.provenance("browse", &report, OffsetDateTime::now_utc());
+        let mut list = map_channel_videos(&payload, limit, &mut report, provenance);
+        list.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(list)
+    }
+
+    async fn playlist(
+        &self,
+        id: PlaylistId,
+        ctx: &ProviderContext,
+    ) -> Result<PlaylistDocument, ProviderError> {
+        if !self.capabilities.contains(Capability::PlaylistMetadata) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::PlaylistMetadata.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+        let context = self.client.context(&session, ctx);
+        let body = BrowseRequest::playlist(context, &id);
+        let (payload, mut report) = self.browse(body, ctx).await?;
+        let provenance = self.provenance("browse", &report, OffsetDateTime::now_utc());
+        let mut document = map_playlist(&payload, &id, PAGE_ROWS, &mut report, provenance)?;
+        document.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(document)
+    }
+
+    async fn playlist_videos(
+        &self,
+        id: PlaylistId,
+        cursor: Option<String>,
+        limit: u16,
+        ctx: &ProviderContext,
+    ) -> Result<PlaylistVideoList, ProviderError> {
+        if !self.capabilities.contains(Capability::PlaylistItems) {
+            return Err(ProviderError::Unsupported {
+                capability: Capability::PlaylistItems.as_str().to_owned(),
+            });
+        }
+        let session = self.client.session(ctx).await;
+        let (payload, mut report) = match cursor {
+            Some(token) => {
+                let context = self.client.context(&session, ctx);
+                self.browse_continuation(context, token, ctx).await?
+            }
+            None => {
+                let context = self.client.context(&session, ctx);
+                self.browse(BrowseRequest::playlist(context, &id), ctx).await?
+            }
+        };
+        let provenance = self.provenance("browse", &report, OffsetDateTime::now_utc());
+        let mut list = map_playlist_videos(&payload, limit, &mut report, provenance);
+        list.provenance.parse_warnings = report.count();
+        report.check(ctx.strictness)?;
+        Ok(list)
+    }
+
+    /// Continuation body for a browse page: `{context, continuation}` and nothing else.
+    async fn browse_continuation(
+        &self,
+        context: super::request::ClientContext,
+        token: String,
+        ctx: &ProviderContext,
+    ) -> Result<(serde_json::Value, ParseReport), ProviderError> {
+        let encoded = serialize_body(&ContinuationRequest::new(context, token))?;
+        let started = Instant::now();
+        let (payload, _) = self.client.post_json("browse", encoded, ctx).await?;
+        tracing::debug!(
+            provider = %self.config.provider_id,
+            endpoint = "browse",
+            continuation = true,
+            latency_ms = started.elapsed().as_millis() as u64,
+            "innertube browse continuation"
+        );
+        Ok((payload, ParseReport::new()))
+    }
 }
 
 #[async_trait::async_trait]
@@ -249,6 +432,26 @@ impl Provider for InnertubeProvider {
                     provenance: document.provenance,
                 }))
             }
+            ProviderRequest::Channel { reference, .. } => self
+                .channel(reference, ctx)
+                .await
+                .map(|document| ProviderResponse::Channel(Box::new(document))),
+            ProviderRequest::ChannelVideos {
+                id, cursor, limit, ..
+            } => self
+                .channel_videos(id, cursor, limit, ctx)
+                .await
+                .map(ProviderResponse::ChannelVideos),
+            ProviderRequest::Playlist { id, .. } => self
+                .playlist(id, ctx)
+                .await
+                .map(|document| ProviderResponse::Playlist(Box::new(document))),
+            ProviderRequest::PlaylistVideos {
+                id, cursor, limit, ..
+            } => self
+                .playlist_videos(id, cursor, limit, ctx)
+                .await
+                .map(ProviderResponse::PlaylistVideos),
             ProviderRequest::Unsupported { resource, .. } => Err(ProviderError::Unsupported {
                 capability: resource.to_owned(),
             }),

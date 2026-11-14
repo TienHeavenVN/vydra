@@ -20,8 +20,11 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use vydra_common::{ChannelRef, PlaylistId, VideoId};
-use vydra_domain::{CaptionTrackList, SearchResults, VideoDocument};
+use vydra_common::{ChannelId, ChannelRef, PlaylistId, VideoId};
+use vydra_domain::{
+    CaptionTrackList, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
+    SearchResults, VideoDocument,
+};
 use vydra_errors::ProviderError;
 
 pub use transport::{
@@ -321,6 +324,39 @@ pub enum ProviderRequest {
         hl: String,
         gl: String,
     },
+    /// Channel metadata page (`GET /api/v1/channels/{id}`).
+    ///
+    /// The reference may be a validated `UC…` id **or** a `@handle`. A handle is not a channel id and is
+    /// never converted into one here: it is sent as the browse id upstream uses for the vanity URL, and
+    /// the response's canonical id is checked against it (`browse_map::map_channel`).
+    Channel {
+        reference: ChannelRef,
+        hl: String,
+        gl: String,
+    },
+    /// One page of a channel's video list. `cursor` is a provider continuation token, never a
+    /// screen-reader "sort by" chip (see `parse::find_page_cursor`).
+    ChannelVideos {
+        id: ChannelId,
+        cursor: Option<String>,
+        hl: String,
+        gl: String,
+        limit: u16,
+    },
+    /// Playlist metadata plus the first page of entries.
+    Playlist {
+        id: PlaylistId,
+        hl: String,
+        gl: String,
+    },
+    /// One page of a playlist's entries.
+    PlaylistVideos {
+        id: PlaylistId,
+        cursor: Option<String>,
+        hl: String,
+        gl: String,
+        limit: u16,
+    },
     /// Placeholder for resources whose providers are not implemented yet. The registry refuses to
     /// route these (no capability declared), so an endpoint is never mounted on a stub.
     Unsupported {
@@ -337,6 +373,10 @@ impl ProviderRequest {
             Self::Search { kind, .. } => kind.required_capability(),
             Self::Video { .. } => Capability::VideoMetadata,
             Self::CaptionTracks { .. } => Capability::CaptionsMetadata,
+            Self::Channel { .. } => Capability::ChannelMetadata,
+            Self::ChannelVideos { .. } => Capability::ChannelVideos,
+            Self::Playlist { .. } => Capability::PlaylistMetadata,
+            Self::PlaylistVideos { .. } => Capability::PlaylistItems,
             Self::Unsupported { .. } => Capability::SearchAll,
         }
     }
@@ -347,6 +387,9 @@ impl ProviderRequest {
             Self::Search { .. } => "search",
             Self::Video { .. } => "player",
             Self::CaptionTracks { .. } => "player",
+            // Channels and playlists are both browse calls; the sub-resource is in the cache key.
+            Self::Channel { .. } | Self::ChannelVideos { .. } => "browse",
+            Self::Playlist { .. } | Self::PlaylistVideos { .. } => "browse",
             Self::Unsupported { .. } => "unsupported",
         }
     }
@@ -355,7 +398,11 @@ impl ProviderRequest {
         match self {
             Self::Search { hl, gl, .. }
             | Self::Video { hl, gl, .. }
-            | Self::CaptionTracks { hl, gl, .. } => (Some(hl), Some(gl)),
+            | Self::CaptionTracks { hl, gl, .. }
+            | Self::Channel { hl, gl, .. }
+            | Self::ChannelVideos { hl, gl, .. }
+            | Self::Playlist { hl, gl, .. }
+            | Self::PlaylistVideos { hl, gl, .. } => (Some(hl), Some(gl)),
             Self::Unsupported { .. } => (None, None),
         }
     }
@@ -367,6 +414,10 @@ pub enum ProviderResponse {
     Search(SearchResults),
     Video(Box<VideoDocument>),
     CaptionTracks(CaptionTrackList),
+    Channel(Box<ChannelDocument>),
+    ChannelVideos(ChannelVideoList),
+    Playlist(Box<PlaylistDocument>),
+    PlaylistVideos(PlaylistVideoList),
 }
 
 impl ProviderResponse {
@@ -375,6 +426,8 @@ impl ProviderResponse {
             Self::Search(_) => "search",
             Self::Video(_) => "player",
             Self::CaptionTracks(_) => "player",
+            Self::Channel(_) | Self::ChannelVideos(_) => "browse",
+            Self::Playlist(_) | Self::PlaylistVideos(_) => "browse",
         }
     }
 
@@ -383,6 +436,11 @@ impl ProviderResponse {
             Self::Search(results) => results.items.is_empty(),
             Self::Video(_) => false,
             Self::CaptionTracks(tracks) => tracks.items.is_empty(),
+            // A channel or playlist document is content even when it carries no entries: the header is
+            // the payload. Listing pages, by contrast, are empty when they have no items.
+            Self::Channel(_) | Self::Playlist(_) => false,
+            Self::ChannelVideos(list) => list.items.is_empty(),
+            Self::PlaylistVideos(list) => list.items.is_empty(),
         }
     }
 }

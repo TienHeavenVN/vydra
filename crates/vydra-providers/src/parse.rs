@@ -58,6 +58,32 @@ pub const STRUCTURAL_RENDERERS: &[&str] = &[
     // paginated page look like it had unread content (one occurrence per page on the Phase 4.3
     // captures), for a renderer whose only payload the parser already extracts by key.
     "continuationItemRenderer",
+    // Browse-page chrome (Phase 6). Headers, tabs, chips, sort menus and page-level alerts are
+    // navigation and metadata — not list items — so they are layout for the purpose of counting
+    // unmapped content, and their inner content renderers are still discovered by descending into them.
+    "pageHeaderRenderer",
+    "c4TabbedHeaderRenderer",
+    "channelMetadataRenderer",
+    "channelAboutFullMetadataRenderer",
+    "channelTaglineRenderer",
+    "channelAgeGateRenderer",
+    "chipCloudRenderer",
+    "chipCloudChipRenderer",
+    "feedFilterChipBarRenderer",
+    "sortFilterSubMenuRenderer",
+    "playlistHeaderRenderer",
+    "playlistMetadataRenderer",
+    "playlistSidebarPrimaryInfoRenderer",
+    "playlistSidebarSecondaryInfoRenderer",
+    "videoOwnerRenderer",
+    "playlistVideoThumbnailRenderer",
+    "playlistCustomThumbnailRenderer",
+    "heroPlaylistThumbnailRenderer",
+    "playlistVideoListRenderer",
+    "alertRenderer",
+    "alertWithButtonRenderer",
+    "expandableMetadataRenderer",
+    "metadataRowContainerRenderer",
 ];
 
 /// Content shapes that carry a result but are not `*Renderer` keys and have no mapping yet.
@@ -378,7 +404,11 @@ pub fn find_continuation(root: &Value) -> Option<String> {
 }
 
 /// `continuationItemRenderer.continuationEndpoint.continuationCommand.token`.
-fn find_page_cursor(root: &Value) -> Option<String> {
+///
+/// Public since Phase 6 because channel and playlist pages need the *page* cursor only: their filter
+/// chips and sort menus also carry `continuationCommand` tokens (they re-sort or re-filter the same
+/// list), and treating one of those as "next page" silently changes the result set instead of paging it.
+pub fn find_page_cursor(root: &Value) -> Option<String> {
     let mut stack = vec![root];
     let mut visited = 0usize;
     while let Some(node) = stack.pop() {

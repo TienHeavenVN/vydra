@@ -1,0 +1,411 @@
+{
+  "trackingParams": "PLACEHOLDER_TRACKING",
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Videos",
+            "selected": true,
+            "endpoint": {
+              "browseEndpoint": {
+                "browseId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+                "params": "EgZ2aWRlb3PyBgQKAjoA"
+              }
+            },
+            "content": {
+              "richGridRenderer": {
+                "contents": [
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000000",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000000/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000000/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video one"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "2 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "10:01"
+                          },
+                          "viewCountText": {
+                            "simpleText": "2000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000000"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000001",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000001/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000001/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video two"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "3 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "4:32"
+                          },
+                          "viewCountText": {
+                            "simpleText": "3000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000001"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000002",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000002/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000002/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video three"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "4 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "1:02:03"
+                          },
+                          "viewCountText": {
+                            "simpleText": "4000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000002"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000002",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000002/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000002/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video three"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "4 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "1:02:03"
+                          },
+                          "viewCountText": {
+                            "simpleText": "4000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000002"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "videoRenderer": {
+                          "videoId": "vid00000003",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://example.invalid/vi/vid00000003/mqdefault.jpg",
+                                "width": 320,
+                                "height": 180
+                              },
+                              {
+                                "url": "https://example.invalid/vi/vid00000003/hqdefault.jpg",
+                                "width": 480,
+                                "height": 360
+                              }
+                            ]
+                          },
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Placeholder video four"
+                              }
+                            ]
+                          },
+                          "longBylineText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "publishedTimeText": {
+                            "simpleText": "5 days ago"
+                          },
+                          "lengthText": {
+                            "simpleText": "22:10"
+                          },
+                          "viewCountText": {
+                            "simpleText": "5000 views"
+                          },
+                          "navigationEndpoint": {
+                            "watchEndpoint": {
+                              "videoId": "vid00000003"
+                            }
+                          },
+                          "ownerText": {
+                            "runs": [
+                              {
+                                "text": "Placeholder Studio",
+                                "navigationEndpoint": {
+                                  "browseEndpoint": {
+                                    "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                                    "canonicalBaseUrl": "/@placeholderstudio"
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "trackingParams": "PLACEHOLDER_ROW"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "continuationItemRenderer": {
+                      "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                      "continuationEndpoint": {
+                        "clickTrackingParams": "PLACEHOLDER_CLICK",
+                        "continuationCommand": {
+                          "token": "PAGE1-CONTINUATION-TOKEN",
+                          "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "chipCloud": {
+                  "chips": [
+                    {
+                      "chipCloudChipRenderer": {
+                        "text": {
+                          "simpleText": "Latest"
+                        },
+                        "navigationEndpoint": {
+                          "continuationCommand": {
+                            "token": "CHIP-LATEST-SORT-TOKEN",
+                            "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

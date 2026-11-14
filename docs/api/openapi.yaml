@@ -217,6 +217,120 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '401': {$ref: '#/components/responses/Unauthorized'}
         '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /channels/{id}:
+    get:
+      operationId: channel
+      summary: Channel metadata
+      description: |
+        Accepts a `UC…` channel id or a `@handle`. The reference is validated before any upstream call: a
+        malformed id is a `400`, and a handle is never treated as a channel id.
+
+        `data.summary.id` is the canonical id the page reported. When upstream answers under a different
+        canonical id (localized and auto-generated channels do this), the document carries the canonical
+        id and `data.evidence.conflicts` records the substitution.
+
+        `subscriber_count` and `video_count` are omitted when the page did not state them, and are marked
+        `precision: approximate` with the rendered text preserved when they came from an abbreviated label
+        such as "1.24M subscribers". A channel that hides its subscriber count therefore has no
+        `subscriber_count` — never `0`.
+
+        `data.links`, `data.joined_at`, `data.country` and `data.total_view_count` live on the `about`
+        tab, which this phase does not request; they are currently always absent.
+      parameters:
+        - $ref: '#/components/parameters/ChannelIdOrHandle'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Channel document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /channels/{id}/videos:
+    get:
+      operationId: channelVideos
+      summary: One page of a channel's videos
+      description: |
+        Entries are ordered as upstream served them. `data.next_cursor` is an opaque, signed token bound to
+        this channel: a cursor minted for one channel is rejected by another with
+        `400 invalid_cursor`, and a tampered cursor is rejected the same way.
+
+        `data.duplicates_removed` counts rows dropped because the same video id appeared twice in the same
+        page. It is a count of removed rows, not a claim about the channel.
+      parameters:
+        - $ref: '#/components/parameters/ChannelId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Channel video listing
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChannelVideoListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /playlists/{id}:
+    get:
+      operationId: playlist
+      summary: Playlist metadata and its first page of entries
+      description: |
+        `data.items` is the first page of entries in upstream order. Every entry keeps its own `position`
+        (the number the owner sees), its validated `video_id` when it has one, and its own `availability`:
+
+        * `unavailable` means the row states that the entry cannot be played (deleted, private, blocked);
+          the title is preserved verbatim so a client can show what the owner sees;
+        * `unknown` means the row stated no playability at all, which is not the same as available;
+        * an entry whose id fails validation keeps its position with no `video_id`, so positions never
+          shift.
+
+        A playlist that legitimately contains the same video twice keeps both entries and reports the
+        repetition in `data.repeated_entries`.
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Playlist document
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlaylistEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/ContentUnavailable'}
+  /playlists/{id}/videos:
+    get:
+      operationId: playlistVideos
+      summary: One page of a playlist's entries
+      description: |
+        Same entry semantics as `/playlists/{id}`, without the header. Positions come from the row's own
+        index, never from the offset inside the page, so a continuation page starts at the position the
+        playlist is actually at.
+      parameters:
+        - $ref: '#/components/parameters/PlaylistId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
+      responses:
+        '200':
+          description: Playlist entry listing
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlaylistVideoListEnvelope'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -276,6 +390,35 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^[A-Za-z0-9_-]{11}$'}
+    ChannelIdOrHandle:
+      name: id
+      in: path
+      required: true
+      description: |
+        A channel id (`UC` + 22 characters) or a handle (`@` + up to 40 characters). A handle is resolved by
+        the provider and is never rewritten into an id locally.
+      schema:
+        type: string
+        pattern: '^(UC[A-Za-z0-9_-]{22}|@[A-Za-z0-9._-]{1,40})$'
+    ChannelId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Channel id (`UC` + 22 characters). Handles are not accepted on listing endpoints.
+      schema:
+        type: string
+        pattern: '^UC[A-Za-z0-9_-]{22}$'
+    PlaylistId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Playlist id: one of the prefixes `PL`, `UU`, `LL`, `OL`, `RD`, `FL`, followed by the rest of the id,
+        12 to 64 characters in total.
+      schema:
+        type: string
+        pattern: '^(PL|UU|LL|OL|RD|FL)[A-Za-z0-9_-]{9,61}$'
   responses:
     BadRequest:
       description: Invalid request
@@ -379,6 +522,168 @@ components:
       properties:
         data: {$ref: '#/components/schemas/VideoDocument'}
         meta: {$ref: '#/components/schemas/Meta'}
+    ChannelEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ChannelDocument'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ChannelDocument:
+      type: object
+      required: [summary, availability, provenance]
+      properties:
+        summary: {$ref: '#/components/schemas/ChannelSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        banner: {$ref: '#/components/schemas/Thumbnail'}
+        links:
+          type: array
+          description: Empty today; channel links live on the `about` tab, which is not requested.
+          items: {type: object, properties: {title: {type: string}, url: {type: string}}}
+        joined_at: {type: string, format: date-time}
+        country: {type: string}
+        total_view_count: {$ref: '#/components/schemas/Count'}
+        tabs:
+          type: array
+          items: {$ref: '#/components/schemas/ChannelTab'}
+        verification:
+          type: array
+          description: |
+            Verification indicators as the page rendered them. An empty array means no badge was read, not
+            that the channel is unverified.
+          items: {$ref: '#/components/schemas/ChannelVerification'}
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance: {type: object}
+    ChannelSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string, description: Canonical channel id.}
+        title: {type: string}
+        handle: {type: string, description: Handle without the leading `@`.}
+        description: {type: string}
+        thumbnails:
+          type: array
+          description: Ordered smallest to largest.
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        subscriber_count: {$ref: '#/components/schemas/Count'}
+        video_count: {$ref: '#/components/schemas/Count'}
+    ChannelTab:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string, description: 'Upstream title, localized.'}
+        slug:
+          type: string
+          description: |
+            Set only for recognized titles (`home`, `videos`, `shorts`, `live`, `playlists`, `podcasts`,
+            `releases`, `courses`, `community`, `about`, `store`, `channels`). An unrecognized tab has no
+            slug rather than a guessed one.
+        selected: {type: boolean}
+    ChannelVerification:
+      type: object
+      required: [style]
+      properties:
+        style: {type: string, description: 'Badge style as rendered, e.g. `BADGE_STYLE_TYPE_VERIFIED`.'}
+        label: {type: string}
+    ChannelVideoListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/ChannelVideoList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ChannelVideoList:
+      type: object
+      required: [items, provenance]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/VideoSummary'}
+        next_cursor: {type: [string, 'null']}
+        duplicates_removed:
+          type: integer
+          minimum: 0
+          description: Rows dropped because the same video id appeared more than once in this page.
+        provenance: {type: object}
+    PlaylistEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/PlaylistDocument'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    PlaylistDocument:
+      type: object
+      required: [summary, availability, provenance]
+      properties:
+        summary: {$ref: '#/components/schemas/PlaylistSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/PlaylistItem'}
+        next_cursor: {type: [string, 'null']}
+        view_count: {$ref: '#/components/schemas/Count'}
+        last_updated_text:
+          type: string
+          description: The page's own wording for "last updated", untranslated.
+        repeated_entries:
+          type: integer
+          minimum: 0
+          description: |
+            How many entries repeated a video id already seen in the same page. Nothing is dropped: a
+            playlist may legally contain the same video twice.
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance: {type: object}
+    PlaylistSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        description: {type: string}
+        item_count: {$ref: '#/components/schemas/Count'}
+        thumbnails:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+    PlaylistItem:
+      type: object
+      required: [title, availability, source]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: 1-based position exactly as the row reported it. Never derived from the page offset.
+        video_id: {type: string, description: Present only when the id passed validation.}
+        title: {type: string, description: 'Verbatim, including placeholders such as `[Deleted video]`.'}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        duration_seconds: {type: integer}
+        thumbnails:
+          type: array
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        source:
+          type: string
+          enum: [playlist_video, lockup, other]
+    PlaylistVideoListEnvelope:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/PlaylistVideoList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    PlaylistVideoList:
+      type: object
+      required: [items, provenance]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/PlaylistItem'}
+        next_cursor: {type: [string, 'null']}
+        repeated_entries:
+          type: integer
+          minimum: 0
+          description: Repeated ids counted, never dropped.
+        provenance: {type: object}
     VideoDocument:
       type: object
       required: [summary, availability, provenance]
@@ -595,7 +900,7 @@ components:
       properties:
         sections:
           type: array
-          items: {type: string, enum: [video_details, microformat, streaming_data, captions, storyboards, description, request]}
+          items: {type: string, enum: [video_details, microformat, streaming_data, captions, storyboards, description, request, channel_metadata, channel_header, tabs, playlist_header, playlist_metadata, playlist_sidebar, playlist_video_list, alerts]}
         fallbacks:
           type: array
           items:

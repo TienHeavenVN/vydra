@@ -1,0 +1,14 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube browse renderer trees documented in docs/research/CHANNEL_CONTRACT.md and docs/research/PLAYLIST_CONTRACT.md. It is NOT a captured response and must not be described as one: every value, URL, id, count and token here is a placeholder.",
+  "endpoint": "browse, WEB client",
+  "created": "2026-11-13",
+  "purpose": "Page-level alert for a playlist that does not exist.",
+  "sections_exercised": [
+    "alerts[].alertRenderer{type,text}"
+  ],
+  "not_verified": [
+    "the exact wording upstream uses for a missing playlist"
+  ]
+}

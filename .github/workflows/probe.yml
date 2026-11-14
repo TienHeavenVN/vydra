@@ -37,6 +37,14 @@ on:
         description: Player probe — syntactically valid id expected not to resolve
         required: false
         default: AAAAAAAAAAA
+      channel_id:
+        description: Browse probe — long-standing public channel id
+        required: false
+        default: UCHnyfMqiRRG1u-2MsSQLbXA
+      channel_handle:
+        description: Browse probe — the same channel's handle (tests whether a handle is a browse id)
+        required: false
+        default: '@veritasium'
 
 permissions:
   contents: read
@@ -109,5 +117,47 @@ jobs:
             probe-out
             player-probe-archive
             player-probe.log
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Phase 6: the same evidence pattern for `POST /youtubei/v1/browse`. Six fixed requests: a channel page
+  # by id, the same page by handle, the videos tab addressed with the `params` the page itself carried, one
+  # entry continuation of that tab, the channel's uploads playlist, and one entry continuation of the
+  # playlist. Public resources only; no enumeration, no sign-in, no consent/PoToken trickery.
+  #
+  # The captures are redacted (tracking/identity keys dropped, URL query strings removed), land in an
+  # artifact, and the channel page is additionally printed as base64 in the log so a genuine capture can be
+  # recovered when artifacts are not reachable.
+  browse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the browse evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_CHANNEL_ID: ${{ inputs.channel_id }}
+          VYDRA_PROBE_CHANNEL_HANDLE: ${{ inputs.channel_handle }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_browse 2>&1 | tee browse-probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          grep '^PROBE' browse-probe.log | cut -c1-900 | tail -60 || true
+      - name: archive preview (not committed by this workflow)
+        if: always()
+        run: |
+          python3 scripts/fixtures/archive_probe.py probe-out "browse-probe-archive/${GITHUB_RUN_ID}" \
+            --kind browse --capture-run "${GITHUB_RUN_ID}" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browse-probe-out
+          path: |
+            probe-out
+            browse-probe-archive
+            browse-probe.log
           retention-days: 14
           if-no-files-found: warn

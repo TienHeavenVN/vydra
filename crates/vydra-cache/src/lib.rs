@@ -19,6 +19,10 @@ pub enum CacheClass {
     Bootstrap,
     Metadata,
     Search,
+    /// Channel documents and channel listing pages (Phase 6).
+    Channel,
+    /// Playlist documents and playlist entry pages (Phase 6).
+    Playlist,
 }
 
 impl CacheClass {
@@ -28,6 +32,8 @@ impl CacheClass {
             Self::Bootstrap => "bootstrap",
             Self::Metadata => "metadata",
             Self::Search => "search",
+            Self::Channel => "channel",
+            Self::Playlist => "playlist",
         }
     }
 }

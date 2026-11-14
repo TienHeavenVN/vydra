@@ -23,10 +23,16 @@ use tower_http::trace::TraceLayer;
 use tracing::Instrument;
 use uuid::Uuid;
 use vydra_auth::{Authenticator, RateLimiter};
-use vydra_common::{BuildInfo, PageParams, PaginationMeta, VideoId};
+use vydra_common::{BuildInfo, ChannelRef, PageParams, PaginationMeta, PlaylistId, VideoId};
 use vydra_config::Config;
-use vydra_domain::{AttemptOutcome, Provenance, SearchResults, SourceAttempt, VideoDocument};
-use vydra_engines::{Engines, SearchInput, VideoInput};
+use vydra_domain::{
+    AttemptOutcome, ChannelDocument, ChannelVideoList, PlaylistDocument, PlaylistVideoList,
+    Provenance, SearchResults, SourceAttempt, VideoDocument,
+};
+use vydra_engines::{
+    ChannelInput, ChannelVideosInput, Engines, PlaylistInput, PlaylistVideosInput, SearchInput,
+    VideoInput,
+};
 use vydra_errors::{Error, ErrorBody};
 use vydra_observability::Metrics;
 use vydra_provider_registry::{CircuitState, ProviderObserver, ProviderRegistry};
@@ -248,6 +254,51 @@ impl VideoQuery {
             hl: normalise_locale("hl", self.hl)?,
             gl: normalise_locale("gl", self.gl)?,
         })
+    }
+}
+
+/// Query parameters accepted by `GET /channels/{id}` and `GET /playlists/{id}`.
+///
+/// A resource endpoint maps only the context dimensions it uses; both are validated by the same
+/// [`normalise_locale`] as search and the video endpoints so that a locale can never reach a provider
+/// string (or a cache key) unchecked.
+#[derive(Debug, Default, Deserialize)]
+pub struct ResourceQuery {
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+impl ResourceQuery {
+    fn locales(&self) -> vydra_errors::Result<(Option<String>, Option<String>)> {
+        Ok((
+            normalise_locale("hl", self.hl.clone())?,
+            normalise_locale("gl", self.gl.clone())?,
+        ))
+    }
+}
+
+/// Query parameters accepted by the two listing endpoints.
+#[derive(Debug, Default, Deserialize)]
+pub struct ListingQuery {
+    pub limit: Option<u16>,
+    pub cursor: Option<String>,
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+impl ListingQuery {
+    fn page(&self) -> PageParams {
+        PageParams {
+            limit: self.limit,
+            cursor: self.cursor.clone(),
+        }
+    }
+
+    fn locales(&self) -> vydra_errors::Result<(Option<String>, Option<String>)> {
+        Ok((
+            normalise_locale("hl", self.hl.clone())?,
+            normalise_locale("gl", self.gl.clone())?,
+        ))
     }
 }
 
@@ -481,6 +532,134 @@ async fn captions_handler(
 
 // --- middleware -----------------------------------------------------------------------------
 
+// --- Phase 6: channels and playlists ---------------------------------------------------------
+
+/// `GET /api/v1/channels/{id}` — `id` is a `UC…` channel id or a `@handle`.
+///
+/// The reference is validated *before* any provider call: a syntactically invalid id is a 400 and never
+/// reaches the registry, and a handle is never treated as an id (`vydra_common::ChannelRef`).
+async fn channel_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path(id): Path<String>,
+    Query(query): Query<ResourceQuery>,
+) -> ApiResult<Json<Envelope<ChannelDocument>>> {
+    let reference = ChannelRef::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let document = state
+        .engines
+        .channel(ChannelInput {
+            reference,
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.channel"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let meta = Meta::from_provenance(&request_id.0, &document.provenance, None);
+    Ok(Json(Envelope {
+        data: document,
+        meta,
+    }))
+}
+
+/// `GET /api/v1/channels/{id}/videos`.
+async fn channel_videos_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path(id): Path<String>,
+    Query(query): Query<ListingQuery>,
+) -> ApiResult<Json<Envelope<ChannelVideoList>>> {
+    let channel_id = vydra_common::ChannelId::parse(id.trim())
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let limit = query.limit;
+    let list = state
+        .engines
+        .channel_videos(ChannelVideosInput {
+            id: channel_id,
+            page: query.page(),
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.channel.videos"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+
+    let pagination = PaginationMeta::new(
+        limit.unwrap_or(vydra_common::DEFAULT_LIMIT),
+        list.items.len(),
+        list.next_cursor.clone(),
+    );
+    let meta = Meta::from_provenance(&request_id.0, &list.provenance, Some(pagination));
+    Ok(Json(Envelope { data: list, meta }))
+}
+
+/// `GET /api/v1/playlists/{id}`.
+async fn playlist_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path(id): Path<String>,
+    Query(query): Query<ResourceQuery>,
+) -> ApiResult<Json<Envelope<PlaylistDocument>>> {
+    let playlist_id = PlaylistId::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let document = state
+        .engines
+        .playlist(PlaylistInput {
+            id: playlist_id,
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.playlist"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let meta = Meta::from_provenance(&request_id.0, &document.provenance, None);
+    Ok(Json(Envelope {
+        data: document,
+        meta,
+    }))
+}
+
+/// `GET /api/v1/playlists/{id}/videos`.
+async fn playlist_videos_handler(
+    State(state): State<Arc<AppState>>,
+    Extension(request_id): Extension<RequestId>,
+    Path(id): Path<String>,
+    Query(query): Query<ListingQuery>,
+) -> ApiResult<Json<Envelope<PlaylistVideoList>>> {
+    let playlist_id = PlaylistId::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let (hl, gl) = query
+        .locales()
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let limit = query.limit;
+    let list = state
+        .engines
+        .playlist_videos(PlaylistVideosInput {
+            id: playlist_id,
+            page: query.page(),
+            hl,
+            gl,
+        })
+        .instrument(tracing::info_span!("engine.playlist.videos"))
+        .await
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
+
+    let pagination = PaginationMeta::new(
+        limit.unwrap_or(vydra_common::DEFAULT_LIMIT),
+        list.items.len(),
+        list.next_cursor.clone(),
+    );
+    let meta = Meta::from_provenance(&request_id.0, &list.provenance, Some(pagination));
+    Ok(Json(Envelope { data: list, meta }))
+}
+
 async fn request_id_middleware(mut request: Request<axum::body::Body>, next: Next) -> Response {
     let id = request
         .headers()
@@ -598,6 +777,10 @@ impl ProviderObserver for MetricsObserver {
 
 /// Build the router. Endpoints whose capability is not declared by any provider are **not mounted**
 /// (`docs/architecture/ARCHITECTURE.md` §5).
+///
+/// Phase 6 mounts four channel/playlist endpoints under the same rule: `/channels/{id}`, its `/videos`
+/// listing, `/playlists/{id}` and its `/videos` listing. `ChannelPlaylists`, `ChannelAbout` and the
+/// channel tabs other than `videos` are *not* mounted because no provider declares them.
 pub fn router(state: Arc<AppState>) -> Router {
     let capabilities = state.registry.capabilities();
     let mut api = Router::new().route("/search", get(search_handler));
@@ -621,6 +804,21 @@ pub fn router(state: Arc<AppState>) -> Router {
     }
     if capabilities.contains(Capability::CaptionsMetadata) {
         api = api.route("/videos/{id}/captions", get(captions_handler));
+    }
+    // Phase 6. Mounted only when a provider declares the capability: an endpoint that would answer
+    // `capability_unavailable` for every request is worse than a 404, because it suggests the resource
+    // exists and the server is merely busy.
+    if capabilities.contains(Capability::ChannelMetadata) {
+        api = api.route("/channels/{id}", get(channel_handler));
+    }
+    if capabilities.contains(Capability::ChannelVideos) {
+        api = api.route("/channels/{id}/videos", get(channel_videos_handler));
+    }
+    if capabilities.contains(Capability::PlaylistMetadata) {
+        api = api.route("/playlists/{id}", get(playlist_handler));
+    }
+    if capabilities.contains(Capability::PlaylistItems) {
+        api = api.route("/playlists/{id}/videos", get(playlist_videos_handler));
     }
 
     // Ops endpoints stay reachable without an API key so orchestrators can probe the service

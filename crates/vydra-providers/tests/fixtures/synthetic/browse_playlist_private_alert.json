@@ -1,0 +1,12 @@
+{
+  "alerts": [
+    {
+      "alertRenderer": {
+        "type": "ERROR",
+        "text": {
+          "simpleText": "This playlist is private."
+        }
+      }
+    }
+  ]
+}

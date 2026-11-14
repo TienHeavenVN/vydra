@@ -1,0 +1,69 @@
+{
+  "onResponseReceivedActions": [
+    {
+      "appendContinuationItemsAction": {
+        "continuationItems": [
+          {
+            "playlistVideoRenderer": {
+              "videoId": "vid00000002",
+              "index": {
+                "simpleText": "5"
+              },
+              "thumbnail": {
+                "thumbnails": [
+                  {
+                    "url": "https://example.invalid/vi/vid00000002/mqdefault.jpg",
+                    "width": 320,
+                    "height": 180
+                  }
+                ]
+              },
+              "title": {
+                "runs": [
+                  {
+                    "text": "Placeholder video three"
+                  }
+                ]
+              },
+              "shortBylineText": {
+                "runs": [
+                  {
+                    "text": "Placeholder Owner",
+                    "navigationEndpoint": {
+                      "browseEndpoint": {
+                        "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                        "canonicalBaseUrl": "/@placeholderowner"
+                      }
+                    }
+                  }
+                ]
+              },
+              "lengthText": {
+                "simpleText": "1:02:03"
+              },
+              "lengthSeconds": "62",
+              "isPlayable": true,
+              "navigationEndpoint": {
+                "watchEndpoint": {
+                  "videoId": "vid00000002"
+                }
+              },
+              "trackingParams": "PLACEHOLDER_ROW"
+            }
+          },
+          {
+            "continuationItemRenderer": {
+              "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+              "continuationEndpoint": {
+                "continuationCommand": {
+                  "token": "PLAYLIST-PAGE-2-TOKEN",
+                  "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

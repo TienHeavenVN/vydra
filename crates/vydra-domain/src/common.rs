@@ -243,6 +243,22 @@ pub enum FieldSource {
     Description,
     /// Supplied by the caller (the requested id).
     Request,
+    /// `metadata.channelMetadataRenderer` on a browse response (Phase 6).
+    ChannelMetadata,
+    /// `header.pageHeaderRenderer` / legacy `header.c4TabbedHeaderRenderer` (Phase 6).
+    ChannelHeader,
+    /// `contents…tabs[]` — the tab list, not its content (Phase 6).
+    Tabs,
+    /// `header.playlistHeaderRenderer` (Phase 6).
+    PlaylistHeader,
+    /// `metadata.playlistMetadataRenderer` (Phase 6).
+    PlaylistMetadata,
+    /// `sidebar.playlistSidebarPrimaryInfoRenderer` (Phase 6).
+    PlaylistSidebar,
+    /// `playlistVideoListRenderer` — the entry list, paginated (Phase 6).
+    PlaylistVideoList,
+    /// `alerts[]` — a page-level message rather than content (Phase 6).
+    Alerts,
 }
 
 impl FieldSource {
@@ -256,6 +272,14 @@ impl FieldSource {
             Self::Storyboards => "storyboards",
             Self::Description => "description",
             Self::Request => "request",
+            Self::ChannelMetadata => "channelMetadataRenderer",
+            Self::ChannelHeader => "header",
+            Self::Tabs => "tabs",
+            Self::PlaylistHeader => "playlistHeaderRenderer",
+            Self::PlaylistMetadata => "playlistMetadataRenderer",
+            Self::PlaylistSidebar => "playlistSidebarPrimaryInfoRenderer",
+            Self::PlaylistVideoList => "playlistVideoListRenderer",
+            Self::Alerts => "alerts",
         }
     }
 }

@@ -1,0 +1,92 @@
+{
+  "onResponseReceivedActions": [
+    {
+      "appendContinuationItemsAction": {
+        "continuationItems": [
+          {
+            "richItemRenderer": {
+              "content": {
+                "videoRenderer": {
+                  "videoId": "vid00000004",
+                  "thumbnail": {
+                    "thumbnails": [
+                      {
+                        "url": "https://example.invalid/vi/vid00000004/mqdefault.jpg",
+                        "width": 320,
+                        "height": 180
+                      },
+                      {
+                        "url": "https://example.invalid/vi/vid00000004/hqdefault.jpg",
+                        "width": 480,
+                        "height": 360
+                      }
+                    ]
+                  },
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Placeholder video five"
+                      }
+                    ]
+                  },
+                  "longBylineText": {
+                    "runs": [
+                      {
+                        "text": "Placeholder Studio",
+                        "navigationEndpoint": {
+                          "browseEndpoint": {
+                            "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                            "canonicalBaseUrl": "/@placeholderstudio"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "publishedTimeText": {
+                    "simpleText": "9 days ago"
+                  },
+                  "lengthText": {
+                    "simpleText": "3:00"
+                  },
+                  "viewCountText": {
+                    "simpleText": "9000 views"
+                  },
+                  "navigationEndpoint": {
+                    "watchEndpoint": {
+                      "videoId": "vid00000004"
+                    }
+                  },
+                  "ownerText": {
+                    "runs": [
+                      {
+                        "text": "Placeholder Studio",
+                        "navigationEndpoint": {
+                          "browseEndpoint": {
+                            "browseId": "UCbbbbbbbbbbbbbbbbbbbbbb",
+                            "canonicalBaseUrl": "/@placeholderstudio"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "trackingParams": "PLACEHOLDER_ROW"
+                }
+              }
+            }
+          },
+          {
+            "continuationItemRenderer": {
+              "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+              "continuationEndpoint": {
+                "continuationCommand": {
+                  "token": "PAGE2-CONTINUATION-TOKEN",
+                  "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
