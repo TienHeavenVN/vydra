@@ -148,7 +148,10 @@ fn count_key(value: &Value, key: &str) -> usize {
     match value {
         Value::Object(map) => {
             let here = usize::from(map.contains_key(key));
-            here + map.values().map(|child| count_key(child, key)).sum::<usize>()
+            here + map
+                .values()
+                .map(|child| count_key(child, key))
+                .sum::<usize>()
         }
         Value::Array(items) => items.iter().map(|child| count_key(child, key)).sum(),
         _ => 0,
@@ -191,7 +194,10 @@ impl Recorded {
         match &self.payload {
             Some(payload) => {
                 entry.insert("top_level_keys".into(), json!(top_level_keys(payload)));
-                entry.insert("video_renderers".into(), json!(count_key(payload, "videoRenderer")));
+                entry.insert(
+                    "video_renderers".into(),
+                    json!(count_key(payload, "videoRenderer")),
+                );
                 entry.insert(
                     "channel_renderers".into(),
                     json!(count_key(payload, "channelRenderer")),
@@ -214,7 +220,10 @@ impl Recorded {
                 );
                 entry.insert(
                     "estimated_results".into(),
-                    payload.get("estimatedResults").cloned().unwrap_or(Value::Null),
+                    payload
+                        .get("estimatedResults")
+                        .cloned()
+                        .unwrap_or(Value::Null),
                 );
             }
             None => {
@@ -261,7 +270,10 @@ async fn record(
             let sample = mask_keys(&String::from_utf8_lossy(&bytes[..bytes.len().min(600)]));
             let path = out.join(format!("{label}.txt"));
             fs::write(&path, format!("status={status}\n\n{sample}\n"))?;
-            println!("{label}: status={status} bytes={raw_len} (not JSON) -> {}", path.display());
+            println!(
+                "{label}: status={status} bytes={raw_len} (not JSON) -> {}",
+                path.display()
+            );
         }
     }
 
@@ -346,7 +358,10 @@ async fn main() -> ProbeResult<()> {
     notes.insert("hl".into(), json!(ctx.hl));
     notes.insert("gl".into(), json!(ctx.gl));
     notes.insert("has_api_key".into(), json!(session.api_key.is_some()));
-    notes.insert("has_visitor_data".into(), json!(session.visitor_data.is_some()));
+    notes.insert(
+        "has_visitor_data".into(),
+        json!(session.visitor_data.is_some()),
+    );
 
     // ---- page 1 (primary query) -------------------------------------------------------------
     let mut page_1_body = client.context_value(&session, &ctx);
@@ -428,10 +443,7 @@ async fn main() -> ProbeResult<()> {
     for record in summary["records"].as_array().into_iter().flatten() {
         println!(
             "::notice::probe {} status={} bytes={} token_len={}",
-            record["label"],
-            record["status"],
-            record["bytes"],
-            record["continuation_token_len"]
+            record["label"], record["status"], record["bytes"], record["continuation_token_len"]
         );
     }
     println!(
