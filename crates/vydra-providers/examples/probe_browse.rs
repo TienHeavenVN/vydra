@@ -34,7 +34,6 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::{Map, Value, json};
-use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
@@ -113,11 +112,19 @@ fn redacted_ok(redacted: &Value) -> bool {
     !SECRET_MARKERS.iter().any(|marker| text.contains(marker))
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let digest = hasher.finalize();
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+/// FNV-1a 64-bit, printed as hex.
+///
+/// Not cryptographic: it exists so a capture in the CI log can be matched to the artifact bytes at a
+/// glance. Recorded fixtures committed to the corpus carry a SHA-256 computed by the archiver
+/// (`scripts/fixtures/archive_probe.py`), which is what `docs/research/CHANNEL_PLAYLIST_FIXTURE_PROVENANCE.md`
+/// records.
+fn fnv1a64_hex(bytes: &[u8]) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")
 }
 
 fn base64_bytes(input: &[u8]) -> String {
@@ -166,15 +173,15 @@ fn write_capture(
         .map(|map| map.keys().cloned().collect())
         .unwrap_or_default();
     top_level_keys.sort();
-    let digest = sha256_hex(text.as_bytes());
+    let digest = fnv1a64_hex(text.as_bytes());
     summary.push(json!({
         "capture": name,
         "file": path.display().to_string(),
         "bytes": text.len(),
-        "sha256": digest,
+        "checksum_fnv1a64": digest,
         "top_level_keys": top_level_keys,
     }));
-    println!("PROBE capture={name} bytes={} sha256={digest}", text.len());
+    println!("PROBE capture={name} bytes={} fnv1a64={digest}", text.len());
     Ok(())
 }
 
@@ -218,7 +225,6 @@ fn body_of<T: Serialize>(request: &T) -> ProbeResult<Value> {
 
 async fn browse(
     client: &InnertubeClient,
-    context: ClientContext,
     request: BrowseRequest,
     ctx: &ProviderContext,
 ) -> Result<Value, String> {
@@ -274,7 +280,6 @@ async fn main() -> ProbeResult<()> {
     let channel_context = client.context(&session, &ctx);
     let channel_page = browse(
         &client,
-        channel_context.clone(),
         BrowseRequest::channel(channel_context.clone(), &ChannelRef::Id(channel_id.clone())),
         &ctx,
     )
@@ -285,7 +290,6 @@ async fn main() -> ProbeResult<()> {
     let handle_ref = ChannelRef::parse(&handle_raw)?;
     let handle_page = browse(
         &client,
-        channel_context.clone(),
         BrowseRequest::channel(channel_context.clone(), &handle_ref),
         &ctx,
     )
@@ -302,10 +306,11 @@ async fn main() -> ProbeResult<()> {
         match videos_tab_params(&page) {
             Some(params) => {
                 println!("PROBE videos_tab_params_len={}", params.len());
-                let request = BrowseRequest::channel_tab(channel_context.clone(), &channel_id, params);
+                let request =
+                    BrowseRequest::channel_tab(channel_context.clone(), &channel_id, params);
                 match request {
                     Ok(request) => {
-                        let outcome = browse(&client, channel_context.clone(), request, &ctx).await;
+                        let outcome = browse(&client, request, &ctx).await;
                         if let Ok(payload) = &outcome {
                             videos_page = Some(payload.clone());
                         }
@@ -350,7 +355,6 @@ async fn main() -> ProbeResult<()> {
     let uploads_id = PlaylistId::parse(&uploads)?;
     let playlist_page = browse(
         &client,
-        channel_context.clone(),
         BrowseRequest::playlist(channel_context.clone(), &uploads_id),
         &ctx,
     )
@@ -416,7 +420,8 @@ async fn main() -> ProbeResult<()> {
     }
     if let Some(page) = videos_page.as_ref() {
         let mut parse_report = vydra_providers::parse::ParseReport::new();
-        let list = map_channel_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
+        let list =
+            map_channel_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
         println!(
             "PROBE mapped_channel_videos items={} duplicates={} next={} warnings={}",
             list.items.len(),
@@ -437,14 +442,17 @@ async fn main() -> ProbeResult<()> {
             Ok(document) => {
                 let positions: Vec<Option<u32>> =
                     document.items.iter().take(5).map(|item| item.position).collect();
+                let unavailable = document
+                    .items
+                    .iter()
+                    .filter(|item| !item.availability.is_available())
+                    .count();
                 println!(
-                    "PROBE mapped_playlist items={} positions={positions:?} unavailable={} repeated={:?} item_count={:?} warnings={}",
+                    "PROBE mapped_playlist items={} positions={positions:?} unavailable={unavailable}",
                     document.items.len(),
-                    document
-                        .items
-                        .iter()
-                        .filter(|item| !item.availability.is_available())
-                        .count(),
+                );
+                println!(
+                    "PROBE mapped_playlist repeated={:?} item_count={:?} warnings={}",
                     document.repeated_entries,
                     document.summary.item_count.as_ref().map(|count| count.value),
                     parse_report.count(),
@@ -455,7 +463,8 @@ async fn main() -> ProbeResult<()> {
     }
     if let Some((_, page)) = captures.iter().find(|(name, _)| name == "playlist_page2") {
         let mut parse_report = vydra_providers::parse::ParseReport::new();
-        let list = map_playlist_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
+        let list =
+            map_playlist_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
         println!(
             "PROBE mapped_playlist_page2 items={} first_position={:?} warnings={}",
             list.items.len(),

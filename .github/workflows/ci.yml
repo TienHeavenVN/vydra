@@ -28,6 +28,30 @@ jobs:
           cargo metadata --no-deps --format-version 1 > /dev/null 2> metadata.log || true
           bash scripts/ci/annotate.sh metadata.log 0 10
           bash scripts/ci/annotate.sh fmt.log 0 10
+          # The job log is not downloadable from the build sandbox, so a formatting failure is surfaced
+          # as annotations that carry the diff itself: every hunk header plus the exact added/removed
+          # lines. Without this, a red `fmt` job says only "exit code 1".
+          python3 - fmt.log <<'PY'
+          import os
+          import re
+          import sys
+
+          path = sys.argv[1]
+          if not os.path.exists(path):
+              sys.exit(0)
+          ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+          kept = []
+          for raw in open(path, errors="replace"):
+              line = ansi.sub("", raw).rstrip()
+              if not line.strip():
+                  continue
+              if line.startswith("Diff in") or line.startswith("+") or line.startswith("-"):
+                  kept.append(line[:200])
+          for line in kept[:50]:
+              print("::error title=fmt-diff::" + line.replace("%", "%25"))
+          if len(kept) > 50:
+              print("::error title=fmt-diff::truncated after 50 lines; %d total" % len(kept))
+          PY
 
   check:
     runs-on: ubuntu-latest

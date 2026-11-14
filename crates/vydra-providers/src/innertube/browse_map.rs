@@ -23,9 +23,9 @@ use serde_json::Value;
 use vydra_common::text::parse_clock_duration;
 use vydra_common::{ChannelId, ChannelRef, PlaylistId, VideoId};
 use vydra_domain::{
-    Availability, ChannelDocument, ChannelSummary, ChannelTab, ChannelVerification, ChannelVideoList,
-    Count, MetadataEvidence, PlaylistDocument, PlaylistEntrySource, PlaylistItem, PlaylistSummary,
-    PlaylistVideoList, Provenance, SearchItem, Thumbnail,
+    Availability, ChannelDocument, ChannelSummary, ChannelTab, ChannelVerification,
+    ChannelVideoList, Count, MetadataEvidence, PlaylistDocument, PlaylistEntrySource, PlaylistItem,
+    PlaylistSummary, PlaylistVideoList, Provenance, SearchItem, Thumbnail,
 };
 use vydra_errors::{ProviderError, UnavailabilityReason};
 
@@ -300,13 +300,15 @@ fn verification_of(header: &Value) -> Vec<ChannelVerification> {
                         }
                     }
                 }
-                for value in map.values() {
-                    if value.is_object() || value.is_array() {
-                        stack.push(value);
-                    }
-                }
+                // Children are pushed in reverse so that the LIFO stack yields them in document order:
+                // tabs and verification badges must be reported in the order the page renders them.
+                let children: Vec<&Value> = map
+                    .values()
+                    .filter(|value| value.is_object() || value.is_array())
+                    .collect();
+                stack.extend(children.into_iter().rev());
             }
-            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            Value::Array(items) => stack.extend(items.iter().rev().filter(|item| item.is_object())),
             _ => {}
         }
     }
@@ -343,13 +345,15 @@ fn tabs_of(payload: &Value) -> Vec<ChannelTab> {
                     // A tab's content is a list of its own; do not descend into it.
                     continue;
                 }
-                for value in map.values() {
-                    if value.is_object() || value.is_array() {
-                        stack.push(value);
-                    }
-                }
+                // Children are pushed in reverse so that the LIFO stack yields them in document order:
+                // tabs and verification badges must be reported in the order the page renders them.
+                let children: Vec<&Value> = map
+                    .values()
+                    .filter(|value| value.is_object() || value.is_array())
+                    .collect();
+                stack.extend(children.into_iter().rev());
             }
-            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            Value::Array(items) => stack.extend(items.iter().rev().filter(|item| item.is_object())),
             _ => {}
         }
     }
@@ -386,13 +390,15 @@ pub fn videos_tab_params(payload: &Value) -> Option<String> {
                     }
                     continue;
                 }
-                for value in map.values() {
-                    if value.is_object() || value.is_array() {
-                        stack.push(value);
-                    }
-                }
+                // Children are pushed in reverse so that the LIFO stack yields them in document order:
+                // tabs and verification badges must be reported in the order the page renders them.
+                let children: Vec<&Value> = map
+                    .values()
+                    .filter(|value| value.is_object() || value.is_array())
+                    .collect();
+                stack.extend(children.into_iter().rev());
             }
-            Value::Array(items) => stack.extend(items.iter().filter(|item| item.is_object())),
+            Value::Array(items) => stack.extend(items.iter().rev().filter(|item| item.is_object())),
             _ => {}
         }
     }
@@ -428,9 +434,9 @@ fn alerts_of(payload: &Value) -> Vec<(String, String)> {
 /// exist" and "private" — are translated, and only for `warning`/`error` alerts. Anything else keeps the
 /// page's own text in the error message instead of being encoded as a reason Vydra cannot support.
 fn alert_error(alerts: &[(String, String)]) -> Option<ProviderError> {
-    let (_, text) = alerts
-        .iter()
-        .find(|(kind, _)| kind.eq_ignore_ascii_case("ERROR") || kind.eq_ignore_ascii_case("WARNING"))?;
+    let (_, text) = alerts.iter().find(|(kind, _)| {
+        kind.eq_ignore_ascii_case("ERROR") || kind.eq_ignore_ascii_case("WARNING")
+    })?;
     let lowered = text.to_lowercase();
     if lowered.contains("does not exist")
         || lowered.contains("no longer available")
