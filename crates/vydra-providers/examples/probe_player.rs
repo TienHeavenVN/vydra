@@ -82,6 +82,11 @@ const DROP_KEYS: &[&str] = &[
     "cipher",
 ];
 
+/// Response-level advertising and promotion surfaces. They carry no evidence about the player
+/// document (a mealbar promo, an ad-break token) and they are where the remaining tracking URLs live.
+/// `playabilityStatus.messages` is a *different* field and is kept.
+const DROP_TOP_LEVEL_KEYS: &[&str] = &["messages", "adBreakHeartbeatParams"];
+
 /// Markers that must not survive redaction. `AIza` is the api-key prefix; the rest only appear in
 /// playback URL query strings, which are stripped.
 const SECRET_MARKERS: &[&str] = &["AIza", "sigh=", "&sig=", "?sig=", "expire="];
@@ -157,10 +162,43 @@ fn redact(value: Value) -> Value {
     }
 }
 
+/// Redact the response root: drop the promotion surfaces first, then walk the document.
+fn redact_root(value: Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let filtered: Map<String, Value> = map
+                .into_iter()
+                .filter(|(key, _)| !DROP_TOP_LEVEL_KEYS.contains(&key.as_str()))
+                .collect();
+            redact(Value::Object(filtered))
+        }
+        other => redact(other),
+    }
+}
+
 /// Self-check on the redacted document. A false result withholds the body instead of publishing it.
+///
+/// Two rules: no api-key or signature marker may survive, and no string value may still carry a
+/// query string (relative `apiUrl` paths included — those are where promo params live).
 fn redacted_ok(redacted: &Value) -> bool {
     let text = redacted.to_string();
-    !SECRET_MARKERS.iter().any(|marker| text.contains(marker))
+    if SECRET_MARKERS.iter().any(|marker| text.contains(marker)) {
+        return false;
+    }
+    !strings_with_query(redacted)
+}
+
+/// Whether any string value still looks like a URL carrying a query string.
+fn strings_with_query(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => map.values().any(strings_with_query),
+        Value::Array(items) => items.iter().any(strings_with_query),
+        Value::String(text) => {
+            let looks_like_url = text.contains("http") || text.starts_with('/');
+            looks_like_url && text.contains('?')
+        }
+        _ => false,
+    }
 }
 
 fn object_keys(value: &Value) -> Vec<String> {
@@ -351,13 +389,14 @@ async fn record(
     let content_type = header(&response, "content-type");
     let upstream_date = header(&response, "date");
 
-    let (verdict, mut redaction_ok) = match &parsed {
-        Some(payload) => (classify(payload), true),
-        None => (json!({"note": "response body is not JSON"}), true),
+    let verdict = match &parsed {
+        Some(payload) => classify(payload),
+        None => json!({"note": "response body is not JSON"}),
     };
+    let mut redaction_ok = true;
 
     if let Some(payload) = &parsed {
-        let redacted = redact(payload.clone());
+        let redacted = redact_root(payload.clone());
         redaction_ok = redacted_ok(&redacted);
         if redaction_ok {
             let path = out.join(format!("player_{label}.json"));

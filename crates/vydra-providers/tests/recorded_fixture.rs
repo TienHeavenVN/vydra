@@ -336,7 +336,10 @@ async fn malformed_player_without_playability_warns_but_keeps_the_document() {
     let ProviderResponse::Video(document) = response else {
         panic!("expected a video response");
     };
-    assert_eq!(document.availability, Availability::Available);
+    // Phase 5A: a response with no verdict never claims availability. It used to map to
+    // `Available`, which would have been cached and served as a playable document.
+    assert_eq!(document.availability, Availability::Unknown);
+    assert!(!document.availability.is_available());
     assert!(
         document.provenance.parse_warnings >= 1,
         "missing playabilityStatus must be recorded"

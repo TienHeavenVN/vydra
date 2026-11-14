@@ -106,6 +106,13 @@ pub enum Availability {
         #[serde(rename = "reason")]
         reason: UnavailabilityReason,
     },
+    /// Upstream answered without stating playability at all.
+    ///
+    /// Not a synonym for `Available`: a document in this state is never cached, never counted as a
+    /// success and never treated as playable — it says exactly one thing, "the verdict is missing".
+    /// Added in Phase 5A because the previous default (assume `Available` when the field was absent)
+    /// manufactured a success the response never claimed; see `docs/reports/PHASE_5A_REPORT.md`.
+    Unknown,
 }
 
 impl Availability {
@@ -249,6 +256,19 @@ mod tests {
         assert_eq!(json["state"], "unavailable");
         assert_eq!(json["reason"], "private");
         assert!(!value.is_available());
+    }
+
+    #[test]
+    fn unknown_availability_is_never_available() {
+        let json = serde_json::to_value(Availability::Unknown).expect("serialize");
+        assert_eq!(json["state"], "unknown");
+        assert!(
+            !Availability::Unknown.is_available(),
+            "a missing verdict must never be cached or served as playable"
+        );
+        // The other states keep their wire form; the variant is additive, not a rename.
+        let available = serde_json::to_value(Availability::Available).expect("serialize");
+        assert_eq!(available["state"], "available");
     }
 
     #[test]

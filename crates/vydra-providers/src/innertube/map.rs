@@ -389,6 +389,12 @@ struct PlayerResponseDto {
 struct PlayabilityStatusDto {
     status: Option<String>,
     reason: Option<String>,
+    /// Upstream's own explanation, e.g. `[{"text": "This video is private"}]`. Used to *classify*
+    /// the restriction and never copied into a document.
+    messages: Option<Vec<Value>>,
+    /// `errorScreen.playerErrorMessageRenderer`: the rendered explanation for `LOGIN_REQUIRED` and
+    /// friends, which often carries the wording the `reason` field omits.
+    error_screen: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -414,31 +420,165 @@ struct StreamingDataDto {
     adaptive_formats: Option<Vec<Value>>,
 }
 
-fn unavailability_from_status(status: &str, reason: Option<&str>) -> UnavailabilityReason {
-    let reason_lower = reason.unwrap_or_default().to_ascii_lowercase();
-    if reason_lower.contains("private") {
+/// The playability verdict, classified into Vydra's vocabulary.
+///
+/// The distinction that matters: `Ok` is the only state that may become a document, and
+/// `Unrecognised` is never silently promoted to `Ok`. See `docs/research/PLAYER_RESPONSE_ANALYSIS.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Playability {
+    /// Upstream said `status: "OK"`.
+    Ok,
+    /// A named restriction this build can report.
+    Restricted(UnavailabilityReason),
+    /// A status or wording this build does not recognise. Observable, never success.
+    Unrecognised,
+    /// No verdict at all: `playabilityStatus` (or its `status` member) is absent.
+    Missing,
+}
+
+impl Playability {
+    /// The restriction this verdict names, for the error path when there is no document to return.
+    fn restriction(self) -> Option<UnavailabilityReason> {
+        match self {
+            Self::Restricted(reason) => Some(reason),
+            Self::Unrecognised => Some(UnavailabilityReason::Other),
+            Self::Ok | Self::Missing => None,
+        }
+    }
+}
+
+/// Append every string value of a JSON fragment, bounded, so the wording can be matched without
+/// copying it into any output.
+fn collect_strings(value: &Value, out: &mut String) {
+    match value {
+        Value::Object(map) => {
+            for child in map.values() {
+                collect_strings(child, out);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_strings(item, out);
+            }
+        }
+        Value::String(text) => {
+            if out.len() < 512 {
+                out.push(' ');
+                out.push_str(text);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Lowercased classification text: the `reason` field, then whatever `messages` and `errorScreen`
+/// say. `LOGIN_REQUIRED` explains the age gate there rather than in `reason`.
+fn playability_detail(status: &PlayabilityStatusDto) -> String {
+    let mut text = String::new();
+    if let Some(reason) = &status.reason {
+        text.push_str(reason);
+    }
+    if let Some(messages) = &status.messages {
+        for message in messages {
+            collect_strings(message, &mut text);
+        }
+    }
+    if let Some(screen) = &status.error_screen {
+        collect_strings(screen, &mut text);
+    }
+    text.to_ascii_lowercase()
+}
+
+fn classify_playability(status: &PlayabilityStatusDto) -> Playability {
+    match status.status.as_deref() {
+        Some("OK") => Playability::Ok,
+        Some(raw) => {
+            let detail = playability_detail(status);
+            let normalized = if detail.trim().is_empty() {
+                None
+            } else {
+                Some(detail.as_str())
+            };
+            match unavailability_from_status(raw, normalized) {
+                UnavailabilityReason::Other => Playability::Unrecognised,
+                reason => Playability::Restricted(reason),
+            }
+        }
+        None => Playability::Missing,
+    }
+}
+
+/// Whole-word match, so `"the page needs to be reloaded"` is not an age restriction.
+///
+/// The live capture behind this is recorded in `docs/research/PLAYER_RESPONSE_ANALYSIS.md`: substring
+/// matching on `"age"` (inside `"page"`) classified an unrelated `UNPLAYABLE` verdict as
+/// `age_restricted`, i.e. it invented a restriction upstream never stated.
+fn mentions(detail: &str, words: &[&str]) -> bool {
+    detail
+        .split(|character: char| !character.is_alphanumeric())
+        .any(|word| words.contains(&word))
+}
+
+/// Typed unavailability that keeps the raw upstream status in its message.
+///
+/// The message is a fixed phrase plus at most 200 printable characters of upstream's `reason`; the
+/// response body itself is never quoted, so nothing session-scoped can reach a log or a response.
+fn playability_error(status: &PlayabilityStatusDto, reason: UnavailabilityReason) -> ProviderError {
+    let raw = status.status.as_deref().unwrap_or("absent");
+    let detail: Option<String> = status.reason.as_deref().map(|reason| {
+        reason
+            .chars()
+            .filter(|character| !character.is_control())
+            .take(200)
+            .collect()
+    });
+    let message = match detail {
+        Some(detail) if !detail.trim().is_empty() => format!("playability {raw}: {detail}"),
+        _ => format!("playability {raw}"),
+    };
+    tracing::warn!(
+        playability.status = raw,
+        playability.reason = reason.as_str(),
+        "player reported a non-OK verdict"
+    );
+    ProviderError::Unavailable { reason, message }
+}
+
+fn unavailability_from_status(status: &str, detail: Option<&str>) -> UnavailabilityReason {
+    let detail_lower = detail.unwrap_or_default().to_ascii_lowercase();
+    // Wording wins over the status code: several restrictions share a status, and only the wording
+    // distinguishes them. Matching is whole-word (or a phrase), never a bare substring.
+    if mentions(&detail_lower, &["private"]) {
         return UnavailabilityReason::Private;
     }
-    if reason_lower.contains("members") {
+    if mentions(&detail_lower, &["members", "membership"]) {
         return UnavailabilityReason::MembersOnly;
     }
-    if reason_lower.contains("country") || reason_lower.contains("region") {
+    if mentions(&detail_lower, &["country", "region"]) {
         return UnavailabilityReason::GeoRestricted;
     }
-    if reason_lower.contains("age") {
+    if mentions(&detail_lower, &["age"]) {
         return UnavailabilityReason::AgeRestricted;
     }
-    if reason_lower.contains("copyright") {
+    if mentions(&detail_lower, &["copyright"]) {
         return UnavailabilityReason::CopyrightBlocked;
+    }
+    if mentions(&detail_lower, &["drm"]) || detail_lower.contains("protected content") {
+        return UnavailabilityReason::DrmProtected;
+    }
+    if mentions(&detail_lower, &["deleted", "removed"])
+        || detail_lower.contains("no longer available")
+    {
+        return UnavailabilityReason::Deleted;
+    }
+    if mentions(&detail_lower, &["premiere"]) || detail_lower.contains("live stream") {
+        return UnavailabilityReason::NotBroadcasting;
     }
     match status {
         "LOGIN_REQUIRED" | "AGE_CHECK_REQUIRED" | "AGE_VERIFICATION_REQUIRED" => {
             UnavailabilityReason::LoginRequired
         }
         "LIVE_STREAM_OFFLINE" => UnavailabilityReason::NotBroadcasting,
-        "ERROR" if reason_lower.contains("deleted") || reason_lower.contains("removed") => {
-            UnavailabilityReason::Deleted
-        }
         _ => UnavailabilityReason::Other,
     }
 }
@@ -610,49 +750,74 @@ pub fn map_player(
             message: format!("player response shape: {err}"),
         })?;
 
-    let details = dto.video_details.ok_or_else(|| ProviderError::Parse {
-        message: "player response without videoDetails".into(),
-    })?;
-
-    if dto.playability_status.is_none() {
-        // Tolerance, not an assertion: a player response is expected to state its playability, so
-        // its absence is recorded as a missing field. The document keeps the data it did receive
-        // instead of inventing an availability reason, but `parse_warnings` reflects the gap and
-        // strict mode turns it into an error.
+    // The verdict decides what may be returned, so it is read before the payload is required to
+    // carry video details: a restricted answer legitimately arrives without `videoDetails`.
+    //
+    // Evidence (Phase 5A, capture `docs/research/data/player-probe-43549141233`): an `UNPLAYABLE`
+    // answer for a public video still carries `videoDetails` and `microformat`, while a bot check
+    // (`LOGIN_REQUIRED`) and a non-existent id (`ERROR`) carry neither. Two shapes, two outcomes:
+    //
+    //   * verdict not OK, metadata present -> a document with `Availability::Unavailable { reason }`
+    //     (the API serves the metadata it did receive, with an explicit state);
+    //   * verdict not OK, metadata absent  -> `ProviderError::Unavailable`, i.e. a 409
+    //     `content_unavailable` carrying the reason (`docs/architecture/API_CONTRACTS.md` §1, ADR-016).
+    //
+    // Neither outcome may claim `Available`, and an unrecognised verdict is never silent.
+    let playability = dto.playability_status.as_ref();
+    let raw_status = playability.and_then(|status| status.status.as_deref());
+    let verdict = match playability {
+        Some(status) => classify_playability(status),
+        None => Playability::Missing,
+    };
+    if verdict == Playability::Missing {
         report.missing_field("playabilityStatus", "status");
+    } else if verdict != Playability::Ok
+        && let Some(status) = raw_status
+    {
+        // Recorded for every non-OK verdict, so an unknown or future status stays observable even
+        // when the payload also carries a usable metadata document.
+        report.warn(format!("playability:{status}"));
     }
 
-    if let Some(id) = details.video_id.as_deref()
-        && id != expected_id.as_str()
-    {
+    let details = match dto.video_details {
+        Some(details) => details,
+        None => {
+            if let Some(reason) = verdict.restriction()
+                && let Some(status) = playability
+            {
+                return Err(playability_error(status, reason));
+            }
+            return Err(ProviderError::Parse {
+                message: "player response without videoDetails".into(),
+            });
+        }
+    };
+
+    // Identity is required, not optional: without `videoDetails.videoId` the document cannot be
+    // attributed to the requested id, so this is a parse failure rather than a nullable field.
+    let upstream_id = details
+        .video_id
+        .as_deref()
+        .ok_or_else(|| ProviderError::Parse {
+            message: "player response without videoDetails.videoId".into(),
+        })?;
+    if upstream_id != expected_id.as_str() {
         // Documented upstream behaviour: an outdated client can answer with another video
         // (`docs/research/EXTRACTION_METHODS.md` §13).
         return Err(ProviderError::Parse {
-            message: format!("wrong result: requested {expected_id}, got {id}"),
+            message: format!("wrong result: requested {expected_id}, got {upstream_id}"),
         });
     }
 
-    let status = dto
-        .playability_status
-        .as_ref()
-        .and_then(|status| status.status.as_deref())
-        .unwrap_or("OK");
-    let reason = dto
-        .playability_status
-        .as_ref()
-        .and_then(|status| status.reason.as_deref());
-
-    let availability = match status {
-        "OK" => Availability::Available,
-        other => {
-            let unavailability = unavailability_from_status(other, reason);
-            if unavailability != UnavailabilityReason::Other {
-                report.warn(format!("playability:{other}"));
-            }
-            Availability::Unavailable {
-                reason: unavailability,
-            }
-        }
+    let availability = match verdict {
+        Playability::Ok => Availability::Available,
+        Playability::Restricted(reason) => Availability::Unavailable { reason },
+        Playability::Unrecognised => Availability::Unavailable {
+            reason: UnavailabilityReason::Other,
+        },
+        // The document keeps the data it did receive, but never claims availability: `Unknown` is not
+        // a synonym for `Available`, is never cached and is never playable.
+        Playability::Missing => Availability::Unknown,
     };
 
     let title = details.title.unwrap_or_default();
@@ -789,7 +954,7 @@ mod tests {
     }
 
     #[test]
-    fn player_without_playability_records_a_missing_field() {
+    fn player_without_playability_never_claims_an_available_document() {
         let payload = json!({
             "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "A video", "lengthSeconds": "10"}
         });
@@ -797,9 +962,11 @@ mod tests {
         let mut report = ParseReport::new();
         let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
 
-        // The status defaults to `OK` (the payload did carry video data) but the gap is never
-        // silent: it is a counted warning, so `parse_warnings` and strict mode both see it.
-        assert_eq!(document.availability, Availability::Available);
+        // Phase 5A: the document keeps the data it did receive, but a missing verdict is reported as
+        // `Unknown` — the old default (`Available`) manufactured a success the response never
+        // claimed, and the API would have cached and served it as playable.
+        assert_eq!(document.availability, Availability::Unknown);
+        assert!(!document.availability.is_available());
         assert!(
             report
                 .messages()
@@ -926,21 +1093,226 @@ mod tests {
         assert!(!json.contains("example.invalid"));
     }
 
+    /// `UnavailabilityReason` for one payload, via the full mapping path.
+    ///
+    /// Only used for payloads *without* `videoDetails`, which is the shape that must become a typed
+    /// error rather than a document.
+    fn mapped_unavailability(payload: &serde_json::Value) -> UnavailabilityReason {
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        match map_player(payload, &id, &mut report, provenance()) {
+            Err(ProviderError::Unavailable { reason, .. }) => reason,
+            other => panic!("expected a typed unavailability, got {other:?}"),
+        }
+    }
+
     #[test]
-    fn playability_status_becomes_availability_with_reason() {
+    fn restriction_without_metadata_is_a_typed_unavailability_with_the_raw_status() {
+        // No `videoDetails`: the verdict is the whole answer, so it becomes a 409 with the reason.
         let payload = json!({
-            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "Private video"},
             "playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "This video is private"}
         });
         let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
         let mut report = ParseReport::new();
-        let document = map_player(&payload, &id, &mut report, provenance()).expect("mapped");
+        let error = map_player(&payload, &id, &mut report, provenance())
+            .expect_err("a restricted response is not a document");
+
+        assert_eq!(error.code(), "unavailable");
+        let ProviderError::Unavailable { reason, message } = &error else {
+            panic!("expected an unavailability, got {error:?}");
+        };
+        assert_eq!(*reason, UnavailabilityReason::Private);
+        assert!(
+            message.contains("LOGIN_REQUIRED"),
+            "the raw upstream status must stay observable: {message}"
+        );
+    }
+
+    #[test]
+    fn restriction_with_metadata_keeps_the_document_but_never_claims_availability() {
+        // The live `UNPLAYABLE` capture for a public video carries `videoDetails` and `microformat`;
+        // dropping that verified metadata would be as wrong as claiming the video is playable.
+        let payload = json!({
+            "playabilityStatus": {"status": "UNPLAYABLE", "reason": "The page needs to be reloaded."},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "A video", "lengthSeconds": "213"}
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
+
+        // "The page needs to be reloaded." contains "age" inside "page": substring matching used to
+        // turn this into `age_restricted`, inventing a restriction upstream never stated.
         assert_eq!(
             document.availability,
             Availability::Unavailable {
-                reason: UnavailabilityReason::Private
+                reason: UnavailabilityReason::Other
             }
         );
+        assert!(!document.availability.is_available());
+        assert_eq!(document.summary.title, "A video");
+        assert_eq!(document.summary.duration_seconds, Some(213));
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message.contains("playability:UNPLAYABLE")),
+            "a non-OK verdict must be observable: {:?}",
+            report.messages()
+        );
+    }
+
+    #[test]
+    fn an_unrecognised_playability_status_is_never_success() {
+        // With metadata: the document is returned, but the state is unavailable and the warning names
+        // the raw status. Without metadata: a typed error. Neither is `Available`.
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let with_details = json!({
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t"},
+            "playabilityStatus": {"status": "SOME_FUTURE_STATUS", "reason": "Unknown verdict"}
+        });
+        let mut report = ParseReport::new();
+        let document = map_player(&with_details, &id, &mut report, provenance()).expect("document");
+        assert_eq!(
+            document.availability,
+            Availability::Unavailable {
+                reason: UnavailabilityReason::Other
+            }
+        );
+        assert!(!document.availability.is_available());
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message.contains("SOME_FUTURE_STATUS")),
+            "messages: {:?}",
+            report.messages()
+        );
+
+        let without_details = json!({
+            "playabilityStatus": {"status": "SOME_FUTURE_STATUS", "reason": "Unknown verdict"}
+        });
+        let mut report = ParseReport::new();
+        let error = map_player(&without_details, &id, &mut report, provenance())
+            .expect_err("an unknown verdict without metadata must not become a document");
+        let ProviderError::Unavailable { reason, message } = &error else {
+            panic!("expected an unavailability, got {error:?}");
+        };
+        assert_eq!(*reason, UnavailabilityReason::Other);
+        assert!(message.contains("SOME_FUTURE_STATUS"), "{message}");
+    }
+
+    #[test]
+    fn playability_status_without_a_status_member_is_not_success() {
+        let payload = json!({
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t"},
+            "playabilityStatus": {"reason": "something"}
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
+        assert_eq!(document.availability, Availability::Unknown);
+        assert!(!document.availability.is_available());
+        assert!(report.count() >= 1);
+    }
+
+    #[test]
+    fn restriction_wording_selects_the_reason_and_only_whole_words_count() {
+        // One status, several content facts: only the wording separates them.
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "Sign in to confirm you're not a bot"}
+            })),
+            UnavailabilityReason::LoginRequired
+        );
+        // The age gate explains itself in `messages`, not in `reason`.
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {
+                    "status": "LOGIN_REQUIRED",
+                    "messages": [{"text": "Sign in to confirm your age"}]
+                }
+            })),
+            UnavailabilityReason::AgeRestricted
+        );
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {
+                    "status": "UNPLAYABLE",
+                    "reason": "The uploader has not made this video available in your country"
+                }
+            })),
+            UnavailabilityReason::GeoRestricted
+        );
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {"status": "ERROR", "reason": "This video has been removed by the uploader"}
+            })),
+            UnavailabilityReason::Deleted
+        );
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {"status": "UNPLAYABLE", "reason": "This video is available to this channel's members"}
+            })),
+            UnavailabilityReason::MembersOnly
+        );
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {"status": "ERROR", "reason": "Video unavailable"}
+            })),
+            UnavailabilityReason::Other
+        );
+        // The regression: "page" is not "age".
+        assert_eq!(
+            mapped_unavailability(&json!({
+                "playabilityStatus": {"status": "UNPLAYABLE", "reason": "The page needs to be reloaded."}
+            })),
+            UnavailabilityReason::Other
+        );
+    }
+
+    #[test]
+    fn a_restricted_answer_without_video_details_is_unavailability_not_a_parse_error() {
+        // Upstream omits `videoDetails` for bot checks and age gates. Reporting that as a parse
+        // failure would blame the parser for an upstream content fact.
+        let payload = json!({
+            "playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "Sign in to confirm you're not a bot"}
+        });
+        assert_eq!(
+            mapped_unavailability(&payload),
+            UnavailabilityReason::LoginRequired
+        );
+    }
+
+    #[test]
+    fn missing_video_identity_is_a_parse_failure() {
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"title": "no id"}
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let error = map_player(&payload, &id, &mut report, provenance())
+            .expect_err("identity is required");
+        assert_eq!(error.code(), "provider_parse");
+        assert!(error.to_string().contains("videoId"), "{error}");
+    }
+
+    #[test]
+    fn a_playable_answer_without_microformat_or_captions_still_maps() {
+        // Optional sections are optional: their absence is not a defect and must not crash.
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t", "lengthSeconds": "5"},
+            "unknownFutureSection": {"nested": [1, 2, 3]}
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
+        assert_eq!(document.availability, Availability::Available);
+        assert!(document.caption_tracks.is_empty());
+        assert!(document.formats.is_empty());
+        assert!(document.summary.published_at.is_none());
+        assert_eq!(document.summary.duration_seconds, Some(5));
     }
 
     #[test]
