@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use serde_json::json;
+use serde::Serialize;
 use time::OffsetDateTime;
 use vydra_domain::{CaptionTrackList, Provenance, SearchResults, VideoDocument};
 use vydra_errors::ProviderError;
@@ -11,6 +11,7 @@ use vydra_errors::ProviderError;
 use super::client::InnertubeClient;
 use super::map::{map_player, map_search};
 use super::params::encode_search_filters;
+use super::request::{ContinuationRequest, PlayerRequest, SearchRequest};
 use super::{ClientKind, ClientProfile, InnertubeProviderConfig};
 use crate::parse::{ParseReport, collect_renderers};
 use crate::transport::Transport;
@@ -126,20 +127,17 @@ impl InnertubeProvider {
         let params = encode_search_filters(&filters)?;
 
         // Continuation pages carry only the token; the query is not repeated (all reference
-        // implementations do the same — see docs/research/EXTRACTION_METHODS.md §5.3).
+        // implementations do the same — see docs/research/EXTRACTION_METHODS.md §5.3). The body types
+        // encode that: `ContinuationRequest` has no `query` field to forget about.
         let session = self.client.session(ctx).await;
-        let mut body = self.client.context_value(&session, ctx);
-        match cursor {
-            Some(token) => {
-                body["continuation"] = json!(token);
-            }
-            None => {
-                body["query"] = json!(query);
-                if let Some(params) = params {
-                    body["params"] = json!(params);
-                }
-            }
-        }
+        let context = self.client.context(&session, ctx);
+        let body = match cursor {
+            Some(token) => serialize_body(&ContinuationRequest::new(context, token))?,
+            None => match params {
+                Some(params) => serialize_body(&SearchRequest::with_params(context, query, params))?,
+                None => serialize_body(&SearchRequest::new(context, query))?,
+            },
+        };
 
         let started = Instant::now();
         let (payload, _) = self.client.post_json("search", body, ctx).await?;
@@ -180,10 +178,8 @@ impl InnertubeProvider {
         ctx: &ProviderContext,
     ) -> Result<VideoDocument, ProviderError> {
         let session = self.client.session(ctx).await;
-        let mut body = self.client.context_value(&session, ctx);
-        body["videoId"] = json!(id.as_str());
-        body["contentCheckOk"] = json!(true);
-        body["racyCheckOk"] = json!(true);
+        let context = self.client.context(&session, ctx);
+        let body = serialize_body(&PlayerRequest::new(context, id.as_str()))?;
 
         let (payload, _) = self.client.post_json("player", body, ctx).await?;
 
@@ -253,4 +249,15 @@ impl Provider for InnertubeProvider {
             }),
         }
     }
+}
+
+/// Serialize a typed request body.
+///
+/// The bodies are plain structs, so this cannot fail in practice; the error path exists so that a
+/// future field type with a fallible `Serialize` cannot panic in a provider.
+fn serialize_body<T: Serialize>(body: &T) -> Result<serde_json::Value, ProviderError> {
+    serde_json::to_value(body).map_err(|err| ProviderError::InvalidRequest {
+        field: "body".to_owned(),
+        issue: format!("serialize: {err}"),
+    })
 }

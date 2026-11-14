@@ -108,16 +108,33 @@ jobs:
           git add -f probe-out probe.log
           if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
           git commit -m "chore: publish the Phase 4.3 probe output (redacted, temporary)"
+          # `git fetch origin <branch>` sets FETCH_HEAD, not a remote-tracking ref, so rebase onto
+          # FETCH_HEAD. (Rebasing onto origin/<branch> failed with "unknown revision".)
           for attempt in 1 2 3; do
             git fetch origin "${GITHUB_REF_NAME}"
-            git rebase "origin/${GITHUB_REF_NAME}" || { git rebase --abort; exit 1; }
-            if git push origin "HEAD:${GITHUB_REF_NAME}" 2>&1 | tee probe-push.log; then
+            git rebase FETCH_HEAD || { git rebase --abort 2>/dev/null || true; exit 1; }
+            if git push origin "HEAD:${GITHUB_REF_NAME}" 2>&1 | tee -a probe-push.log; then
               exit 0
             fi
             echo "push attempt ${attempt} rejected, retrying"
             sleep 5
           done
           exit 1
+      - name: annotate the summary (fallback when publishing fails)
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh probe-push.log -1 20
+          if [ -f probe-out/summary.json ]; then
+            python3 - <<'SUMMARY'
+import json
+
+summary = json.load(open("probe-out/summary.json", encoding="utf-8"))
+for key, value in summary.get("probe", {}).items():
+    print(f"::notice title=probe.{key}::{json.dumps(value)[:900]}")
+for record in summary.get("records", []):
+    print(f"::notice title=probe.{record.get('label')}::{json.dumps(record)[:900]}")
+SUMMARY
+          fi
 
   check:
     runs-on: ubuntu-latest

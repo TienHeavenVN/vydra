@@ -42,7 +42,8 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
 use vydra_providers::innertube::{
-    ClientKind, ClientProfile, InnertubeClient, InnertubeProvider, InnertubeProviderConfig,
+    ClientKind, ClientProfile, ContinuationRequest, InnertubeClient, InnertubeProvider,
+    InnertubeProviderConfig, SearchRequest,
 };
 use vydra_providers::parse::find_continuation;
 use vydra_providers::{
@@ -364,8 +365,8 @@ async fn main() -> ProbeResult<()> {
     );
 
     // ---- page 1 (primary query) -------------------------------------------------------------
-    let mut page_1_body = client.context_value(&session, &ctx);
-    page_1_body["query"] = json!(query);
+    let page_1_body =
+        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), query.clone()))?;
     let page_1 = record(&client, &main_context(), &out, "search_page_1", page_1_body).await?;
     let token = page_1
         .payload
@@ -380,8 +381,10 @@ async fn main() -> ProbeResult<()> {
 
     // ---- page 2 (continuation of page 1) ----------------------------------------------------
     if let Some(token) = token {
-        let mut page_2_body = client.context_value(&session, &ctx);
-        page_2_body["continuation"] = json!(token);
+        let page_2_body = serde_json::to_value(ContinuationRequest::new(
+            client.context(&session, &ctx),
+            token,
+        ))?;
         let page_2 = record(&client, &main_context(), &out, "search_page_2", page_2_body).await?;
         records.push(page_2.summary());
     } else {
@@ -392,19 +395,20 @@ async fn main() -> ProbeResult<()> {
     }
 
     // ---- mixed renderer kinds ---------------------------------------------------------------
-    let mut mixed_body = client.context_value(&session, &ctx);
-    mixed_body["query"] = json!(mixed_query);
+    let mixed_body =
+        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), mixed_query.clone()))?;
     let mixed = record(&client, &main_context(), &out, "search_mixed", mixed_body).await?;
     records.push(mixed.summary());
 
     // ---- empty result page ------------------------------------------------------------------
-    let mut empty_body = client.context_value(&session, &ctx);
-    empty_body["query"] = json!(empty_query);
+    let empty_body =
+        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), empty_query.clone()))?;
     let empty = record(&client, &main_context(), &out, "search_empty", empty_body).await?;
     records.push(empty.summary());
 
     // ---- error envelope (deliberately malformed: no `query`) --------------------------------
-    let error_body = client.context_value(&session, &ctx);
+    // Deliberately malformed: the context object alone, with no `query` member.
+    let error_body = serde_json::to_value(client.context(&session, &ctx))?;
     let error = record(&client, &main_context(), &out, "search_error", error_body).await?;
     records.push(error.summary());
 

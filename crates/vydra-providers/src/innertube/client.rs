@@ -9,7 +9,10 @@ use tokio::sync::Mutex;
 use tracing::debug;
 use url::Url;
 
-use super::{ClientProfile, INNERTUBE_BASE, InnertubeProviderConfig, SW_JS_DATA_URL, YOUTUBE_HOME};
+use super::{
+    ClientContext, ClientProfile, INNERTUBE_BASE, InnertubeProviderConfig, SW_JS_DATA_URL,
+    YOUTUBE_HOME,
+};
 use crate::parse::find_json_string_field;
 use crate::transport::{HttpMethod, Transport, TransportError, TransportRequest};
 use crate::{ProviderContext, ProviderError};
@@ -342,30 +345,12 @@ impl InnertubeClient {
         Ok((response.status, response.body))
     }
 
-    /// Build the `context` object shared by every endpoint.
-    pub fn context_value(&self, session: &SessionData, ctx: &ProviderContext) -> Value {
-        let profile = &self.config.client;
-        let mut client = json!({
-            "hl": ctx.hl,
-            "gl": ctx.gl,
-            "clientName": profile.name,
-            "clientVersion": session.client_version.clone().unwrap_or_else(|| profile.version.clone()),
-            "originalUrl": "https://www.youtube.com",
-        });
-        if let Some(platform) = profile.platform {
-            client["platform"] = json!(platform);
-        }
-        if let Some(visitor) = &session.visitor_data {
-            client["visitorData"] = json!(visitor);
-        }
-
-        json!({
-            "context": {
-                "client": client,
-                "user": {"lockedSafetyMode": false},
-                "request": {"useSsl": true, "internalExperimentFlags": []}
-            }
-        })
+    /// Build the shared `context` object for a session.
+    ///
+    /// Typed since Phase 4.3: one source for every endpoint (see `request::ClientContext`), so the
+    /// search and player bodies cannot drift apart.
+    pub fn context(&self, session: &SessionData, ctx: &ProviderContext) -> ClientContext {
+        ClientContext::new(&self.config.client, session, &ctx.hl, &ctx.gl)
     }
 }
 
