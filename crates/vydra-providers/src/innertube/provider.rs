@@ -294,7 +294,10 @@ impl InnertubeProvider {
             None => {
                 let page_context = self.client.context(&session, ctx);
                 let (page, mut page_report) = self
-                    .browse(BrowseRequest::channel(page_context, &ChannelRef::Id(id.clone())), ctx)
+                    .browse(
+                        BrowseRequest::channel(page_context, &ChannelRef::Id(id.clone())),
+                        ctx,
+                    )
                     .await?;
                 let Some(params) = super::browse_map::videos_tab_params(&page) else {
                     // No videos tab: a channel can legitimately have none (an auto-generated channel, or
@@ -358,7 +361,8 @@ impl InnertubeProvider {
             }
             None => {
                 let context = self.client.context(&session, ctx);
-                self.browse(BrowseRequest::playlist(context, &id), ctx).await?
+                self.browse(BrowseRequest::playlist(context, &id), ctx)
+                    .await?
             }
         };
         let provenance = self.provenance("browse", &report, OffsetDateTime::now_utc());

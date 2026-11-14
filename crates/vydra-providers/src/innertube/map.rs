@@ -41,7 +41,11 @@ pub(crate) fn count_from_text(raw: &str) -> Option<Count> {
 }
 
 /// Exact numeric fields win over localized text (ADR-016).
-pub(crate) fn count_from_fields(value: &Value, numeric_key: &str, text_keys: &[&str]) -> Option<Count> {
+pub(crate) fn count_from_fields(
+    value: &Value,
+    numeric_key: &str,
+    text_keys: &[&str],
+) -> Option<Count> {
     if let Some(number) = value.get(numeric_key).and_then(number_of) {
         return Some(Count::exact(number));
     }

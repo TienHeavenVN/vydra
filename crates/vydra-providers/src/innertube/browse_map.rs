@@ -637,7 +637,11 @@ pub fn map_channel(
         return Err(error);
     }
 
-    if payload.get("header").and_then(|h| h.get("channelAgeGateRenderer")).is_some() {
+    if payload
+        .get("header")
+        .and_then(|h| h.get("channelAgeGateRenderer"))
+        .is_some()
+    {
         report.structural_problem("channel_age_gate");
         return Err(ProviderError::Unavailable {
             reason: UnavailabilityReason::AgeRestricted,
@@ -717,7 +721,8 @@ fn collect_key_texts(root: &Value, key: &str, out: &mut Vec<String>, budget: usi
                     for item in items {
                         if let Some(text) = text_of(item) {
                             out.push(text);
-                        } else if let Some(parts) = item.get("metadataParts").and_then(Value::as_array)
+                        } else if let Some(parts) =
+                            item.get("metadataParts").and_then(Value::as_array)
                         {
                             // `metadataRows[].metadataParts[]` — the shape the counts live in.
                             for part in parts {
@@ -773,12 +778,15 @@ fn lockup_duration(lockup: &Value) -> Option<u32> {
         }
         match node {
             Value::Object(map) => {
-                if let Some(badge) = map.get("thumbnailBadgeViewModel").filter(|value| value.is_object())
+                if let Some(badge) = map
+                    .get("thumbnailBadgeViewModel")
+                    .filter(|value| value.is_object())
                 {
                     for key in ["text", "animatedText", "content"] {
-                        let Some(field) = badge.get(key) else { continue };
-                        let text = text_of(field)
-                            .or_else(|| field.as_str().map(str::to_owned));
+                        let Some(field) = badge.get(key) else {
+                            continue;
+                        };
+                        let text = text_of(field).or_else(|| field.as_str().map(str::to_owned));
                         if let Some(text) = text
                             && let Some(seconds) = parse_clock_duration(&text)
                         {
@@ -846,10 +854,7 @@ fn video_summary_from_lockup(
     })
 }
 
-fn playlist_item_from_lockup(
-    lockup: &Value,
-    report: &mut ParseReport,
-) -> Option<PlaylistItem> {
+fn playlist_item_from_lockup(lockup: &Value, report: &mut ParseReport) -> Option<PlaylistItem> {
     let summary = video_summary_from_lockup(lockup, report)?;
     Some(PlaylistItem {
         // A lockup carries no `index`: the position is unknown rather than computed.
@@ -942,10 +947,7 @@ pub fn map_channel_videos(
 }
 
 /// Map a `playlistVideoRenderer` into an entry, keeping its position whatever its playability.
-fn playlist_item_from_renderer(
-    renderer: &Value,
-    report: &mut ParseReport,
-) -> Option<PlaylistItem> {
+fn playlist_item_from_renderer(renderer: &Value, report: &mut ParseReport) -> Option<PlaylistItem> {
     let position = renderer
         .get("index")
         .and_then(text_of)
@@ -983,9 +985,11 @@ fn playlist_item_from_renderer(
         .get("lengthSeconds")
         // Upstream has served this field as both a number and a numeric string.
         .and_then(|value| {
-            value
-                .as_u64()
-                .or_else(|| value.as_str().and_then(|raw| raw.trim().parse::<u64>().ok()))
+            value.as_u64().or_else(|| {
+                value
+                    .as_str()
+                    .and_then(|raw| raw.trim().parse::<u64>().ok())
+            })
         })
         .and_then(|seconds| u32::try_from(seconds).ok())
         .or_else(|| {
@@ -1080,13 +1084,19 @@ fn playlist_facts(payload: &Value, evidence: &mut MetadataEvidence) -> PlaylistF
         sidebar_stats: Vec::new(),
     };
 
-    if let Some(metadata) = payload.get("metadata").and_then(|meta| meta.get("playlistMetadataRenderer")) {
+    if let Some(metadata) = payload
+        .get("metadata")
+        .and_then(|meta| meta.get("playlistMetadataRenderer"))
+    {
         evidence.section(vydra_domain::FieldSource::PlaylistMetadata);
         facts.title = metadata.get("title").and_then(text_of);
         facts.description = metadata.get("description").and_then(text_of);
     }
 
-    if let Some(header) = payload.get("header").and_then(|header| header.get("playlistHeaderRenderer")) {
+    if let Some(header) = payload
+        .get("header")
+        .and_then(|header| header.get("playlistHeaderRenderer"))
+    {
         evidence.section(vydra_domain::FieldSource::PlaylistHeader);
         if facts.title.is_none() {
             facts.title = header.get("title").and_then(text_of);

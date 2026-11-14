@@ -122,7 +122,10 @@ async fn a_channel_page_yields_metadata_header_counts_tabs_and_evidence() {
     // Identity: the canonical id from `externalId`, never the requested string echoed back.
     assert_eq!(document.summary.id.as_str(), CHANNEL);
     assert_eq!(document.summary.title, "Placeholder Studio");
-    assert_eq!(document.summary.handle.as_deref(), Some("placeholderstudio"));
+    assert_eq!(
+        document.summary.handle.as_deref(),
+        Some("placeholderstudio")
+    );
     assert_eq!(
         document.summary.description.as_deref(),
         Some("Placeholder channel description.\nSecond line of the description.")
@@ -339,10 +342,16 @@ async fn the_first_page_of_channel_videos_relays_the_tab_params_in_a_second_brow
     // The duplicated row is counted, not served twice.
     assert_eq!(list.duplicates_removed, 1);
     let ids: Vec<&str> = list.items.iter().map(|item| item.id.as_str()).collect();
-    assert_eq!(ids, vec!["vid00000000", "vid00000001", "vid00000002", "vid00000003"]);
+    assert_eq!(
+        ids,
+        vec!["vid00000000", "vid00000001", "vid00000002", "vid00000003"]
+    );
 
     // The cursor is the page continuation, not the sort chip's token.
-    assert_eq!(list.next_cursor.as_deref(), Some("PAGE1-CONTINUATION-TOKEN"));
+    assert_eq!(
+        list.next_cursor.as_deref(),
+        Some("PAGE1-CONTINUATION-TOKEN")
+    );
     // Duplicate rows are accounted for in `duplicates_removed`, not in `parse_warnings`: a repeated row
     // is an upstream anomaly that must not turn a strict parse of an otherwise good page into an error.
     assert_eq!(list.provenance.parse_warnings, 0);
@@ -350,9 +359,8 @@ async fn the_first_page_of_channel_videos_relays_the_tab_params_in_a_second_brow
 
 #[tokio::test]
 async fn a_continuation_page_sends_only_the_token() {
-    let (provider, transport) = provider_with(&[fixture(
-        "synthetic/browse_channel_videos_page2.json",
-    )]);
+    let (provider, transport) =
+        provider_with(&[fixture("synthetic/browse_channel_videos_page2.json")]);
 
     let response = provider
         .fetch(
@@ -372,12 +380,16 @@ async fn a_continuation_page_sends_only_the_token() {
         panic!("expected a channel listing");
     };
     assert_eq!(list.items.len(), 1);
-    assert_eq!(list.next_cursor.as_deref(), Some("PAGE2-CONTINUATION-TOKEN"));
+    assert_eq!(
+        list.next_cursor.as_deref(),
+        Some("PAGE2-CONTINUATION-TOKEN")
+    );
 
     // Two calls: bootstrap and one continuation. No channel page is fetched for a continuation, and the
     // body carries the token and nothing that could mean "a different query".
     assert_eq!(transport.call_count(), 2);
-    let body = String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
+    let body =
+        String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
     assert!(body.contains("PAGE1-CONTINUATION-TOKEN"));
     assert!(!body.contains("browseId"), "continuation body: {body}");
     assert!(!body.contains("params"), "continuation body: {body}");
@@ -438,8 +450,13 @@ fn an_unknown_content_shape_never_becomes_an_item() {
 fn an_error_page_without_metadata_is_not_served_as_an_empty_channel() {
     let mut report = ParseReport::new();
     let reference = ChannelRef::parse(CHANNEL).expect("valid id");
-    let error = map_channel(&json!({"contents": {}}), &reference, &mut report, provenance())
-        .expect_err("error");
+    let error = map_channel(
+        &json!({"contents": {}}),
+        &reference,
+        &mut report,
+        provenance(),
+    )
+    .expect_err("error");
     assert!(matches!(error, ProviderError::Parse { .. }));
     assert!(report.has_structural_problem());
 }

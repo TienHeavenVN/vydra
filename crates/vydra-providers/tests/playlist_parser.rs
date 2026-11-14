@@ -179,7 +179,11 @@ async fn a_playlist_page_yields_header_sidebar_and_ordered_entries() {
     assert!(document.evidence.has_section(FieldSource::PlaylistMetadata));
     assert!(document.evidence.has_section(FieldSource::PlaylistHeader));
     assert!(document.evidence.has_section(FieldSource::PlaylistSidebar));
-    assert!(document.evidence.has_section(FieldSource::PlaylistVideoList));
+    assert!(
+        document
+            .evidence
+            .has_section(FieldSource::PlaylistVideoList)
+    );
 
     assert_eq!(document.provenance.parse_warnings, 0);
     assert_eq!(transport.call_count(), 2, "bootstrap + one browse call");
@@ -203,8 +207,8 @@ fn a_deleted_entry_without_an_id_keeps_its_position() {
         }}}]}}
     });
     let mut report = ParseReport::new();
-    let document = map_playlist(&body, &playlist_id(), 50, &mut report, provenance())
-        .expect("document");
+    let document =
+        map_playlist(&body, &playlist_id(), 50, &mut report, provenance()).expect("document");
 
     assert_eq!(document.items.len(), 3);
     assert_eq!(document.items[1].position, Some(2));
@@ -232,8 +236,8 @@ fn a_row_without_playability_is_unknown_and_not_available() {
         }}}]}}
     });
     let mut report = ParseReport::new();
-    let document = map_playlist(&body, &playlist_id(), 50, &mut report, provenance())
-        .expect("document");
+    let document =
+        map_playlist(&body, &playlist_id(), 50, &mut report, provenance()).expect("document");
 
     assert_eq!(document.items.len(), 1);
     assert_eq!(document.items[0].availability, Availability::Unknown);
@@ -304,7 +308,8 @@ async fn the_playlist_browse_id_is_the_vl_prefixed_id() {
         .await
         .expect("list");
 
-    let body = String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
+    let body =
+        String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
     assert!(
         body.contains(&format!("\"browseId\":\"VL{PLAYLIST}\"")),
         "playlist pages are addressed as VL+id: {body}"
@@ -334,10 +339,14 @@ async fn a_playlist_continuation_sends_only_the_token() {
     };
     assert_eq!(page.items.len(), 1);
 
-    let body = String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
+    let body =
+        String::from_utf8_lossy(&transport.calls()[1].body.clone().expect("body")).to_string();
     assert!(body.contains("PLAYLIST-PAGE-1-TOKEN"));
     assert!(!body.contains("browseId"));
-    assert!(!body.contains("VL"), "continuation body must not re-state the list: {body}");
+    assert!(
+        !body.contains("VL"),
+        "continuation body must not re-state the list: {body}"
+    );
 }
 
 #[test]
