@@ -540,8 +540,12 @@ async fn main() -> ProbeResult<()> {
             println!("PROBE struct_channel_videos {line}");
         }
         let mut parse_report = vydra_providers::parse::ParseReport::new();
-        let list =
-            map_channel_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
+        let list = map_channel_videos(
+            page,
+            30,
+            &mut parse_report,
+            synthetic_provenance(fetched_at),
+        );
         println!(
             "PROBE mapped_channel_videos items={} duplicates={} next={} warnings={}",
             list.items.len(),
@@ -596,8 +600,12 @@ async fn main() -> ProbeResult<()> {
     }
     if let Some((_, page)) = captures.iter().find(|(name, _)| name == "playlist_page2") {
         let mut parse_report = vydra_providers::parse::ParseReport::new();
-        let list =
-            map_playlist_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
+        let list = map_playlist_videos(
+            page,
+            30,
+            &mut parse_report,
+            synthetic_provenance(fetched_at),
+        );
         println!(
             "PROBE mapped_playlist_page2 items={} first_position={:?} warnings={}",
             list.items.len(),
