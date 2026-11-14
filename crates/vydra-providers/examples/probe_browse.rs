@@ -192,7 +192,10 @@ fn dump_base64(name: &str, payload: &Value) {
         Err(_) => return,
     };
     if text.len() > 400_000 {
-        println!("PROBE b64-skip={name} reason=too_large bytes={}", text.len());
+        println!(
+            "PROBE b64-skip={name} reason=too_large bytes={}",
+            text.len(),
+        );
         return;
     }
     let encoded = base64_bytes(text.as_bytes());
@@ -235,8 +238,8 @@ fn structure_inventory(payload: &Value, interesting: &[&str], sample_keys: &[&st
                     if is_shape && !value.is_null() {
                         *counts.entry(key.clone()).or_insert(0) += 1;
                         if interesting.contains(&key.as_str()) && !samples.contains_key(key) {
-                            let text = serde_json::to_string(&redact(value.clone()))
-                                .unwrap_or_default();
+                            let raw = serde_json::to_string(&redact(value.clone()));
+                            let text = raw.unwrap_or_default();
                             samples.insert(key.clone(), truncate(&text, 700));
                         }
                     }
