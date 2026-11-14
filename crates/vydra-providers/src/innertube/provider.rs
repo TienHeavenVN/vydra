@@ -246,6 +246,15 @@ impl InnertubeProvider {
                 capability: Capability::ChannelMetadata.as_str().to_owned(),
             });
         }
+        // A `@handle` is not a browse id: the Phase 6 probe sent one and upstream answered `400`
+        // (`docs/research/CHANNEL_CONTRACT.md` §7). Resolving a handle would need a second request whose
+        // result is a guess about which channel the caller meant, so the request is refused instead of
+        // being translated into a search.
+        if matches!(reference, ChannelRef::Handle(_)) {
+            return Err(ProviderError::Unsupported {
+                capability: "channel_handle".to_owned(),
+            });
+        }
         let session = self.client.session(ctx).await;
         let context = self.client.context(&session, ctx);
         let body = BrowseRequest::channel(context, &reference);

@@ -207,6 +207,83 @@ fn dump_base64(name: &str, payload: &Value) {
     println!("PROBE b64-end={name}");
 }
 
+/// Inventory of the object keys in a page, plus one truncated sample of each interesting row shape.
+///
+/// The captures are far too large to publish (a channel page is megabytes), and the artifact is not
+/// reachable from the build sandbox, so the *shape* is what the probe reports: which renderer and
+/// view-model keys the page carries, how many of each, and a bounded sample of the row shapes the mapper
+/// does not understand. That is enough to decide whether a gap is a mapping gap or an absence.
+fn structure_inventory(payload: &Value, interesting: &[&str], sample_keys: &[&str]) -> Vec<String> {
+    use std::collections::BTreeMap;
+
+    let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+    let mut samples: BTreeMap<String, String> = BTreeMap::new();
+    let mut stack = vec![payload];
+    let mut visited = 0usize;
+    while let Some(node) = stack.pop() {
+        visited += 1;
+        if visited > 400_000 {
+            break;
+        }
+        match node {
+            Value::Object(map) => {
+                for (key, value) in map {
+                    let is_shape = key.ends_with("Renderer")
+                        || key.ends_with("ViewModel")
+                        || key.ends_with("Action")
+                        || key.ends_with("Command");
+                    if is_shape && !value.is_null() {
+                        *counts.entry(key.clone()).or_insert(0) += 1;
+                        if interesting.contains(&key.as_str()) && !samples.contains_key(key) {
+                            let text = serde_json::to_string(&redact(value.clone()))
+                                .unwrap_or_default();
+                            samples.insert(key.clone(), truncate(&text, 700));
+                        }
+                    }
+                    if value.is_object() || value.is_array() {
+                        stack.push(value);
+                    }
+                }
+            }
+            Value::Array(items) => {
+                for item in items.iter().rev() {
+                    if item.is_object() || item.is_array() {
+                        stack.push(item);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut out = Vec::new();
+    out.push(format!(
+        "shapes: {}",
+        counts
+            .iter()
+            .map(|(key, count)| format!("{key}x{count}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    ));
+    for key in sample_keys {
+        if let Some(sample) = samples.get(*key) {
+            out.push(format!("sample {key}: {sample}"));
+        }
+    }
+    out
+}
+
+fn truncate(text: &str, limit: usize) -> String {
+    if text.len() <= limit {
+        return text.to_owned();
+    }
+    let mut end = limit;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &text[..end])
+}
+
 fn synthetic_provenance(fetched_at: OffsetDateTime) -> vydra_domain::Provenance {
     vydra_domain::Provenance {
         provider: "innertube-web".to_owned(),
@@ -382,6 +459,20 @@ async fn main() -> ProbeResult<()> {
         }
     }
 
+    if let Some((_, page)) = captures
+        .iter()
+        .find(|(name, _)| name == "channel_page")
+        .cloned()
+    {
+        for line in structure_inventory(
+            &page,
+            &["pageHeaderViewModel", "c4TabbedHeaderRenderer", "tabRenderer"],
+            &["tabRenderer"],
+        ) {
+            println!("PROBE struct_channel_page {line}");
+        }
+    }
+
     // Map the genuine captures with the production mappers, so the summary states what Vydra would serve.
     let fetched_at = OffsetDateTime::now_utc();
     if let Some((_, page)) = captures
@@ -419,6 +510,13 @@ async fn main() -> ProbeResult<()> {
         }
     }
     if let Some(page) = videos_page.as_ref() {
+        for line in structure_inventory(
+            page,
+            &["lockupViewModel", "richItemRenderer", "videoRenderer", "continuationItemRenderer"],
+            &["lockupViewModel", "richItemRenderer"],
+        ) {
+            println!("PROBE struct_channel_videos {line}");
+        }
         let mut parse_report = vydra_providers::parse::ParseReport::new();
         let list =
             map_channel_videos(page, 30, &mut parse_report, synthetic_provenance(fetched_at));
@@ -431,6 +529,19 @@ async fn main() -> ProbeResult<()> {
         );
     }
     if let Some(page) = playlist_payload.as_ref() {
+        for line in structure_inventory(
+            page,
+            &[
+                "lockupViewModel",
+                "playlistVideoRenderer",
+                "playlistVideoListRenderer",
+                "alertRenderer",
+                "continuationItemRenderer",
+            ],
+            &["lockupViewModel", "playlistVideoRenderer"],
+        ) {
+            println!("PROBE struct_playlist {line}");
+        }
         let mut parse_report = vydra_providers::parse::ParseReport::new();
         match map_playlist(
             page,

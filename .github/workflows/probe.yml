@@ -169,6 +169,10 @@ jobs:
           print("::notice title=probe::%d lines, %d base64 chunk lines" % (len(rest), len(b64)))
           for line in rest[-45:]:
               print("::error title=probe::" + line[:900].replace("%", "%25"))
+          structural = [line for line in rest if " struct_" in line]
+          if structural:
+              payload = "\n".join(line[:1200] for line in structural)
+              print("::error title=struct::" + payload.replace("%", "%25").replace("\n", "%0A"))
           PY
       - name: archive preview (not committed by this workflow)
         if: always()

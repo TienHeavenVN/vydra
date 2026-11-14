@@ -222,8 +222,8 @@ paths:
       operationId: channel
       summary: Channel metadata
       description: |
-        Accepts a `UC…` channel id or a `@handle`. The reference is validated before any upstream call: a
-        malformed id is a `400`, and a handle is never treated as a channel id.
+        Accepts a `UC…` channel id. The reference is validated before any upstream call: a malformed id is a
+        `400`, and a `@handle` is refused with `issue: handle_not_supported` rather than being resolved.
 
         `data.summary.id` is the canonical id the page reported. When upstream answers under a different
         canonical id (localized and auto-generated channels do this), the document carries the canonical
@@ -395,11 +395,13 @@ components:
       in: path
       required: true
       description: |
-        A channel id (`UC` + 22 characters) or a handle (`@` + up to 40 characters). A handle is resolved by
-        the provider and is never rewritten into an id locally.
+        A canonical channel id (`UC` + 22 characters). A `@handle` is **refused** with
+        `400 validation_failed{field: id, issue: handle_not_supported}`: upstream does not accept a handle as
+        a browse id (Phase 6 probe: `HTTP 400`), and resolving one through a search would be a guess about
+        which channel the caller meant.
       schema:
         type: string
-        pattern: '^(UC[A-Za-z0-9_-]{22}|@[A-Za-z0-9._-]{1,40})$'
+        pattern: '^UC[A-Za-z0-9_-]{22}$'
     ChannelId:
       name: id
       in: path

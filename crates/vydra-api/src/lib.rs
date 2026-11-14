@@ -534,10 +534,11 @@ async fn captions_handler(
 
 // --- Phase 6: channels and playlists ---------------------------------------------------------
 
-/// `GET /api/v1/channels/{id}` — `id` is a `UC…` channel id or a `@handle`.
+/// `GET /api/v1/channels/{id}` — `id` is a `UC…` channel id.
 ///
 /// The reference is validated *before* any provider call: a syntactically invalid id is a 400 and never
-/// reaches the registry, and a handle is never treated as an id (`vydra_common::ChannelRef`).
+/// reaches the registry, and a `@handle` is refused with `400 validation_failed{id: handle_not_supported}`
+/// because upstream does not accept a handle as a browse id (probe-verified, Phase 6).
 async fn channel_handler(
     State(state): State<Arc<AppState>>,
     Extension(request_id): Extension<RequestId>,
@@ -545,6 +546,15 @@ async fn channel_handler(
     Query(query): Query<ResourceQuery>,
 ) -> ApiResult<Json<Envelope<ChannelDocument>>> {
     let reference = ChannelRef::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
+    // Handles are refused rather than resolved: upstream does not accept a handle as a browse id (the
+    // Phase 6 probe received `400`), and a channel reached through a search is a guess about which channel
+    // the caller meant. `docs/research/CHANNEL_CONTRACT.md` §7 records the evidence.
+    if matches!(reference, ChannelRef::Handle(_)) {
+        return Err(ApiError::new(
+            &Error::validation("id", "handle_not_supported"),
+            &request_id.0,
+        ));
+    }
     let (hl, gl) = query
         .locales()
         .map_err(|e| ApiError::new(e, &request_id.0))?;
