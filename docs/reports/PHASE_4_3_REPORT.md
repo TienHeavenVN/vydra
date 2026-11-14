@@ -167,14 +167,12 @@ false in a way that hid F-1 and F-2.
 
 ## 9. CI status
 
-*(filled in at the end of this change — see the pull request checks for the authoritative run.)*
-
 | Run | Commit | Result |
 |---|---|---|
 | 43541388070 | `a5982e7` | probe success; `fmt` red (temporary job, expected on a new example) |
 | 43542839419 | `9665091` | probe + publish success; `fmt` red (bot fixed in `c73a4e7`), `test (vydra-providers)` red on parser expectations (fixed) |
 | 43544223832 | `95180eb` | probe + publish success after the cursor fix |
-| *final* | *this change* | *see the pull request checks — the authoritative run is the one on the head of `arena/06c8b7fc-vydra`* |
+| [43545086009](https://github.com/TienHeavenVN/vydra/actions/runs/43545086009) | `75d466d` | **22/22 jobs green** — the state this report describes |
 
 Every failure in that table was a finding (a wrong expectation, a broken workflow, a permission), not a
 tolerated red job: nothing was merged with a failing required check, and no test was deleted to get

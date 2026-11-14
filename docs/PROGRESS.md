@@ -44,7 +44,7 @@ Consequences, stated plainly:
 | 4 — Provider engine | **audited, remediated, verification in CI** | contract, transport, InnerTube search/player/captions, registry, fixtures; 20 findings closed (see `docs/security/PROVIDER_ENGINE_AUDIT.md`) |
 | 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
 | 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
-| 4.3 — Search evidence & reliability | **in progress (this change)** | 5 live captures, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
+| 4.3 — Search evidence & reliability | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43545086009, 22/22) | 5 live captures from 3 runs, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video + chapters + captions metadata | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
@@ -55,8 +55,9 @@ Consequences, stated plainly:
 
 | Claim | Evidence |
 |---|---|
-| Vydra can talk to `/youtubei/v1/search` through its own transport | 5 captures, statuses 200×4 + 400, run [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419); first capture run [43541388070](https://github.com/TienHeavenVN/vydra/actions/runs/43541388070) |
-| A search continuation works with the token alone | page 2 arrived with a `{context, continuation}` body: 200, 263 144 B, 18 items |
+| Vydra can talk to `/youtubei/v1/search` through its own transport | 5 captures, statuses 200×4 + 400, run [43544223832](https://github.com/TienHeavenVN/vydra/actions/runs/43544223832); earlier runs [43541388070](https://github.com/TienHeavenVN/vydra/actions/runs/43541388070), [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419) |
+| A search continuation works with the token alone, and pages the *same* query | page 2 with a `{context, continuation}` body: 200, 488 298 B, 18 items, and the same total estimate as page 1 (23 544 805 vs 23 544 604) |
+| The page cursor is not a filter chip | the cursor bug and its live before/after comparison are in `SEARCH_RESPONSE_ANALYSIS.md` §2.1 |
 | A malformed search body is rejected, not silently emptied | 400 `FAILED_PRECONDITION`, 274 B, captured verbatim |
 | Request bodies are typed, not assembled ad hoc | `innertube/request.rs` (7 unit tests) + `tests/request_contract.rs` |
 | The parser cannot turn unknown content into an item | `tests/search_parser.rs` (19 tests, 5 of them on the probe recordings) |
