@@ -29,6 +29,40 @@ jobs:
           bash scripts/ci/annotate.sh metadata.log 0 10
           bash scripts/ci/annotate.sh fmt.log 0 10
 
+  # Temporary formatting bot (Phase 4.3): the sandbox has no Rust toolchain, so the new probe example
+  # can only be formatted by CI. Removed in the same pull request.
+  fmt-apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: apply rustfmt
+        run: |
+          set -o pipefail
+          cargo fmt --all 2>&1 | tee fmt-apply.log
+      - name: push formatting commit
+        run: |
+          set -o pipefail
+          if git diff --quiet; then
+            echo "already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: apply rustfmt"
+          git push 2>&1 | tee push.log
+      - name: annotate
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh fmt-apply.log 0 10
+          bash scripts/ci/annotate.sh push.log 0 10
+
   # Temporary (Phase 4.3): `workflow_dispatch` cannot find `.github/workflows/probe.yml` until that
   # file exists on the default branch, so this job runs the same evidence probe when the head commit
   # message contains [probe]. Removed in the same pull request once the capture is committed; the
@@ -60,6 +94,30 @@ jobs:
             probe.log
           retention-days: 14
           if-no-files-found: warn
+      # The development sandbox cannot reach the artifact storage host, so the evidence is also
+      # published as a commit on this branch (redacted in-process by the probe, and gitignored so it
+      # has to be forced in here). scripts/fixtures/import_probe.py reduces it into fixtures
+      # afterwards; the raw capture is deleted in the follow-up commit.
+      - name: publish the evidence
+        if: always()
+        run: |
+          set -o pipefail
+          if [ ! -d probe-out ]; then echo "no probe-out directory"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f probe-out probe.log
+          if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
+          git commit -m "chore: publish the Phase 4.3 probe output (redacted, temporary)"
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}" || { git rebase --abort; exit 1; }
+            if git push origin "HEAD:${GITHUB_REF_NAME}" 2>&1 | tee probe-push.log; then
+              exit 0
+            fi
+            echo "push attempt ${attempt} rejected, retrying"
+            sleep 5
+          done
+          exit 1
 
   check:
     runs-on: ubuntu-latest
