@@ -500,7 +500,7 @@ fn recorded_first_page_maps_every_result_and_counts_the_shorts_gap() {
     );
     assert_eq!(
         results.estimated_results.as_ref().map(|count| count.value),
-        Some(23_544_834),
+        Some(23_544_604),
         "upstream's own estimate is carried through"
     );
 
@@ -546,25 +546,24 @@ fn recorded_continuation_page_maps_every_result() {
             .count(),
         18
     );
-    let cursor = results
-        .next_cursor
-        .as_deref()
-        .expect("second page has a cursor");
-    assert_eq!(
-        cursor.len(),
-        1320,
-        "the continuation page carries one page cursor (1320) and six chip tokens"
-    );
+    let cursor = results.next_cursor.as_deref().expect("second page has a cursor");
+    assert_eq!(cursor.len(), 670);
     assert_eq!(
         report.unmapped_results(),
-        1,
-        "the page carries one `lockupViewModel` card Vydra cannot map yet"
+        27,
+        "the continuation page also carries a Shorts shelf (25) and two lockup cards"
     );
     assert_eq!(report.unknown_renderers(), 0);
     assert_eq!(report.skipped_items(), 0);
     assert!(
         report.check(Strictness::Strict).is_err(),
-        "one unmapped card is still a lost result, so strict mode stays loud"
+        "unmapped results keep strict mode loud"
+    );
+    // A *true* page 2 repeats the query's total estimate; the chip continuation captured earlier
+    // reported 19, so the field is upstream's estimate, not a page counter.
+    assert_eq!(
+        results.estimated_results.as_ref().map(|count| count.value),
+        Some(23_544_805)
     );
 }
 
@@ -573,14 +572,18 @@ fn recorded_mixed_page_maps_all_kinds_it_can() {
     let document = fixture("recorded/search_web_probe_mixed.json");
     let (results, report) = parse(&document);
 
-    assert_eq!(results.items.len(), 30, "29 videos + 1 channel");
+    assert_eq!(
+        results.items.len(),
+        24,
+        "24 videos + 1 channel with one duplicate removed"
+    );
     assert_eq!(
         results
             .items
             .iter()
             .filter(|item| item.kind() == "video")
             .count(),
-        29
+        23
     );
     assert_eq!(
         results
@@ -591,15 +594,20 @@ fn recorded_mixed_page_maps_all_kinds_it_can() {
         1
     );
     assert_eq!(
+        report.skipped_items(),
+        1,
+        "the page served one id twice; the repeat is counted, not silently appended"
+    );
+    assert_eq!(
         results.estimated_results.as_ref().map(|count| count.value),
-        Some(200_258)
+        Some(200_236)
     );
     assert_eq!(
         results.next_cursor.as_deref().map(str::len),
         Some(612),
         "the page cursor; the chip tokens on this page are longer"
     );
-    assert_eq!(report.unmapped_results(), 65, "two Shorts shelves");
+    assert_eq!(report.unmapped_results(), 65, "the two Shorts shelves");
     assert_eq!(report.unknown_renderers(), 0);
 }
 

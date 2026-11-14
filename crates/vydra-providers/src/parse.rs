@@ -52,6 +52,8 @@ pub const STRUCTURAL_RENDERERS: &[&str] = &[
     "singleColumnBrowseResultsRenderer",
     "tabRenderer",
     "sectionListContinuationRenderer",
+    // A plain vertical list of renderers (present on the `veritasium` capture): layout, nothing else.
+    "verticalListRenderer",
     // Carries nothing but the next token: it is navigation, not a result. Counting it made every
     // paginated page look like it had unread content (one occurrence per page on the Phase 4.3
     // captures), for a renderer whose only payload the parser already extracts by key.

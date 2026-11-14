@@ -13,26 +13,29 @@ active. Nothing was hand-edited afterwards; the reduction is a projection.
 | Run | Commit | Purpose | Result |
 |---|---|---|---|
 | [43541388070](https://github.com/TienHeavenVN/vydra/actions/runs/43541388070) | `a5982e7` | first capture (5 requests) | probe job success; all statuses recorded |
-| [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419) | `9665091` | capture the fixtures are reduced from, plus publishing the raw output as a commit | probe + publish success; `fmt`/`test` failures unrelated to capture, fixed later |
+| [43542839419](https://github.com/TienHeavenVN/vydra/actions/runs/43542839419) | `9665091` | capture, and publish the raw output as a commit | probe + publish success; its "page 2" turned out to be a filter-chip continuation (F-11) |
+| [43544223832](https://github.com/TienHeavenVN/vydra/actions/runs/43544223832) | `95180eb` | capture **after** the page-cursor fix — the fixtures are reduced from this run | probe + publish success; `next_cursor` 638 (page cursor) and a real page 2 |
 
-Captures of run `43542839419` (all `POST /youtubei/v1/search?prettyPrint=false&key=<redacted>`,
+Captures of run `43544223832` (all `POST /youtubei/v1/search?prettyPrint=false&key=<redacted>`,
 `clientName WEB`, `clientVersion 2.20260805.01.00`, `hl=en`, `gl=US`):
 
 | label | request body keys | status | bytes | elapsed | items mapped |
 |---|---|---|---|---|---|
-| `search_page_1` | `context`, `query` | 200 | 664 211 | 638 ms | 19 (18 video + 1 channel); cursor 638 |
-| `search_page_2` | `context`, `continuation` | 200 | 263 144 | 320 ms | 18 video; cursor 1 320 |
-| `search_mixed` | `context`, `query` (`veritasium`) | 200 | 1 396 201 | 688 ms | 30 (29 video + 1 channel); cursor 612 |
-| `search_empty` | `context`, `query` (nonsense) | 200 | 21 748 | 1 328 ms | 0 |
-| `search_error` | `context` only | 400 | 274 | 18 ms | 0 (`FAILED_PRECONDITION`) |
+| `search_page_1` | `context`, `query` | 200 | 660 981 | 672 ms | 19 (18 video + 1 channel); cursor 638 |
+| `search_page_2` | `context`, `continuation` | 200 | 488 298 | 609 ms | 18 video; cursor 670 |
+| `search_mixed` | `context`, `query` (`veritasium`) | 200 | 1 236 535 | 802 ms | 25 (24 video + 1 channel, one duplicate); cursor 612 |
+| `search_empty` | `context`, `query` (nonsense) | 200 | 21 754 | 1 456 ms | 0 |
+| `search_error` | `context` only | 400 | 274 | 20 ms | 0 (`FAILED_PRECONDITION`) |
 
 Two conclusions that only a live request could settle:
 
 * **A token-only continuation body is accepted.** `{context, continuation}` → 200 with a complete
   second page and a further token. The typed `ContinuationRequest` (no `query`, no `params` field) is
   therefore not just reference-backed any more.
-* **A page has two kinds of token, and Vydra was returning the wrong one** (F-11 below). The cursor it
-  extracted for page 1 was a 812-char filter-chip token; the page cursor is 638 chars.
+* **A page has two kinds of token, and Vydra was returning the wrong one** (F-11 below). Run
+  `43542839419` recorded a 812-char filter-chip token for page 1 and paged with it; after the fix the
+  cursor is the 638-char page cursor and page 2 is a real page 2 (488 298 bytes, total estimate
+  repeated).
 * **A malformed search body is a typed error, not an empty page.** 400 with
   `{"error":{"code":400,"status":"FAILED_PRECONDITION",…}}`; the provider maps it to
   `provider_upstream`, so "no results" and "bad request" cannot be confused.
@@ -125,9 +128,9 @@ each, provenance in `docs/research/FIXTURE_PROVENANCE.md`:
 
 | Fixture | Bytes | Content kept |
 |---|---|---|
-| `search_web_probe_first_page.json` | 208 616 | 18 video, 1 channel, 25 Shorts placeholders, 812-char token, `estimatedResults` 23 544 834 |
-| `search_web_probe_continuation.json` | 230 854 | 18 video, 1 lockup placeholder, 732-char token, `estimatedResults` 19 |
-| `search_web_probe_mixed.json` | 452 077 | 29 video, 1 channel, 65 Shorts placeholders, 818-char token |
+| `search_web_probe_first_page.json` | 208 616 | 18 video, 1 channel, 25 Shorts placeholders, 638-char page cursor, `estimatedResults` 23 544 604 |
+| `search_web_probe_continuation.json` | 196 871 | 18 video, 25 Shorts placeholders, 2 lockup placeholders, 670-char cursor, `estimatedResults` 23 544 805 |
+| `search_web_probe_mixed.json` | 417 548 | 24 video, 1 channel (one duplicate id), 65 Shorts placeholders, 612-char cursor, `estimatedResults` 200 236 |
 | `search_web_probe_empty.json` | 525 | no renderers, `estimatedResults` 0 |
 | `search_web_probe_malformed_request.json` | 274 | the 400 error document verbatim |
 
@@ -178,8 +181,8 @@ false in a way that hid F-1 and F-2.
    mapped — callers get fewer results than the page contains, and `parse_warnings` is the only signal.
 3. **`params` and filters.** Still inferred, still disabled; a filtered request could behave
    differently from the one capture.
-4. **Continuation depth.** One hop verified, and it was a chip continuation (F-11). A true page-2
-   capture with the corrected cursor has not been made; tokens expire, and nothing proves page 3+.
+4. **Continuation depth.** One *real* hop is verified (run `43544223832`). Nothing proves page 3+, and
+   tokens expire.
 5. **Pooled connections** bypass the resolver on reuse (bounded by a 90 s idle timeout) — analysed in
    `docs/security/TRANSPORT_RELIABILITY.md` §4.
 6. **No proxy support**, by decision; a deployment behind a mandatory egress proxy cannot use the

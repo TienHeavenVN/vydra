@@ -42,10 +42,10 @@ Rules that were applied when the corpus was built:
 | `recorded/browse_channel_search_2023-12-06.json` | recorded subset | 29 230 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/browse/chrome/2023.12.06_channel_search.json` (MIT) | 2023-12-06 | `recorded_fixture::recorded_browse_page_maps_every_renderer` |
 | `recorded/continuation_browse_2023-02-23.json` | recorded subset | 19 245 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/browse/chrome/2023.02.23_what_to_watch_continuation.json` (MIT) | 2023-02-23 | `recorded_fixture::recorded_continuation_page_keeps_the_trailing_token` |
 | `recorded/player_web_2025-11-10.json` | recorded subset | 8 963 | `yuliskov/MediaServiceCore` @ `b3d561f` — `youtubeapi/src/test/resources/player/web/2025.11.10_player_regular.json` (MIT) | 2025-11-10 | `recorded_fixture::recorded_player_page_maps_availability_formats_and_captions` |
-| `recorded/search_web_probe_first_page.json` | recorded_vydra_probe | 208 616 | run `43542839419`, `POST /youtubei/v1/search`, 200, 664 211 B body | 2026-11-14 | `search_parser::recorded_first_page_maps_every_result_and_counts_the_shorts_gap` |
-| `recorded/search_web_probe_continuation.json` | recorded_vydra_probe | 230 854 | same run, same endpoint, body `{context, continuation}`, 200, 263 144 B | 2026-11-14 | `search_parser::recorded_continuation_page_maps_every_result` |
-| `recorded/search_web_probe_mixed.json` | recorded_vydra_probe | 452 077 | same run, query `veritasium`, 200, 1 396 201 B | 2026-11-14 | `search_parser::recorded_mixed_page_maps_all_kinds_it_can` |
-| `recorded/search_web_probe_empty.json` | recorded_vydra_probe | 525 | same run, nonsense query, 200, 21 748 B, `estimatedResults: 0` | 2026-11-14 | `search_parser::recorded_empty_page_is_empty_not_broken` |
+| `recorded/search_web_probe_first_page.json` | recorded_vydra_probe | 208 616 | run `43544223832`, `POST /youtubei/v1/search`, 200, 660 981 B body | 2026-11-14 | `search_parser::recorded_first_page_maps_every_result_and_counts_the_shorts_gap` |
+| `recorded/search_web_probe_continuation.json` | recorded_vydra_probe | 196 871 | same run, same endpoint, body `{context, continuation}`, 200, 488 298 B | 2026-11-14 | `search_parser::recorded_continuation_page_maps_every_result` |
+| `recorded/search_web_probe_mixed.json` | recorded_vydra_probe | 417 548 | same run, query `veritasium`, 200, 1 236 535 B | 2026-11-14 | `search_parser::recorded_mixed_page_maps_all_kinds_it_can` |
+| `recorded/search_web_probe_empty.json` | recorded_vydra_probe | 525 | same run, nonsense query, 200, 21 754 B, `estimatedResults: 0` | 2026-11-14 | `search_parser::recorded_empty_page_is_empty_not_broken` |
 | `recorded/search_web_probe_malformed_request.json` | recorded_vydra_probe | 274 | same run, body without `query`, 400 `FAILED_PRECONDITION` | 2026-11-14 | `search_parser::recorded_error_document_yields_no_items` |
 | `synthetic/search_mixed.json` | synthetic | 2 139 | hand-written, shaped after `EXTRACTION_METHODS.md` §5.2 | 2026-11-13 | `search_fixture::mixed_search_fixture_maps_to_domain_items` |
 | `malformed/search_without_contents.json` | derived | 28 | `browse_channel_search_2023-12-06.json` with `contents` removed (`{"estimatedResults":0}`) | 2026-11-13 | `recorded_fixture::malformed_search_without_contents_is_an_empty_page` |
@@ -77,13 +77,14 @@ sidecar (`dropped_renderers`, `reduction`) and the analysis is in
 
 * **First page** — `contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[]`:
   one `itemSectionRenderer` with 18 `videoRenderer` and 1 `channelRenderer`, one
-  `continuationItemRenderer` (812-char token), plus a `gridShelfViewModel` holding 25
-  `shortsLockupViewModel` items with their payload removed. `estimatedResults` 23 544 834.
-* **Continuation** — `onResponseReceivedCommands[].reloadContinuationItemsCommand.continuationItems[]`
-  (a different envelope than the first page), 18 `videoRenderer`, one `lockupViewModel`, one
-  trailing token (732 chars), `estimatedResults` 19.
-* **Mixed** — 29 `videoRenderer`, 1 `channelRenderer`, 65 `shortsLockupViewModel`, 818-char token,
-  `estimatedResults` 200 258.
+  `continuationItemRenderer` (638-char page cursor), plus a `gridShelfViewModel` holding 25
+  `shortsLockupViewModel` items with their payload removed. `estimatedResults` 23 544 604.
+* **Continuation** (a real page 2) — `onResponseReceivedCommands[].reloadContinuationItemsCommand.continuationItems[]`
+  (a different envelope than the first page), 18 `videoRenderer`, a 25-item Shorts shelf, two
+  `lockupViewModel` cards, a 670-char cursor, `estimatedResults` 23 544 805.
+* **Mixed** — 24 `videoRenderer`, 1 `channelRenderer` (one id appears twice in the page; the mapper
+  keeps one and counts the duplicate), 65 `shortsLockupViewModel`, 612-char cursor,
+  `estimatedResults` 200 236.
 * **Empty** — no renderers at all, `estimatedResults` 0. The live page also carried a
   `backgroundPromoRenderer` ("These results may be inappropriate for some users."); it is chrome and
   is listed as dropped.

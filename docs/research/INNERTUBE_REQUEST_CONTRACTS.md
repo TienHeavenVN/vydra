@@ -191,14 +191,14 @@ records the gap in `not_verified`.
   verbatim.
 * **Verified_live** (Phase 4.3): a token taken from the first page was sent back in a body of exactly
   `{context, continuation}` and upstream answered 200 with a complete second page — 263 144 bytes, 18
-  `videoRenderer` items and a further 1 320-char cursor (run `43542839419`). The envelope of that page
+  `videoRenderer` items and a further 670-char cursor (run `43544223832`). The envelope of that page
   is *not* the first page's: it arrives as
   `onResponseReceivedCommands[].reloadContinuationItemsCommand.continuationItems[]`
   (`docs/research/SEARCH_RESPONSE_ANALYSIS.md` §2).
-* **Caveat, same run**: the token the probe sent was a *filter-chip* token, not the page cursor (the
-  extraction bug is analysed in `docs/research/SEARCH_RESPONSE_ANALYSIS.md` §2.1 and fixed in
-  `parse.rs::find_continuation`). The request *shape* is verified; which page/filter that response
-  represents is not.
+* **History**: the first attempt (run `43542839419`) sent a *filter-chip* token instead of the page
+  cursor — the extraction bug analysed in `docs/research/SEARCH_RESPONSE_ANALYSIS.md` §2.1, fixed in
+  `parse.rs::find_continuation`. The capture above is from the run made after that fix, and its second
+  page repeats page 1's total estimate, which is what a real continuation does.
 * **Recorded** (Phase 4.2): a `/youtubei/v1/browse` continuation
   (`recorded/continuation_browse_2023-02-23.json`: 5 `richItemRenderer.content.videoRenderer` items +
   a trailing token, 582 chars, expired) — kept because it exercises `richItemRenderer` unwrapping,

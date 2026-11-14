@@ -1,7 +1,7 @@
 {
   "class": "recorded_vydra_probe",
   "note": "Captured by Vydra itself, not by hand and not by a third party: crates/vydra-providers/examples/probe_search.rs ran through the production ReqwestTransport on a GitHub Actions runner. Reduced (projected, never rewritten) by scripts/fixtures/import_probe.py.",
-  "captured_at": "2026-11-14T01:49:52.705963969Z",
+  "captured_at": "2026-11-14T02:04:50.51169735Z",
   "captured_by": "vydra-providers example probe_search (GitHub Actions runner)",
   "capture_workflow": ".github/workflows/ci.yml job probe (commit message [probe])",
   "request": {
@@ -22,8 +22,8 @@
   },
   "http": {
     "status": 200,
-    "bytes": 664211,
-    "elapsed_ms": 638
+    "bytes": 660981,
+    "elapsed_ms": 672
   },
   "reduction": [
     "kept the container chain (contents/sectionListRenderer/itemSectionRenderer/shelf) and top-level action envelopes",
@@ -44,8 +44,8 @@
     "that the captured content is still current (item ids and titles are a snapshot)",
     "playback URLs: deliberately not represented"
   ],
-  "capture_run": "https://github.com/TienHeavenVN/vydra/actions/runs/43542839419",
-  "capture_file_bytes": 1620663,
+  "capture_run": "https://github.com/TienHeavenVN/vydra/actions/runs/43544223832",
+  "capture_file_bytes": 1620514,
   "dropped_renderers": {
     "buttonViewModel": 4,
     "sectionHeaderViewModel": 2,
@@ -71,10 +71,10 @@
       "video",
       "video",
       "video",
+      "video",
+      "video",
+      "video",
       "channel",
-      "video",
-      "video",
-      "video",
       "video",
       "video",
       "video",
@@ -82,9 +82,9 @@
       "video",
       "video"
     ],
-    "parse_warnings": 133,
-    "next_cursor_len": 812,
-    "estimated_results": 23544833,
+    "parse_warnings": 132,
+    "next_cursor_len": 638,
+    "estimated_results": 23544793,
     "ok": true
   }
 }

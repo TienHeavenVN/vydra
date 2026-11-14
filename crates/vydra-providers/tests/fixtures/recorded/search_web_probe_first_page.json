@@ -282,7 +282,7 @@
                         "simpleText": "4:01"
                       },
                       "viewCountText": {
-                        "simpleText": "28,325,853 views"
+                        "simpleText": "28,325,972 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -510,251 +510,6 @@
                   },
                   {
                     "videoRenderer": {
-                      "videoId": "tBIQSB8jJEA",
-                      "title": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "Captain Jack ~ Captian Jack (Lyrics) 4 minutes, 10 seconds"
-                          }
-                        },
-                        "runs": [
-                          {
-                            "text": "Captain Jack ~ Captian Jack (Lyrics)"
-                          }
-                        ]
-                      },
-                      "lengthText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "4 minutes, 10 seconds"
-                          }
-                        },
-                        "simpleText": "4:10"
-                      },
-                      "viewCountText": {
-                        "simpleText": "643,143 views"
-                      },
-                      "shortViewCountText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "643 thousand views"
-                          }
-                        },
-                        "simpleText": "643K views"
-                      },
-                      "publishedTimeText": {
-                        "simpleText": "5 years ago"
-                      },
-                      "thumbnail": {
-                        "thumbnails": [
-                          {
-                            "height": 270,
-                            "url": "https://i.ytimg.com/vi/tBIQSB8jJEA/hqdefault.jpg",
-                            "width": 480
-                          }
-                        ]
-                      },
-                      "ownerText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCCYIkphWpRXOPP_LRp7moGg",
-                                "canonicalBaseUrl": "/@lyricwlfy5447"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/@lyricwlfy5447",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "Lyricwølfy 5"
-                          }
-                        ]
-                      },
-                      "shortBylineText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCCYIkphWpRXOPP_LRp7moGg",
-                                "canonicalBaseUrl": "/@lyricwlfy5447"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/@lyricwlfy5447",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "Lyricwølfy 5"
-                          }
-                        ]
-                      },
-                      "thumbnailOverlays": [
-                        {
-                          "thumbnailOverlayTimeStatusRenderer": {
-                            "icon": {
-                              "iconType": "MUSIC"
-                            },
-                            "style": "DEFAULT",
-                            "text": {
-                              "accessibility": {
-                                "accessibilityData": {
-                                  "label": "4 minutes, 10 seconds"
-                                }
-                              },
-                              "simpleText": "4:10"
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "isToggled": false,
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "CHECK"
-                            },
-                            "toggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
-                                    "removedVideoId": "tBIQSB8jJEA"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Watch later"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "WATCH_LATER"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_ADD_VIDEO",
-                                    "addedVideoId": "tBIQSB8jJEA"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "untoggledTooltip": "Watch later"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "PLAYLIST_ADD_CHECK"
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Add to queue"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "ADD_TO_QUEUE_TAIL"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "sendPost": true
-                                }
-                              },
-                              "signalServiceEndpoint": {
-                                "actions": [
-                                  {
-                                    "addToPlaylistCommand": {
-                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
-                                      "onCreateListCommand": {
-                                        "commandMetadata": {
-                                          "webCommandMetadata": {
-                                            "apiUrl": "/youtubei/v1/playlist/create",
-                                            "sendPost": true
-                                          }
-                                        },
-                                        "createPlaylistServiceEndpoint": {
-                                          "params": "CAQ%3D",
-                                          "videoIds": [
-                                            "tBIQSB8jJEA"
-                                          ]
-                                        }
-                                      },
-                                      "openMiniplayer": true,
-                                      "videoId": "tBIQSB8jJEA",
-                                      "videoIds": [
-                                        "tBIQSB8jJEA"
-                                      ]
-                                    }
-                                  }
-                                ],
-                                "signal": "CLIENT_SIGNAL"
-                              }
-                            },
-                            "untoggledTooltip": "Add to queue"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayNowPlayingRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Now playing"
-                                }
-                              ]
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayLoadingPreviewRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Keep hovering to play"
-                                }
-                              ]
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "videoRenderer": {
                       "videoId": "qxytjYkhCB4",
                       "title": {
                         "accessibility": {
@@ -777,7 +532,7 @@
                         "simpleText": "1:34"
                       },
                       "viewCountText": {
-                        "simpleText": "370,118 views"
+                        "simpleText": "370,130 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -1002,46 +757,46 @@
                   },
                   {
                     "videoRenderer": {
-                      "videoId": "5RQxHyCTi18",
+                      "videoId": "tBIQSB8jJEA",
                       "title": {
                         "accessibility": {
                           "accessibilityData": {
-                            "label": "Captain Jack - Drill Instructor (Official Video 1996) 4 minutes, 16 seconds"
+                            "label": "Captain Jack ~ Captian Jack (Lyrics) 4 minutes, 10 seconds"
                           }
                         },
                         "runs": [
                           {
-                            "text": "Captain Jack - Drill Instructor (Official Video 1996)"
+                            "text": "Captain Jack ~ Captian Jack (Lyrics)"
                           }
                         ]
                       },
                       "lengthText": {
                         "accessibility": {
                           "accessibilityData": {
-                            "label": "4 minutes, 16 seconds"
+                            "label": "4 minutes, 10 seconds"
                           }
                         },
-                        "simpleText": "4:16"
+                        "simpleText": "4:10"
                       },
                       "viewCountText": {
-                        "simpleText": "6,816,494 views"
+                        "simpleText": "643,155 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
                           "accessibilityData": {
-                            "label": "6.8 million views"
+                            "label": "643 thousand views"
                           }
                         },
-                        "simpleText": "6.8M views"
+                        "simpleText": "643K views"
                       },
                       "publishedTimeText": {
-                        "simpleText": "13 years ago"
+                        "simpleText": "5 years ago"
                       },
                       "thumbnail": {
                         "thumbnails": [
                           {
                             "height": 270,
-                            "url": "https://i.ytimg.com/vi/5RQxHyCTi18/hqdefault.jpg",
+                            "url": "https://i.ytimg.com/vi/tBIQSB8jJEA/hqdefault.jpg",
                             "width": 480
                           }
                         ]
@@ -1051,19 +806,19 @@
                           {
                             "navigationEndpoint": {
                               "browseEndpoint": {
-                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
-                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                "browseId": "UCCYIkphWpRXOPP_LRp7moGg",
+                                "canonicalBaseUrl": "/@lyricwlfy5447"
                               },
                               "commandMetadata": {
                                 "webCommandMetadata": {
                                   "apiUrl": "/youtubei/v1/browse",
                                   "rootVe": 3611,
-                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "url": "/@lyricwlfy5447",
                                   "webPageType": "WEB_PAGE_TYPE_CHANNEL"
                                 }
                               }
                             },
-                            "text": "Captain Jack Official"
+                            "text": "Lyricwølfy 5"
                           }
                         ]
                       },
@@ -1072,19 +827,19 @@
                           {
                             "navigationEndpoint": {
                               "browseEndpoint": {
-                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
-                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                                "browseId": "UCCYIkphWpRXOPP_LRp7moGg",
+                                "canonicalBaseUrl": "/@lyricwlfy5447"
                               },
                               "commandMetadata": {
                                 "webCommandMetadata": {
                                   "apiUrl": "/youtubei/v1/browse",
                                   "rootVe": 3611,
-                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "url": "/@lyricwlfy5447",
                                   "webPageType": "WEB_PAGE_TYPE_CHANNEL"
                                 }
                               }
                             },
-                            "text": "Captain Jack Official"
+                            "text": "Lyricwølfy 5"
                           }
                         ]
                       },
@@ -1098,10 +853,10 @@
                             "text": {
                               "accessibility": {
                                 "accessibilityData": {
-                                  "label": "4 minutes, 16 seconds"
+                                  "label": "4 minutes, 10 seconds"
                                 }
                               },
-                              "simpleText": "4:16"
+                              "simpleText": "4:10"
                             }
                           }
                         },
@@ -1127,7 +882,7 @@
                                 "actions": [
                                   {
                                     "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
-                                    "removedVideoId": "5RQxHyCTi18"
+                                    "removedVideoId": "tBIQSB8jJEA"
                                   }
                                 ],
                                 "playlistId": "WL"
@@ -1153,7 +908,7 @@
                                 "actions": [
                                   {
                                     "action": "ACTION_ADD_VIDEO",
-                                    "addedVideoId": "5RQxHyCTi18"
+                                    "addedVideoId": "tBIQSB8jJEA"
                                   }
                                 ],
                                 "playlistId": "WL"
@@ -1202,14 +957,14 @@
                                         "createPlaylistServiceEndpoint": {
                                           "params": "CAQ%3D",
                                           "videoIds": [
-                                            "5RQxHyCTi18"
+                                            "tBIQSB8jJEA"
                                           ]
                                         }
                                       },
                                       "openMiniplayer": true,
-                                      "videoId": "5RQxHyCTi18",
+                                      "videoId": "tBIQSB8jJEA",
                                       "videoIds": [
-                                        "5RQxHyCTi18"
+                                        "tBIQSB8jJEA"
                                       ]
                                     }
                                   }
@@ -1269,7 +1024,7 @@
                         "simpleText": "1:34"
                       },
                       "viewCountText": {
-                        "simpleText": "2,410,842 views"
+                        "simpleText": "2,410,914 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -1492,256 +1247,6 @@
                   },
                   {
                     "videoRenderer": {
-                      "videoId": "uAnqcJr389M",
-                      "title": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "Captain Jack - In The Army Now 2017 [Official Video HD] 3 minutes, 5 seconds"
-                          }
-                        },
-                        "runs": [
-                          {
-                            "text": "Captain Jack - In The Army Now 2017 [Official Video HD]"
-                          }
-                        ]
-                      },
-                      "lengthText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "3 minutes, 5 seconds"
-                          }
-                        },
-                        "simpleText": "3:05"
-                      },
-                      "viewCountText": {
-                        "simpleText": "27,659,418 views"
-                      },
-                      "shortViewCountText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "27 million views"
-                          }
-                        },
-                        "simpleText": "27M views"
-                      },
-                      "publishedTimeText": {
-                        "simpleText": "9 years ago"
-                      },
-                      "thumbnail": {
-                        "thumbnails": [
-                          {
-                            "height": 202,
-                            "url": "https://i.ytimg.com/vi/uAnqcJr389M/hq720.jpg",
-                            "width": 360
-                          },
-                          {
-                            "height": 404,
-                            "url": "https://i.ytimg.com/vi/uAnqcJr389M/hq720.jpg",
-                            "width": 720
-                          }
-                        ]
-                      },
-                      "ownerText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
-                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "Captain Jack Official"
-                          }
-                        ]
-                      },
-                      "shortBylineText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
-                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "Captain Jack Official"
-                          }
-                        ]
-                      },
-                      "thumbnailOverlays": [
-                        {
-                          "thumbnailOverlayTimeStatusRenderer": {
-                            "icon": {
-                              "iconType": "MUSIC"
-                            },
-                            "style": "DEFAULT",
-                            "text": {
-                              "accessibility": {
-                                "accessibilityData": {
-                                  "label": "3 minutes, 5 seconds"
-                                }
-                              },
-                              "simpleText": "3:05"
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "isToggled": false,
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "CHECK"
-                            },
-                            "toggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
-                                    "removedVideoId": "uAnqcJr389M"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Watch later"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "WATCH_LATER"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_ADD_VIDEO",
-                                    "addedVideoId": "uAnqcJr389M"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "untoggledTooltip": "Watch later"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "PLAYLIST_ADD_CHECK"
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Add to queue"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "ADD_TO_QUEUE_TAIL"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "sendPost": true
-                                }
-                              },
-                              "signalServiceEndpoint": {
-                                "actions": [
-                                  {
-                                    "addToPlaylistCommand": {
-                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
-                                      "onCreateListCommand": {
-                                        "commandMetadata": {
-                                          "webCommandMetadata": {
-                                            "apiUrl": "/youtubei/v1/playlist/create",
-                                            "sendPost": true
-                                          }
-                                        },
-                                        "createPlaylistServiceEndpoint": {
-                                          "params": "CAQ%3D",
-                                          "videoIds": [
-                                            "uAnqcJr389M"
-                                          ]
-                                        }
-                                      },
-                                      "openMiniplayer": true,
-                                      "videoId": "uAnqcJr389M",
-                                      "videoIds": [
-                                        "uAnqcJr389M"
-                                      ]
-                                    }
-                                  }
-                                ],
-                                "signal": "CLIENT_SIGNAL"
-                              }
-                            },
-                            "untoggledTooltip": "Add to queue"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayNowPlayingRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Now playing"
-                                }
-                              ]
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayLoadingPreviewRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Keep hovering to play"
-                                }
-                              ]
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "videoRenderer": {
                       "videoId": "5zjAKA0zS7M",
                       "title": {
                         "accessibility": {
@@ -1764,7 +1269,7 @@
                         "simpleText": "4:08"
                       },
                       "viewCountText": {
-                        "simpleText": "99,862 views"
+                        "simpleText": "99,861 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -1992,6 +1497,783 @@
                   },
                   {
                     "videoRenderer": {
+                      "videoId": "uAnqcJr389M",
+                      "title": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "Captain Jack - In The Army Now 2017 [Official Video HD] 3 minutes, 5 seconds"
+                          }
+                        },
+                        "runs": [
+                          {
+                            "text": "Captain Jack - In The Army Now 2017 [Official Video HD]"
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "3 minutes, 5 seconds"
+                          }
+                        },
+                        "simpleText": "3:05"
+                      },
+                      "viewCountText": {
+                        "simpleText": "27,659,454 views"
+                      },
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "27 million views"
+                          }
+                        },
+                        "simpleText": "27M views"
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "9 years ago"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "height": 202,
+                            "url": "https://i.ytimg.com/vi/uAnqcJr389M/hq720.jpg",
+                            "width": 360
+                          },
+                          {
+                            "height": 404,
+                            "url": "https://i.ytimg.com/vi/uAnqcJr389M/hq720.jpg",
+                            "width": 720
+                          }
+                        ]
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "Captain Jack Official"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "Captain Jack Official"
+                          }
+                        ]
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "icon": {
+                              "iconType": "MUSIC"
+                            },
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "3 minutes, 5 seconds"
+                                }
+                              },
+                              "simpleText": "3:05"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "isToggled": false,
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "uAnqcJr389M"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_ADD_VIDEO",
+                                    "addedVideoId": "uAnqcJr389M"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledTooltip": "Watch later"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "params": "CAQ%3D",
+                                          "videoIds": [
+                                            "uAnqcJr389M"
+                                          ]
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "videoId": "uAnqcJr389M",
+                                      "videoIds": [
+                                        "uAnqcJr389M"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledTooltip": "Add to queue"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayLoadingPreviewRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Keep hovering to play"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "gridShelfViewModel": {
+                      "contentAspectRatio": "GRID_SHELF_CONTENT_ASPECT_RATIO_TWO_BY_THREE",
+                      "contents": [
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        }
+                      ],
+                      "enableVerticalExpansion": true,
+                      "header": {},
+                      "loggingDirectives": {
+                        "visibility": {
+                          "types": "12"
+                        }
+                      },
+                      "minCollapsedItemCount": 10,
+                      "showLessButton": {},
+                      "showMoreButton": {}
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "5RQxHyCTi18",
+                      "title": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "Captain Jack - Drill Instructor (Official Video 1996) 4 minutes, 16 seconds"
+                          }
+                        },
+                        "runs": [
+                          {
+                            "text": "Captain Jack - Drill Instructor (Official Video 1996)"
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "4 minutes, 16 seconds"
+                          }
+                        },
+                        "simpleText": "4:16"
+                      },
+                      "viewCountText": {
+                        "simpleText": "6,816,507 views"
+                      },
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "6.8 million views"
+                          }
+                        },
+                        "simpleText": "6.8M views"
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "13 years ago"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "height": 270,
+                            "url": "https://i.ytimg.com/vi/5RQxHyCTi18/hqdefault.jpg",
+                            "width": 480
+                          }
+                        ]
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "Captain Jack Official"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa8RiU2st_48AA4WscbwYVQ",
+                                "canonicalBaseUrl": "/channel/UCa8RiU2st_48AA4WscbwYVQ"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/channel/UCa8RiU2st_48AA4WscbwYVQ",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "Captain Jack Official"
+                          }
+                        ]
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "icon": {
+                              "iconType": "MUSIC"
+                            },
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "4 minutes, 16 seconds"
+                                }
+                              },
+                              "simpleText": "4:16"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "isToggled": false,
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "5RQxHyCTi18"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_ADD_VIDEO",
+                                    "addedVideoId": "5RQxHyCTi18"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledTooltip": "Watch later"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "params": "CAQ%3D",
+                                          "videoIds": [
+                                            "5RQxHyCTi18"
+                                          ]
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "videoId": "5RQxHyCTi18",
+                                      "videoIds": [
+                                        "5RQxHyCTi18"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledTooltip": "Add to queue"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayLoadingPreviewRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Keep hovering to play"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "pUJnAZz9caU",
+                      "title": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "Captain Jack - Best hits 44 minutes"
+                          }
+                        },
+                        "runs": [
+                          {
+                            "text": "Captain Jack - Best hits"
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "44 minutes, 17 seconds"
+                          }
+                        },
+                        "simpleText": "44:17"
+                      },
+                      "viewCountText": {
+                        "simpleText": "8,374 views"
+                      },
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "8.3 thousand views"
+                          }
+                        },
+                        "simpleText": "8.3K views"
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "1 year ago"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "height": 202,
+                            "url": "https://i.ytimg.com/vi/pUJnAZz9caU/hq720.jpg",
+                            "width": 360
+                          },
+                          {
+                            "height": 404,
+                            "url": "https://i.ytimg.com/vi/pUJnAZz9caU/hq720.jpg",
+                            "width": 720
+                          }
+                        ]
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCALajbhc_blA3acr6v3yFxQ",
+                                "canonicalBaseUrl": "/@viktormanasb"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/@viktormanasb",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "viktormanas b"
+                          }
+                        ]
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCALajbhc_blA3acr6v3yFxQ",
+                                "canonicalBaseUrl": "/@viktormanasb"
+                              },
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "rootVe": 3611,
+                                  "url": "/@viktormanasb",
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
+                                }
+                              }
+                            },
+                            "text": "viktormanas b"
+                          }
+                        ]
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "icon": {
+                              "iconType": "MUSIC"
+                            },
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "44 minutes, 17 seconds"
+                                }
+                              },
+                              "simpleText": "44:17"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "isToggled": false,
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "pUJnAZz9caU"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_ADD_VIDEO",
+                                    "addedVideoId": "pUJnAZz9caU"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledTooltip": "Watch later"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "params": "CAQ%3D",
+                                          "videoIds": [
+                                            "pUJnAZz9caU"
+                                          ]
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "videoId": "pUJnAZz9caU",
+                                      "videoIds": [
+                                        "pUJnAZz9caU"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledTooltip": "Add to queue"
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayLoadingPreviewRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Keep hovering to play"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "videoRenderer": {
                       "videoId": "WS8TDWGtMSI",
                       "title": {
                         "accessibility": {
@@ -2014,7 +2296,7 @@
                         "simpleText": "3:24"
                       },
                       "viewCountText": {
-                        "simpleText": "4,290,978 views"
+                        "simpleText": "4,290,970 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -2236,56 +2518,80 @@
                     }
                   },
                   {
-                    "channelRenderer": {
-                      "channelId": "UCRttXyDY0A8Ym3HEdtSlpFg",
-                      "title": {
-                        "simpleText": "Captain Jack"
-                      },
-                      "descriptionSnippet": {
-                        "runs": [
-                          {
-                            "text": "Hey there, space explorers! I'm "
-                          },
-                          {
-                            "bold": true,
-                            "text": "Captain Jack"
-                          },
-                          {
-                            "text": "! If you're a fan of the galactic thrill, then you've landed in the right orbit!"
-                          }
-                        ]
-                      },
-                      "thumbnail": {
-                        "thumbnails": [
-                          {
-                            "height": 88,
-                            "url": "//yt3.googleusercontent.com/ytc/AIdro_mNOHTx0YQ3rNeLHw2_XkYOkBAVeGaonDNoVdG8Koo-ZOM=s88-c-k-c0x00ffffff-no-rj-mo",
-                            "width": 88
-                          },
-                          {
-                            "height": 176,
-                            "url": "//yt3.googleusercontent.com/ytc/AIdro_mNOHTx0YQ3rNeLHw2_XkYOkBAVeGaonDNoVdG8Koo-ZOM=s176-c-k-c0x00ffffff-no-rj-mo",
-                            "width": 176
-                          }
-                        ]
-                      },
-                      "subscriberCountText": {
-                        "simpleText": "@CaptainJack"
-                      },
-                      "videoCountText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "237 thousand subscribers"
-                          }
+                    "gridShelfViewModel": {
+                      "contentAspectRatio": "GRID_SHELF_CONTENT_ASPECT_RATIO_TWO_BY_THREE",
+                      "contents": [
+                        {
+                          "shortsLockupViewModel": {}
                         },
-                        "simpleText": "237K subscribers"
-                      },
-                      "navigationEndpoint": {
-                        "browseEndpoint": {
-                          "browseId": "UCRttXyDY0A8Ym3HEdtSlpFg",
-                          "canonicalBaseUrl": "/@CaptainJack"
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
+                        },
+                        {
+                          "shortsLockupViewModel": {}
                         }
-                      }
+                      ],
+                      "enableVerticalExpansion": true,
+                      "header": {},
+                      "loggingDirectives": {
+                        "visibility": {
+                          "types": "12"
+                        }
+                      },
+                      "minCollapsedItemCount": 10,
+                      "showLessButton": {},
+                      "showMoreButton": {}
                     }
                   },
                   {
@@ -2312,7 +2618,7 @@
                         "simpleText": "3:20"
                       },
                       "viewCountText": {
-                        "simpleText": "22,528,113 views"
+                        "simpleText": "22,528,144 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -2534,6 +2840,59 @@
                     }
                   },
                   {
+                    "channelRenderer": {
+                      "channelId": "UCRttXyDY0A8Ym3HEdtSlpFg",
+                      "title": {
+                        "simpleText": "Captain Jack"
+                      },
+                      "descriptionSnippet": {
+                        "runs": [
+                          {
+                            "text": "Hey there, space explorers! I'm "
+                          },
+                          {
+                            "bold": true,
+                            "text": "Captain Jack"
+                          },
+                          {
+                            "text": "! If you're a fan of the galactic thrill, then you've landed in the right orbit!"
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "height": 88,
+                            "url": "//yt3.googleusercontent.com/ytc/AIdro_mNOHTx0YQ3rNeLHw2_XkYOkBAVeGaonDNoVdG8Koo-ZOM=s88-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 88
+                          },
+                          {
+                            "height": 176,
+                            "url": "//yt3.googleusercontent.com/ytc/AIdro_mNOHTx0YQ3rNeLHw2_XkYOkBAVeGaonDNoVdG8Koo-ZOM=s176-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 176
+                          }
+                        ]
+                      },
+                      "subscriberCountText": {
+                        "simpleText": "@CaptainJack"
+                      },
+                      "videoCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "237 thousand subscribers"
+                          }
+                        },
+                        "simpleText": "237K subscribers"
+                      },
+                      "navigationEndpoint": {
+                        "browseEndpoint": {
+                          "browseId": "UCRttXyDY0A8Ym3HEdtSlpFg",
+                          "canonicalBaseUrl": "/@CaptainJack"
+                        }
+                      }
+                    }
+                  },
+                  {
                     "videoRenderer": {
                       "videoId": "2kdD6cWNfXA",
                       "title": {
@@ -2557,7 +2916,7 @@
                         "simpleText": "2:52"
                       },
                       "viewCountText": {
-                        "simpleText": "30,807,030 views"
+                        "simpleText": "30,807,078 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -3024,38 +3383,6 @@
                     }
                   },
                   {
-                    "gridShelfViewModel": {
-                      "contentAspectRatio": "GRID_SHELF_CONTENT_ASPECT_RATIO_TWO_BY_THREE",
-                      "contents": [
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        }
-                      ],
-                      "enableVerticalExpansion": true,
-                      "header": {},
-                      "loggingDirectives": {
-                        "visibility": {
-                          "types": "12"
-                        }
-                      },
-                      "minCollapsedItemCount": 10,
-                      "showLessButton": {},
-                      "showMoreButton": {}
-                    }
-                  },
-                  {
                     "videoRenderer": {
                       "videoId": "ng-R4sS4Z4w",
                       "title": {
@@ -3079,7 +3406,7 @@
                         "simpleText": "3:21"
                       },
                       "viewCountText": {
-                        "simpleText": "1,792,536 views"
+                        "simpleText": "1,792,566 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -3302,256 +3629,6 @@
                   },
                   {
                     "videoRenderer": {
-                      "videoId": "pUJnAZz9caU",
-                      "title": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "Captain Jack - Best hits 44 minutes"
-                          }
-                        },
-                        "runs": [
-                          {
-                            "text": "Captain Jack - Best hits"
-                          }
-                        ]
-                      },
-                      "lengthText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "44 minutes, 17 seconds"
-                          }
-                        },
-                        "simpleText": "44:17"
-                      },
-                      "viewCountText": {
-                        "simpleText": "8,353 views"
-                      },
-                      "shortViewCountText": {
-                        "accessibility": {
-                          "accessibilityData": {
-                            "label": "8.3 thousand views"
-                          }
-                        },
-                        "simpleText": "8.3K views"
-                      },
-                      "publishedTimeText": {
-                        "simpleText": "1 year ago"
-                      },
-                      "thumbnail": {
-                        "thumbnails": [
-                          {
-                            "height": 202,
-                            "url": "https://i.ytimg.com/vi/pUJnAZz9caU/hq720.jpg",
-                            "width": 360
-                          },
-                          {
-                            "height": 404,
-                            "url": "https://i.ytimg.com/vi/pUJnAZz9caU/hq720.jpg",
-                            "width": 720
-                          }
-                        ]
-                      },
-                      "ownerText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCALajbhc_blA3acr6v3yFxQ",
-                                "canonicalBaseUrl": "/@viktormanasb"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/@viktormanasb",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "viktormanas b"
-                          }
-                        ]
-                      },
-                      "shortBylineText": {
-                        "runs": [
-                          {
-                            "navigationEndpoint": {
-                              "browseEndpoint": {
-                                "browseId": "UCALajbhc_blA3acr6v3yFxQ",
-                                "canonicalBaseUrl": "/@viktormanasb"
-                              },
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse",
-                                  "rootVe": 3611,
-                                  "url": "/@viktormanasb",
-                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL"
-                                }
-                              }
-                            },
-                            "text": "viktormanas b"
-                          }
-                        ]
-                      },
-                      "thumbnailOverlays": [
-                        {
-                          "thumbnailOverlayTimeStatusRenderer": {
-                            "icon": {
-                              "iconType": "MUSIC"
-                            },
-                            "style": "DEFAULT",
-                            "text": {
-                              "accessibility": {
-                                "accessibilityData": {
-                                  "label": "44 minutes, 17 seconds"
-                                }
-                              },
-                              "simpleText": "44:17"
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "isToggled": false,
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "CHECK"
-                            },
-                            "toggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
-                                    "removedVideoId": "pUJnAZz9caU"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Watch later"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "WATCH_LATER"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
-                                  "sendPost": true
-                                }
-                              },
-                              "playlistEditEndpoint": {
-                                "actions": [
-                                  {
-                                    "action": "ACTION_ADD_VIDEO",
-                                    "addedVideoId": "pUJnAZz9caU"
-                                  }
-                                ],
-                                "playlistId": "WL"
-                              }
-                            },
-                            "untoggledTooltip": "Watch later"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayToggleButtonRenderer": {
-                            "toggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Added"
-                              }
-                            },
-                            "toggledIcon": {
-                              "iconType": "PLAYLIST_ADD_CHECK"
-                            },
-                            "toggledTooltip": "Added",
-                            "untoggledAccessibility": {
-                              "accessibilityData": {
-                                "label": "Add to queue"
-                              }
-                            },
-                            "untoggledIcon": {
-                              "iconType": "ADD_TO_QUEUE_TAIL"
-                            },
-                            "untoggledServiceEndpoint": {
-                              "commandMetadata": {
-                                "webCommandMetadata": {
-                                  "sendPost": true
-                                }
-                              },
-                              "signalServiceEndpoint": {
-                                "actions": [
-                                  {
-                                    "addToPlaylistCommand": {
-                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
-                                      "onCreateListCommand": {
-                                        "commandMetadata": {
-                                          "webCommandMetadata": {
-                                            "apiUrl": "/youtubei/v1/playlist/create",
-                                            "sendPost": true
-                                          }
-                                        },
-                                        "createPlaylistServiceEndpoint": {
-                                          "params": "CAQ%3D",
-                                          "videoIds": [
-                                            "pUJnAZz9caU"
-                                          ]
-                                        }
-                                      },
-                                      "openMiniplayer": true,
-                                      "videoId": "pUJnAZz9caU",
-                                      "videoIds": [
-                                        "pUJnAZz9caU"
-                                      ]
-                                    }
-                                  }
-                                ],
-                                "signal": "CLIENT_SIGNAL"
-                              }
-                            },
-                            "untoggledTooltip": "Add to queue"
-                          }
-                        },
-                        {
-                          "thumbnailOverlayNowPlayingRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Now playing"
-                                }
-                              ]
-                            }
-                          }
-                        },
-                        {
-                          "thumbnailOverlayLoadingPreviewRenderer": {
-                            "text": {
-                              "runs": [
-                                {
-                                  "text": "Keep hovering to play"
-                                }
-                              ]
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "videoRenderer": {
                       "videoId": "9P3K0ICCtBw",
                       "title": {
                         "accessibility": {
@@ -3574,7 +3651,7 @@
                         "simpleText": "6:36"
                       },
                       "viewCountText": {
-                        "simpleText": "699,028 views"
+                        "simpleText": "699,035 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -3812,83 +3889,6 @@
                     }
                   },
                   {
-                    "gridShelfViewModel": {
-                      "contentAspectRatio": "GRID_SHELF_CONTENT_ASPECT_RATIO_TWO_BY_THREE",
-                      "contents": [
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        },
-                        {
-                          "shortsLockupViewModel": {}
-                        }
-                      ],
-                      "enableVerticalExpansion": true,
-                      "header": {},
-                      "loggingDirectives": {
-                        "visibility": {
-                          "types": "12"
-                        }
-                      },
-                      "minCollapsedItemCount": 10,
-                      "showLessButton": {},
-                      "showMoreButton": {}
-                    }
-                  },
-                  {
                     "videoRenderer": {
                       "videoId": "3ikfIcm5EBg",
                       "title": {
@@ -3912,7 +3912,7 @@
                         "simpleText": "2:47"
                       },
                       "viewCountText": {
-                        "simpleText": "352,236 views"
+                        "simpleText": "352,226 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -4170,7 +4170,7 @@
                         "simpleText": "2:45"
                       },
                       "viewCountText": {
-                        "simpleText": "1,061,532 views"
+                        "simpleText": "1,061,506 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -4428,7 +4428,7 @@
                         "simpleText": "7:02"
                       },
                       "viewCountText": {
-                        "simpleText": "1,024,659 views"
+                        "simpleText": "1,024,573 views"
                       },
                       "shortViewCountText": {
                         "accessibility": {
@@ -4661,7 +4661,7 @@
               "continuationItemRenderer": {
                 "continuationEndpoint": {
                   "continuationCommand": {
-                    "token": "EscDEgxjYXB0YWluIGphY2satgNTQlNDQVJwU1JFVk5SRVpXTkZabU1rSXlhVXRFZVZCUmMwRnhVMVJTVVlJQkMydHZablJmV1hOamFHNWpnZ0VMZVZoS1duRllkemhRVmxtQ0FRdDBRa2xSVTBJNGFrcEZRWUlCQzNGNGVYUnFXV3RvUTBJMGdnRUxOVkpSZUVoNVExUnBNVGlDQVF0SFJqVktWMWx1ZEdST1ZZSUJDM1ZCYm5GalNuSXpPRGxOZ2dFTE5YcHFRVXRCTUhwVE4wMkNBUXRYVXpoVVJGZEhkRTFUU1lJQkdGVkRVblIwV0hsRVdUQkJPRmx0TTBoRlpIUlRiSEJHWjRJQkMzSTFXVUp1Wmt3elNFSk5nZ0VMTW10a1JEWmpWMDVtV0VHQ0FRczNXREpSZW5SVk56UndRWUlCQzI1bkxWSTBjMU0wV2pSM2dnRUxjRlZLYmtGYWVqbGpZVldDQVFzNVVETkxNRWxEUTNSQ2Q0SUJDek5wYTJaSlkyMDFSVUpuZ2dFTFUwWlZiekpPVUdacU1tLUNBUXR5T0daTU5GVXRlbUZLUWJJQkJnb0VDQllRQXVvQkJBZ0NFQmslM0QYgeDoGCILc2VhcmNoLWZlZWQ%3D"
+                    "token": "EscDEgxjYXB0YWluIGphY2satgNTQlNDQVJwU1JFVk5SRVpXTkZabU1rSXlhVXRFZVZCUmMwRnhVMVJTVVlJQkMydHZablJmV1hOamFHNWpnZ0VMZVZoS1duRllkemhRVmxtQ0FRdHhlSGwwYWxscmFFTkNOSUlCQzNSQ1NWRlRRamhxU2tWQmdnRUxSMFkxU2xkWmJuUmtUbFdDQVFzMWVtcEJTMEV3ZWxNM1RZSUJDM1ZCYm5GalNuSXpPRGxOZ2dFTE5WSlJlRWg1UTFScE1UaUNBUXR3VlVwdVFWcDZPV05oVllJQkMxZFRPRlJFVjBkMFRWTkpnZ0VMY2pWWlFtNW1URE5JUWsyQ0FSaFZRMUowZEZoNVJGa3dRVGhaYlROSVJXUjBVMnh3Um1lQ0FRc3lhMlJFTm1OWFRtWllRWUlCQ3pkWU1sRjZkRlUzTkhCQmdnRUxibWN0VWpSelV6UmFOSGVDQVFzNVVETkxNRWxEUTNSQ2Q0SUJDek5wYTJaSlkyMDFSVUpuZ2dFTFUwWlZiekpPVUdacU1tLUNBUXR5T0daTU5GVXRlbUZLUWJJQkJnb0VDQllRQXVvQkJBZ0NFQmslM0QYgeDoGCILc2VhcmNoLWZlZWQ%3D"
                   }
                 }
               }
@@ -4674,7 +4674,7 @@
       }
     }
   },
-  "estimatedResults": "23544834",
+  "estimatedResults": "23544604",
   "header": {},
   "targetId": "search-page",
   "topbar": {}

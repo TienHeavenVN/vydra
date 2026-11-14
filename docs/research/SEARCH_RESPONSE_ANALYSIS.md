@@ -10,7 +10,7 @@ is inferred from a third-party client's source.
 | | |
 |---|---|
 | Capture | `crates/vydra-providers/examples/probe_search.rs`, run through `ReqwestTransport` |
-| Runs | `43541388070` (first capture), `43542839419` (capture the fixtures are reduced from) |
+| Runs | `43541388070` (first capture), `43542839419` (first reduction), `43544223832` (capture the fixtures are reduced from; made after the page-cursor fix, so its "page 2" is a real second page) |
 | Where | GitHub-hosted runner (the development sandbox has no egress to `youtube.com`) |
 | Client | `clientName WEB`, `clientVersion 2.20260805.01.00`, `hl en`, `gl US` |
 | Endpoint | `https://www.youtube.com/youtubei/v1/search?prettyPrint=false&key=<redacted>` |
@@ -18,18 +18,23 @@ is inferred from a third-party client's source.
 | Inventory tool | `scripts/fixtures/inventory_renderers.py probe-out` |
 | Reduction tool | `scripts/fixtures/import_probe.py probe-out crates/vydra-providers/tests/fixtures` |
 
-The five captures of run `43542839419`:
+The five captures of run `43544223832`:
 
 | label | status | bytes | elapsed | items the probe mapped | `estimatedResults` | page cursor |
 |---|---|---|---|---|---|---|
-| `search_page_1` | 200 | 664 211 | 638 ms | 19 (18 video + 1 channel) | 23 544 834 | 638 chars |
-| `search_page_2` | 200 | 263 144 | 320 ms | 18 (18 video) | 19 | 1 320 chars |
-| `search_mixed` (`veritasium`) | 200 | 1 396 201 | 688 ms | 30 (29 video + 1 channel) | 200 258 | 612 chars |
-| `search_empty` | 200 | 21 748 | 1 328 ms | 0 | 0 | none |
-| `search_error` | 400 | 274 | 18 ms | 0 | — | — |
+| `search_page_1` | 200 | 660 981 | 672 ms | 19 (18 video + 1 channel) | 23 544 604 | 638 chars |
+| `search_page_2` | 200 | 488 298 | 609 ms | 18 (18 video) | 23 544 805 | 670 chars |
+| `search_mixed` (`veritasium`) | 200 | 1 236 535 | 802 ms | 25 (24 video + 1 channel, one duplicate) | 200 236 | 612 chars |
+| `search_empty` | 200 | 21 754 | 1 456 ms | 0 | 0 | none |
+| `search_error` | 400 | 274 | 20 ms | 0 | — | — |
 
-The first run produced slightly different sizes for the same requests (658 813 / 262 854 / 1 354 950 /
-21 752 bytes), which is expected: the page carries experiment and personalization state.
+The three runs produced different sizes for the same requests (658 813 / 664 211 / 660 981 bytes for
+page 1), which is expected: the page carries experiment and personalization state. Every figure below
+is from the run the fixtures were reduced from.
+
+**Run history matters here.** `43542839419` "paged" with a filter-chip token (§2.1), so its second
+capture is not a second page; `43544223832` ran after the fix, and its `search_page_2` is a real page 2
+— 488 298 bytes, the same total estimate as page 1, a further cursor of 670 chars.
 
 ## 2. Envelopes: the first page and a continuation are different shapes
 
@@ -77,26 +82,31 @@ The first page carries **six** `continuationCommand` tokens: one page cursor (63
 `sectionListRenderer.contents[].continuationItemRenderer.continuationEndpoint`, and five chips
 (746 / 1 018 / 754 / 810 / 812 chars) on
 `header.searchHeaderRenderer.chipBar.chipCloudRenderer.chips[n].navigationEndpoint`. The chip labels
-were not recorded, which is why lengths are used as identifiers here.
+were not recorded, which is why lengths are used as identifiers.
 
 They are not interchangeable. A chip token asks upstream for a **filtered or re-sorted** result set;
 the page cursor asks for the next page of the same query. `find_continuation` used to return whichever
-token its walk met first, and on this page that was the 812-char chip token — which is exactly what the
-probe recorded for page 1 (and 732 for page 2, whose page cursor is 1 320).
+token its walk met first, which on this page was the 812-char chip token — so `next_cursor` pointed at
+a filtered result set while `enable_unverified_filters` is false. The filter path this project keeps
+disabled was reachable through the cursor.
 
-Two consequences, both material:
+That is not a theory. Run `43542839419` recorded `continuation_token_len = 812` for page 1, and its
+"page 2" is that chip continuation. Run `43544223832`, made after the fix, shows the difference:
 
-1. **Pagination would have silently changed the result set.** A caller paging a search would have
-   received a chip-filtered page while `enable_unverified_filters` is false — the filter path this
-   project keeps disabled, reached through the cursor instead of through `params`.
-2. The captured "page 2" **is** that chip continuation. Its envelope and token mechanics are real and
-   verified (`reloadContinuationItemsCommand`, 18 videos, a further cursor), but which filter or sort
-   that page represents is not known, so it is not "page 2 of the same query".
+| | chip continuation (run `43542839419`) | page cursor (run `43544223832`) |
+|---|---|---|
+| cursor used | 812 | 638 |
+| response bytes | 263 144 | 488 298 |
+| `estimatedResults` | 19 | 23 544 805 (= page 1's total) |
+| next cursor | 732 | 670 |
+
+The `estimatedResults` difference is the clearest signal that these are different operations: the page
+cursor continues the *query*, the chip token starts a *narrowed* one.
 
 Fixed in this phase: `find_continuation` prefers
 `continuationItemRenderer.continuationEndpoint.continuationCommand.token` and falls back to any
 `continuationCommand` only when no page cursor exists (`parse.rs:374`). The fixtures pin the page
-cursors (638 / 1 320 / 612) and `a_filter_chip_token_never_becomes_the_page_cursor` guards the
+cursors (638 / 670 / 612), and `a_filter_chip_token_never_becomes_the_page_cursor` guards the
 regression.
 
 ## 3. Renderer inventory of the captures
@@ -106,9 +116,9 @@ wider than what the parser sees: the parser does not descend into a renderer it 
 
 | capture | mapped renderers | content shapes with no mapping | chrome keys | distinct unnamed keys |
 |---|---|---|---|---|
-| `search_page_1` | 18 `videoRenderer`, 1 `channelRenderer` | 25 `shortsLockupViewModel`, 11 `lockupViewModel` | 814 | 67 |
-| `search_page_2` | 18 `videoRenderer` | 1 `lockupViewModel` | 369 | — |
-| `search_mixed` | 29 `videoRenderer`, 1 `channelRenderer` | 65 `shortsLockupViewModel` | 1 589 | — |
+| `search_page_1` | 18 `videoRenderer`, 1 `channelRenderer` | 25 `shortsLockupViewModel`, 11 `lockupViewModel` | 851 | 67 |
+| `search_page_2` | 18 `videoRenderer` | 25 `shortsLockupViewModel`, 2 `lockupViewModel` | 588 | — |
+| `search_mixed` | 24 `videoRenderer`, 1 `channelRenderer` | 65 `shortsLockupViewModel` | 1 461 | — |
 | `search_empty` | — | — | 89 | — |
 
 Chrome is everything the parser legitimately does not map and should not pretend to: filter chips
@@ -153,19 +163,22 @@ counted as `unmapped_result` now (`map.rs`, `search_item_from_renderer` fallback
 
 | capture | `estimatedResults` | items parsed |
 |---|---|---|
-| page 1 | 23 544 834 | 19 |
-| continuation | 19 | 18 |
-| mixed | 200 258 | 30 |
+| page 1 | 23 544 604 | 19 |
+| page 2 (real continuation) | 23 544 805 | 18 |
+| chip continuation (earlier run) | 19 | 18 |
+| mixed | 200 236 | 25 |
 | empty | 0 | 0 |
 
-On a first page it is upstream's estimate for the whole query; on a continuation it is a small
-page-local number (19 for a page with 18 items), so it must never be presented as "total results".
+On a first page and on a real continuation it is upstream's estimate for the whole query (page 2
+repeats page 1's number to within 200). On a *chip* continuation it was 19 for a page with 18 items —
+something else entirely, and another reason never to treat the field as a result count or as a paging
+signal.
 Vydra passes it through unchanged as `SearchResults::estimated_results` with its source text, and no
 code path derives paging from it.
 
 ## 5. "Empty" is a promo, not an empty tree
 
-`search_empty` (query `zzqqxxvydraprobe9931`) answers **200** with `estimatedResults: 0` and no
+`search_empty` (query `zzqqxxvydraprobe9931`) answers **200** (21 754 bytes) with `estimatedResults: 0` and no
 results — but its `contents` still contain a section:
 
 ```
