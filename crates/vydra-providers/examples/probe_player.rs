@@ -123,7 +123,11 @@ fn mask_keys(text: &str) -> String {
 /// Bounded, single-line, key-masked form of a message that may quote upstream text.
 fn sanitize_text(text: &str) -> String {
     let masked = mask_keys(text);
-    masked.chars().take(400).collect::<String>().replace('\n', " ")
+    masked
+        .chars()
+        .take(400)
+        .collect::<String>()
+        .replace('\n', " ")
 }
 
 /// Drop the query string of a value that is itself a URL. `sig`, `n`, `expire`, `ip` and the key all
@@ -495,16 +499,7 @@ async fn main() -> ProbeResult<()> {
     let mut records: Vec<Value> = Vec::new();
 
     // ---- a long-standing public video, the flags the provider sends --------------------------
-    let public = record(
-        &client,
-        &ctx,
-        &out,
-        "public",
-        &public_id,
-        true,
-        true,
-    )
-    .await?;
+    let public = record(&client, &ctx, &out, "public", &public_id, true, true).await?;
     records.push(public.summary());
 
     // ---- the same video with the opposite check flags: does the verdict depend on them? ------
@@ -521,35 +516,20 @@ async fn main() -> ProbeResult<()> {
     records.push(public_no_checks.summary());
 
     // ---- a public video with caption tracks -------------------------------------------------
-    let captions = record(
-        &client,
-        &ctx,
-        &out,
-        "captions",
-        &captions_id,
-        true,
-        true,
-    )
-    .await?;
+    let captions = record(&client, &ctx, &out, "captions", &captions_id, true, true).await?;
     records.push(captions.summary());
 
     // ---- a syntactically valid id that should not resolve -----------------------------------
-    let missing = record(
-        &client,
-        &ctx,
-        &out,
-        "missing",
-        &missing_id,
-        true,
-        true,
-    )
-    .await?;
+    let missing = record(&client, &ctx, &out, "missing", &missing_id, true, true).await?;
     records.push(missing.summary());
 
     // ---- provider-level mapping (what the public API would serve) ---------------------------
     let provider = InnertubeProvider::new(config, Arc::new(transport));
     let mut mapping: BTreeMap<String, Value> = BTreeMap::new();
-    mapping.insert("public".into(), provider_mapping(&provider, &public_id).await);
+    mapping.insert(
+        "public".into(),
+        provider_mapping(&provider, &public_id).await,
+    );
     mapping.insert(
         "captions".into(),
         provider_mapping(&provider, &captions_id).await,
