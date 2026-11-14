@@ -11,7 +11,7 @@ is a live `OK` verdict: the runner's datacenter IP is bot-checked (Phase 5A §11
 | --- | --- |
 | Branch | `arena/06c8b7fc-vydra` (PR #1, left **open and unmerged**) |
 | Starting commit | `2f0618b` (Phase 5A final, 22/22 green) |
-| Final code commit | `0d1a97e` — 23/23 jobs green in run `43555445850`; the docs commit that carries this report follows it (§10) |
+| Final commit | `9018fc9` — all code, tests and documents; 22/22 jobs green in run `43556071130` (PR run `43556074777`) |
 | CI | §9 |
 
 ---
@@ -208,7 +208,8 @@ pins all six 5A defects (page/age substring, content fact as parse error, missin
 | `43553918750` | `cc531c8` | first Phase 5B commit | red: 2 compile errors (`live_state_of` name collision with the search helper, partial move in a test), 2 unused imports in `vydra-domain` |
 | `43554393169` | `476d588` | rename + import fixes | red: one partial move left in an integration test (borrowing `&document` after moving a field out of it) |
 | `43554917627` | `5e67ac8` | borrow fixes | red: `fmt` on the unformatted commit (the bot's `style:` commit followed), and `fixture_provenance` tripped on `malformed/search_truncated.json`, which is invalid JSON **by design** |
-| **`43555445850`** | **`0d1a97e`** | contract docs + fixture-test fix | **23/23 green** (22 permanent checks + the temporary `fmt-apply`) |
+| `43555445850` | `0d1a97e` | contract docs + fixture-test fix | 23/23 green (22 permanent checks + the temporary `fmt-apply`) |
+| **`43556071130`** (push) / **`43556074777`** (PR) | **`9018fc9`** | report, ADRs, contract updates; `fmt-apply` retired | **22/22 green** — the permanent baseline |
 
 Each red run exposed a real defect, not a CI quirk: a duplicate helper name that would have shadowed the
 search mapper's `live_state_of`, a partial move, and a fixture-hygiene assertion that had not accounted for
