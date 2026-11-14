@@ -45,7 +45,7 @@ Consequences, stated plainly:
 | 4.1 — Provider engine audit | **complete, CI green** | `PROVIDER_ENGINE_AUDIT.md` (27 findings, A-01…A-27) + `PROVIDER_ENGINE.md`; every CI job green on run [43448221721](https://github.com/TienHeavenVN/vydra/actions/runs/43448221721), 22/22 after the temporary `fmt-apply` job was retired |
 | 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
 | 4.3 — Search evidence & reliability | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43545086009, 22/22) | 5 live captures from 3 runs, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
-| 5A — Player endpoint verification | **complete; metadata + verdicts verified live, formats/captions unverified live** | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
+| 5A — Player endpoint verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43552284213, 22/22); metadata + verdicts verified live, formats/captions unverified live | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video metadata verified live (5A); chapters + captions from fixtures | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
@@ -57,7 +57,7 @@ Consequences, stated plainly:
 | Claim | Evidence |
 |---|---|
 | Vydra can call `POST /youtubei/v1/player` through its own transport and client | 8 raw requests across runs [43549141233](https://github.com/TienHeavenVN/vydra/actions/runs/43549141233) and [43549736295](https://github.com/TienHeavenVN/vydra/actions/runs/43549736295): **8× HTTP 200**, `application/json; charset=UTF-8` |
-| The request body is exactly `{context, videoId, contentCheckOk, racyCheckOk}` | accepted on every attempt; `request_contract::player_body_is_byte_exact` pins the bytes |
+| The request body is exactly `{context, videoId, contentCheckOk, racyCheckOk}` | accepted on every attempt; `request_contract::player_body_is_byte_exact` pins the bytes — key-sorted (`BTreeMap`), not struct order |
 | `contentCheckOk`/`racyCheckOk` do not change the verdict | same video sent with `true/true` and `false/false`: byte-identical redacted responses in run `43549736295` |
 | Playability verdicts are mapped, not guessed | `UNPLAYABLE` ("The page needs to be reloaded.") → `unavailable{other}` with the metadata document; `LOGIN_REQUIRED` ("Sign in to confirm you're not a bot") → 409 `content_unavailable{login_required}`; `ERROR` ("This video is unavailable") → 409 `content_unavailable{other}` |
 | A missing verdict never becomes `available` | `Availability::Unknown`, never cached; `tests/player_parser::transformed_capture_without_a_verdict_is_unknown` |
@@ -65,7 +65,11 @@ Consequences, stated plainly:
 | Formats/captions are **not** live-verified | every capture was refused playback: no `streamingData`, no `captions`, no `storyboards` (see the report's verification matrix) |
 | Playback URLs, signatures and PoToken stay out of scope | nothing extracted, nothing requested, `signatureCipher`/`cipher` dropped at capture time (ADR-006) |
 
-Detail and limitations: `docs/reports/PHASE_5A_REPORT.md`.
+Detail and limitations: `docs/reports/PHASE_5A_REPORT.md`. The phase ended green on run
+[43552284213](https://github.com/TienHeavenVN/vydra/actions/runs/43552284213) (22/22 jobs) after six
+pushing fixes: the player had to import `ProviderError` from `vydra_errors`, the publish date had to be
+normalised to UTC, the byte-exact body had to be key-sorted, and the locale assertion had to move to
+`ProviderContext`.
 
 ## Phase 4.3 — search evidence and reliability (what CI actually proved)
 

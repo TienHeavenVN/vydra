@@ -10,7 +10,7 @@ because upstream refused playback on every capture and Vydra did not attempt to 
 | --- | --- |
 | Branch | `arena/06c8b7fc-vydra` (PR #1, left **open and unmerged**) |
 | Starting commit | `4b253a1` (Phase 4.3 final, 22/22 green) |
-| Final commit | see §10 — the commit that contains this report; every earlier phase commit is listed in §9 |
+| Final commit | `7816ed0` — the last code/test commit; the docs commit that carries this report follows it (§10) |
 | Probe runs | `43549141233`, `43549736295` (both from CI, both archived) |
 
 ---
@@ -29,7 +29,7 @@ because upstream refused playback on every capture and Vydra did not attempt to 
 | Harden the parser only on evidence | **Done** — six defects, each with a live or reproducible trigger (§5) |
 | Typed errors separating transport / HTTP / playability / parse | **Done** (§4) |
 | Deterministic tests from archived fixtures | **Done** — `tests/player_parser.rs` (12 tests) + `request_contract.rs` (+3) |
-| Docs + PROGRESS + no 4.3 regression + green CI + PR #1 open | **Done** (§8, §9) |
+| Docs + PROGRESS + no 4.3 regression + green CI + PR #1 open | **Done** (§8, §9 — run `43552284213`, 22/22) |
 
 ## 2. Requests attempted
 
@@ -204,7 +204,9 @@ in scope and still green.
 | `43548781249` | first capture attempt | red: the capture step succeeded, the publish push failed (exit 128) |
 | `43549141233` | capture run 1 + publish | capture published (`8e28f1c`), fmt/clippy red on the pre-format commit |
 | `43549736295` | capture run 2 + publish | capture published (`10e4ffe`), fmt/clippy red on `cf5aa84` (formatting + `collapsible_match`) |
-| final run | see the PR checks on the final commit | expected 21 jobs green (the temporary `player-probe` job is removed) |
+| `43551388841` | push of the first complete player commit | red: 21/22, `player_body_is_byte_exact` expected struct order instead of the key-sorted wire bytes |
+| `43551832624` / `43551835539` | byte-exact body fix | red: 21/22, one header assertion (`accept-language`) — the locale is taken from `ProviderContext`, the test set it on the request only |
+| **`43552284213`** (push) / **`43552287221`** (PR) | final commit `7816ed0` | **22/22 green**, no `fmt-apply`, no capture job |
 
 The temporary capture job in `ci.yml` existed only to move bytes from a runner into the repository — CI
 artifacts are not downloadable from the development sandbox and expire. It has been removed; the
