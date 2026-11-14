@@ -49,6 +49,7 @@ jobs:
         if: always()
         run: |
           bash scripts/ci/annotate.sh probe.log -1 25
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

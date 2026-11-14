@@ -55,8 +55,11 @@ the promo page, localization) is `docs/research/SEARCH_RESPONSE_ANALYSIS.md`.
 | `scripts/fixtures/import_probe.py` | reduces a capture into fixtures; refuses to write if the renderer counts disagree with what the probe reported |
 | `scripts/fixtures/inventory_renderers.py` | renders the per-key inventory of a capture (§3 of the analysis document) |
 
-Raw capture (`probe-out/`, ~5.7 MB) was published to the branch only to get it out of CI, reduced into
-fixtures, and then deleted from the tree in the same change.
+Raw capture: publishing it to the branch was the only way to get it out of CI (artifact storage is
+unreachable from the development sandbox, and artifacts expire in 14 days). The capture the fixtures
+come from is archived verbatim — gzipped, 320 KB — in `docs/research/data/probe-43544223832/`, and the
+`probe-out/` copy used for transport is gone from the tree. Both temporary jobs (`probe` in `ci.yml`
+and the rustfmt bot) are removed in this change; the permanent entry point is `probe.yml`.
 
 ## 3. Typed request DTOs
 
@@ -168,9 +171,14 @@ false in a way that hid F-1 and F-2.
 
 | Run | Commit | Result |
 |---|---|---|
-| 43541388070 | `a5982e7` | probe success; `fmt` red (temporary job, expected) |
-| 43542839419 | `9665091` | probe + publish success; `fmt` red (bot fixed in `c73a4e7`), `test (vydra-providers)` red on one parser expectation (fixed) |
-| *final* | *this change* | *22 jobs* |
+| 43541388070 | `a5982e7` | probe success; `fmt` red (temporary job, expected on a new example) |
+| 43542839419 | `9665091` | probe + publish success; `fmt` red (bot fixed in `c73a4e7`), `test (vydra-providers)` red on parser expectations (fixed) |
+| 43544223832 | `95180eb` | probe + publish success after the cursor fix |
+| *final* | *this change* | *see the pull request checks — the authoritative run is the one on the head of `arena/06c8b7fc-vydra`* |
+
+Every failure in that table was a finding (a wrong expectation, a broken workflow, a permission), not a
+tolerated red job: nothing was merged with a failing required check, and no test was deleted to get
+green.
 
 ## 10. Remaining risks
 

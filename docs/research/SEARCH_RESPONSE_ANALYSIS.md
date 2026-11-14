@@ -17,6 +17,7 @@ is inferred from a third-party client's source.
 | Fixtures | `crates/vydra-providers/tests/fixtures/recorded/search_web_probe_*.json` (+ `.meta.json`) |
 | Inventory tool | `scripts/fixtures/inventory_renderers.py probe-out` |
 | Reduction tool | `scripts/fixtures/import_probe.py probe-out crates/vydra-providers/tests/fixtures` |
+| Raw capture archive | `docs/research/data/probe-43544223832/` (gzipped, verbatim) |
 
 The five captures of run `43544223832`:
 
