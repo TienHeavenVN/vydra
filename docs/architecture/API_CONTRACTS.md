@@ -47,6 +47,22 @@ When upstream refuses the *metadata* as well (a bot check, a deleted id), there 
 request fails with `409 content_unavailable` (§ table below), which is the only shape that carries a
 reason without data.
 
+### Video document fields (Phase 5B)
+
+| Field | Notes |
+| --- | --- |
+| `summary.{id,title,channel_id,channel_title,duration_seconds,view_count,published_at,thumbnails,live_state}` | as before; `duration_seconds: 0` is a stated zero, an omitted field is "not stated" |
+| `like_count` | `{value, precision: "exact"}`, or omitted when upstream publishes none — **not** `0` |
+| `publication` | `{published_at (UTC), upstream_text, upstream_offset_seconds, uploaded_at?, uploaded_text?}`; the instant is normalized, the original string and offset are kept |
+| `broadcast` | `{live_now?, start_at?, end_at?}`, only when upstream states a window |
+| `unlisted`, `family_safe` | content facts from the microformat, omitted when not stated |
+| `storyboards` | geometry (`levels[]` with width/height/frame_count/columns/rows/interval_ms/name) plus `url_template_present`/`sigh_present`; the signed template is never returned |
+| `evidence` | `{sections[], fallbacks[], conflicts[]}` — which sections arrived, which fields were filled from the secondary section, and where two sections disagreed (the accepted value is the one served) |
+| `comment_count` | never populated by this provider: the player response carries no comment count |
+
+`hl`/`gl` are accepted on `/videos/{id}`, `/videos/{id}/metadata`, `/videos/{id}/chapters` and
+`/videos/{id}/captions` from Phase 5B and are part of the cache key.
+
 Error (ADR-009):
 
 ```json
@@ -109,25 +125,26 @@ Mounted only when a provider declares the capability (see `ARCHITECTURE.md` §5)
 | `GET /search/videos` | `SEARCH_VIDEOS` | yes | fixture |
 | `GET /search/channels` | `SEARCH_CHANNELS` | yes | fixture |
 | `GET /search/playlists` | `SEARCH_PLAYLISTS` | yes | fixture |
-| `GET /videos/{id}` | `VIDEO_METADATA` | yes | fixture + live capture (metadata fields; refusals return 409) |
-| `GET /videos/{id}/metadata` | `VIDEO_METADATA` | yes | fixture |
-| `GET /videos/{id}/related` | `VIDEO_RELATED` | yes | fixture |
-| `GET /videos/{id}/chapters` | `VIDEO_CHAPTERS` | yes | fixture |
-| `GET /channels/{id}` | `CHANNEL_METADATA` | yes | fixture |
-| `GET /channels/{id}/about` | `CHANNEL_ABOUT` | yes | fixture |
-| `GET /channels/{id}/videos` | `CHANNEL_VIDEOS` | yes | fixture |
-| `GET /channels/{id}/playlists` | `CHANNEL_PLAYLISTS` | yes | fixture |
-| `GET /playlists/{id}` | `PLAYLIST_METADATA` | yes | fixture |
-| `GET /playlists/{id}/items` | `PLAYLIST_ITEMS` | yes | fixture |
-| `GET /videos/{id}/captions` | `CAPTIONS_METADATA` | yes | fixture |
+| `GET /videos/{id}` | `VIDEO_METADATA` | yes | fixture + live capture (metadata fields live-verified; refusals return 409; an `OK` verdict is fixture-only) |
+| `GET /videos/{id}/metadata` | `VIDEO_METADATA` | yes | same handler as `/videos/{id}` |
+| `GET /videos/{id}/related` | `VIDEO_RELATED` | **no** — `capability_unavailable` (the `next` endpoint is not implemented) | — |
+| `GET /videos/{id}/chapters` | `VIDEO_CHAPTERS` | yes | fixture + live capture (derived from the live description) |
+| `GET /channels/{id}` | `CHANNEL_METADATA` | **no** | — |
+| `GET /channels/{id}/about` | `CHANNEL_ABOUT` | **no** | — |
+| `GET /channels/{id}/videos` | `CHANNEL_VIDEOS` | **no** | — |
+| `GET /channels/{id}/playlists` | `CHANNEL_PLAYLISTS` | **no** | — |
+| `GET /playlists/{id}` | `PLAYLIST_METADATA` | **no** | — |
+| `GET /playlists/{id}/items` | `PLAYLIST_ITEMS` | **no** | — |
+| `GET /videos/{id}/captions` | `CAPTIONS_METADATA` | yes | fixture (never observed live: playback was refused) |
 | `GET /videos/{id}/comments` | `COMMENTS_THREAD` | no (Phase 6) | — |
 | `GET /comments/{id}/replies` | `COMMENTS_REPLIES` | no (Phase 6) | — |
 | `GET /live`, `/live/{id}` | `LIVE_METADATA` | no (Phase 7) | — |
 | `GET /trending`, `/categories`, `/recommendations` | `TRENDING`/… | no (Phase 7) | — |
 | `GET /search/music` | `SEARCH_MUSIC` | no (Phase 7) | — |
 
-"Verified" means: covered by an offline test in this repository. Live upstream verification is
-**not** claimed anywhere (see `docs/PROGRESS.md`).
+"Verified" means: covered by an offline test in this repository, and — where the row says so — backed by
+a capture Vydra made itself (`docs/research/*_PROVENANCE.md`). This table previously claimed channel,
+playlist and related endpoints as implemented; they are not, and the router does not mount them.
 
 ## 4. Identifier validation
 
@@ -146,7 +163,7 @@ cannot be used to build an arbitrary upstream URL (SSRF hardening).
 
 | Param | Applies to | Default | Notes |
 |---|---|---|---|
-| `hl` | all extraction | `en` | BCP-47 language subtag, affects both text and numbers |
+| `hl` | all extraction, including `/videos/{id}` (Phase 5B) | `en` | BCP-47 language subtag, affects both text and numbers |
 | `gl` | all extraction | `US` | ISO-3166-1 alpha-2 content country |
 | `limit`, `cursor` | list endpoints | 20 | see §2 |
 | `sort` | search, comments | `relevance` | `relevance\|date\|views\|rating` / `top\|new` |

@@ -257,6 +257,47 @@ Rules that hold in every row:
   delivery classification). No URL is stored, no cipher is deciphered, no `n-sig` or PoToken exists in
   this codebase (ADR-006).
 
+## 6.3 Video metadata assembly (Phase 5B, ADR-021)
+
+`map_player` reads every section the player endpoint returns and states where each value came from:
+
+| Domain field | Primary source | Fallback | On disagreement |
+| --- | --- | --- | --- |
+| title, description, channel id/name | `videoDetails` | `microformat` | primary kept, `evidence.conflicts[]` records both |
+| duration, view count | `videoDetails` | `microformat` | as above — the live capture really disagrees about duration (213 vs 214 s) |
+| like count, category, unlisted, family-safe | `microformat` (only source) | — | — |
+| publication instants | `microformat.publishDate`/`uploadDate` | — | `publication` keeps the upstream text and offset beside the UTC instant |
+| live state | `videoDetails` flags | `microformat.liveBroadcastDetails` | recorded as a fallback |
+| storyboards | `storyboards.playerStoryboardSpecRenderer.spec` | — | geometry only; the signed template is dropped |
+| formats, captions | `streamingData`, `captions` | — | unchanged from 5A |
+
+Two properties are load-bearing:
+
+1. **A present-but-unreadable member is a counted loss; an absent member is upstream saying nothing.**
+   `lengthSeconds: "two minutes"` produces `missing_field:videoDetails.lengthSeconds`; an absent
+   `lengthSeconds` produces nothing (live broadcasts have no duration).
+2. **Malformed members degrade one field, not the document.** Every member is read through a helper, so a
+   wrong-typed `lengthSeconds`, `keywords` or `isLiveNow` costs exactly that field.
+
+`availability` gains one refinement over §6.2: an `OK` verdict on a live or upcoming broadcast maps to
+`live`/`upcoming` rather than `available`, because those documents change while they air — which is what
+the cache policy below keys on.
+
+## 6.4 Document cache policy (ADR-022)
+
+| Document | TTL | Why |
+| --- | --- | --- |
+| `available` | `metadata_ttl_secs` (300) | stable for minutes |
+| `live` / `upcoming` | `live_ttl_secs` (30) | viewer counts and state move while it airs |
+| `unavailable` | `unavailable_ttl_secs` (60) | content facts are reversible (private → public) |
+| `unknown` | never | the next request may get a verdict |
+| any error | never | failures are `Err`; nothing is stored, so an outage is never remembered as unavailability |
+
+The cache key is `video:{id}:{hl}:{gl}`; the client profile cannot change at runtime, so it lives in the
+configuration fingerprint that stamps every entry (`ProviderRegistry::config_fingerprint`, id + client
+label). A client bump therefore invalidates the entry class instead of serving one client's body under
+another's configuration.
+
 ## 7. Adding a provider (the whole checklist)
 
 1. Implement `Provider` in a new module of `vydra-providers` (or a new crate depending only on

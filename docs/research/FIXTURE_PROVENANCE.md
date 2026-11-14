@@ -5,6 +5,12 @@ declared in a `*.meta.json` sidecar next to the fixture and repeated here, becau
 origin is unclear is worse than no fixture: it invites "the parser matches upstream" claims that the
 evidence does not support.
 
+**Phase 5B update.** One fixture was added, `synthetic/player_live_broadcast_storyboards.json` (class
+`synthetic`), because no capture carries an `OK` verdict, a live-broadcast window and a storyboard spec.
+Details: `docs/research/VIDEO_METADATA_FIXTURE_PROVENANCE.md`. The corpus rules below are now enforced by
+`crates/vydra-providers/tests/fixture_provenance.rs` (sidecar presence, class vocabulary, directory/class
+agreement, synthetic files must disclaim themselves and list `not_verified`).
+
 **Phase 5A update.** The player endpoint has its own capture set and its own fixture appendix —
 `docs/research/PLAYER_FIXTURE_PROVENANCE.md` — including the redaction rules applied at capture time and
 the list of live sections that were *not* obtained (formats, captions, storyboards).
@@ -52,6 +58,7 @@ Rules that were applied when the corpus was built:
 | `recorded/search_web_probe_empty.json` | recorded_vydra_probe | 525 | same run, nonsense query, 200, 21 754 B, `estimatedResults: 0` | 2026-11-14 | `search_parser::recorded_empty_page_is_empty_not_broken` |
 | `recorded/search_web_probe_malformed_request.json` | recorded_vydra_probe | 274 | same run, body without `query`, 400 `FAILED_PRECONDITION` | 2026-11-14 | `search_parser::recorded_error_document_yields_no_items` |
 | `synthetic/search_mixed.json` | synthetic | 2 139 | hand-written, shaped after `EXTRACTION_METHODS.md` §5.2 | 2026-11-13 | `search_fixture::mixed_search_fixture_maps_to_domain_items` |
+| `synthetic/player_live_broadcast_storyboards.json` | synthetic | 3 618 | hand-written for Phase 5B: `OK` verdict + `liveBroadcastDetails` + storyboard spec + `likeCount` + formats + captions in one document | 2026-11-14 | `player_parser::synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions` |
 | `malformed/search_without_contents.json` | derived | 28 | `browse_channel_search_2023-12-06.json` with `contents` removed (`{"estimatedResults":0}`) | 2026-11-13 | `recorded_fixture::malformed_search_without_contents_is_an_empty_page` |
 | `malformed/player_without_playability.json` | derived | 6 652 | `player_web_2025-11-10.json` with `playabilityStatus` removed | 2026-11-13 | `recorded_fixture::malformed_player_without_playability_warns_but_keeps_the_document` |
 | `recorded/player_probe_public_unplayable_2026-11-14.json` | recorded_vydra_probe | 12 879 | run `43549736295`, `POST /youtubei/v1/player`, 200, 14 534 B body, `UNPLAYABLE` with metadata | 2026-11-14 | `player_parser::live_unplayable_capture_*` |

@@ -46,11 +46,29 @@ Consequences, stated plainly:
 | 4.2 — Upstream request contract verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43457728940) | `docs/research/INNERTUBE_REQUEST_CONTRACTS.md`, `docs/research/FIXTURE_PROVENANCE.md`, `docs/security/DNS_REBINDING_ANALYSIS.md`, `docs/reports/PHASE_4_2_REPORT.md`; request-contract + recorded-fixture tests; A-28…A-32 closed |
 | 4.3 — Search evidence & reliability | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43545086009, 22/22) | 5 live captures from 3 runs, typed request DTOs, parser + transport reliability suites, `docs/reports/PHASE_4_3_REPORT.md`, `docs/research/SEARCH_RESPONSE_ANALYSIS.md`, `docs/security/TRANSPORT_RELIABILITY.md` |
 | 5A — Player endpoint verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43552284213, 22/22); metadata + verdicts verified live, formats/captions unverified live | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
+| 5B — Video metadata engine | **complete; metadata live-verified, an `OK` verdict still blocked** | domain evidence/conflict model, microformat + broadcast + storyboard mapping, `DocumentCachePolicy`, `hl`/`gl` on the video endpoints; `docs/reports/PHASE_5B_REPORT.md`, `docs/research/{VIDEO_METADATA_CONTRACT,VIDEO_METADATA_FIXTURE_PROVENANCE}.md`; ADR-021, ADR-022 |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
 | 6 — Metadata engines | video metadata verified live (5A); chapters + captions from fixtures | channels, playlists, comments **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 5B — video metadata (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| Every field of a video document names its source | `data.evidence` (`sections`, `fallbacks`, `conflicts`) — asserted on the live capture by `player_parser::live_capture_maps_the_microformat_facts_and_records_the_disagreement` |
+| Two upstream sections disagree and the document says so | live capture: `videoDetails.lengthSeconds = 213` vs `microformat…lengthSeconds = 214`; the document reports 213 and records the conflict |
+| A wrong-typed member costs one field, not the document | `map::tests::a_wrong_typed_member_costs_one_field_not_the_document` |
+| Missing is not zero | `lengthSeconds: "0"` → `Some(0)`; absent `likeCount` → `None` |
+| Timestamps are UTC with the source offset preserved | `publication.{published_at,upstream_text,upstream_offset_seconds}` = `2009-10-25T06:57:33Z`, `2009-10-24T23:57:33-07:00`, `-25200` |
+| Cache TTL follows the fact | `DocumentCachePolicy`: available 300 s, live 30 s, unavailable 60 s, unknown never, errors never (`engines` tests) |
+| A client-profile bump invalidates the cache | `ProviderRegistry::config_fingerprint()` covers id + client label |
+| `/videos/{id}` honours `hl`/`gl` | `api::tests::video_query_validates_and_normalises_locales`; both reach the cache key |
+| Fixtures cannot be added without provenance | `tests/fixture_provenance.rs` (3 tests) over the whole corpus |
+| Storyboards never expose a template URL or signature | `storyboard_spec_is_reduced_to_geometry_and_never_to_a_url` |
+
+Not verified live: an `OK` verdict, `live`/`upcoming`, `broadcast`, `storyboards` (see the report's §7).
 
 ## Phase 5A — player endpoint (what CI actually proved)
 
@@ -161,7 +179,10 @@ newer recording, and they are listed as such in every document that touches them
 - Live metadata and live chat.
 - Trending, categories, recommendations, music search.
 - Transcript fetching (`timedtext`) — metadata only.
-- Player storyboards — the section is not parsed at all (Phase 5A left it `NOT_IMPLEMENTED`).
+- Player storyboards — implemented in Phase 5B from the *synthetic* fixture only; never observed live.
+- Comment counts — the player response does not carry one; needs the `next` endpoint.
+- Stale-while-revalidate — configured (`cache.stale_while_revalidate_secs`) but not implemented: the
+  in-memory cache sets a zero stale window.
 - Playback URLs, signature deciphering, `n-sig`, PoToken — excluded by policy (ADR-006), not by backlog.
 - Redis cache implementation, quota counters in Redis, OpenTelemetry export, worker jobs.
 - Benchmarks, load tests, Kubernetes manifests.
@@ -209,8 +230,9 @@ the underlying functionality is implemented and tested").
 ## Next steps (in order)
 
 1. Capture one player response with an `OK` verdict from a non-datacenter egress, which would upgrade
-   `streamingData` and `captions` from fixture-verified to live-verified (Phase 5A §11–12). The probe
-   already accepts the video ids as inputs.
+   `available`, `live`/`upcoming`, `broadcast`, `storyboards`, `streamingData` and `captions` from
+   fixture-verified to live-verified (Phase 5A §11–12, Phase 5B §7.3). The probe already accepts the video
+   ids as inputs.
 2. Run the probe matrix over `gl`/`hl` before adding endpoints: localization is the untested axis of
    every parser.
 3. `params` encoding (search filters) is still unverified; enable it only after a live capture shows the

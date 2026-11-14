@@ -472,3 +472,78 @@ misclassification is visible in the recorded provider projection) and
 deliberate: an unrecognised phrase maps to `other` and surfaces the raw status rather than guessing a
 restriction. A Rust client matching exhaustively on `Availability` must handle the new variant; there is
 none in this workspace.
+
+## ADR-021 — A video document states where each value came from
+
+**Status:** accepted (Phase 5B)
+**Context.** The player response duplicates facts. `videoDetails.lengthSeconds` and
+`microformat.playerMicroformatRenderer.lengthSeconds` disagree in the very first live capture Vydra made
+(213 vs 214 s), `viewCount` appears in both, and the channel name appears in both. Before this decision the
+mapper read one section per field, silently: a reader had no way to know whether `duration_seconds: 213`
+came from the playback authority or from a fallback, and no way to discover that upstream had stated two
+answers at all. The same capture also carried `likeCount`, `uploadDate`, `isUnlisted` and `isFamilySafe`,
+none of which was mapped — data present in the response and absent from the document, with no note saying
+so.
+
+**Decision.**
+
+1. **A fixed precedence table**, documented in `docs/research/VIDEO_METADATA_CONTRACT.md` §3:
+   `videoDetails` primary, `microformat` fallback, single-source fields (`likeCount`, `category`,
+   `publishDate`) read where they exist.
+2. **Every substitution and every disagreement is recorded** in `data.evidence`
+   (`sections[]`, `fallbacks[]`, `conflicts[]` with both values and both sources). The accepted value is
+   served; the rejected one is preserved as text so the disagreement stays auditable.
+3. **Absent means "upstream did not state it"; present-but-unreadable is a counted loss.** The first is
+   silent, the second produces `missing_field:<section>.<field>` and fails strict parsing.
+4. **Normalisation is lossy, so the original is kept**: `Publication` holds the UTC instant *and* the
+   upstream string plus its offset.
+5. **A malformed member degrades one field, not the document**: every member is read through a helper
+   instead of a concrete deserialization type.
+
+**Rejected alternatives.** (a) Merge both sections into one "best value" per field — unfalsifiable, and it
+hides the fact that upstream itself is inconsistent. (b) Fail the document on a disagreement — the response
+is real; the disagreement is upstream's, not Vydra's. (c) Deserialize the microformat into a strict struct —
+one wrong type would reject an otherwise complete document.
+
+**Evidence.** Live capture `docs/research/data/player-probe-43549736295/` (the `213`/`214` disagreement,
+`likeCount: 19503628`, `publishDate` with `-07:00`); tests in `innertube/map.rs` and
+`tests/player_parser.rs`.
+
+**Residual.** `evidence` grows with the response; it is omitted entirely when empty, so documents from a
+minimal payload are unchanged on the wire.
+
+## ADR-022 — Cache TTL follows the document's availability, not the endpoint
+
+**Status:** accepted (Phase 5B)
+**Context.** The metadata cache used one TTL (300 s) and cached only documents whose `availability` was
+playable. Two facts were lost: content-fact unavailability (private, deleted, geo) was re-fetched on every
+request even though it is stable for minutes, and a `live` document — viewer counts, end time, broadcast
+state — was cached as if it were a published upload. Separately, cache entries were stamped with a
+fingerprint of provider **ids** only, so bumping the InnerTube client version (which is part of the request
+context and changes the body upstream returns) would have kept serving the previous client's documents.
+
+**Decision.**
+
+| Document | TTL | Reason |
+| --- | --- | --- |
+| `available` | `cache.metadata_ttl_secs` (300 s) | stable for minutes |
+| `live` / `upcoming` | `cache.live_ttl_secs` (30 s) | changes while it airs |
+| `unavailable` | `cache.unavailable_ttl_secs` (60 s) | reversible: private → public |
+| `unknown` | never | the next request may get a verdict |
+| any upstream error | never stored at all | an outage must never be remembered as unavailability |
+
+The cache key is `video:{id}:{hl}:{gl}`; the client profile belongs to the entry fingerprint
+(`ProviderRegistry::config_fingerprint`, id + client label) because it cannot change at runtime but does
+change the response.
+
+**Rejected alternatives.** (a) Keep one TTL — either live data goes stale for five minutes or published
+metadata is re-fetched every 30 s. (b) Negative-cache errors — an outage would become a content fact.
+(c) Put the client version in the cache key — it is constant per process; the fingerprint is the correct
+scope. (d) Add Redis — measured requirement absent, ADR-015 stands.
+
+**Evidence.** `vydra-engines` cache-policy tests, `vydra-provider-registry` fingerprint test,
+`docs/research/VIDEO_METADATA_CONTRACT.md` §5.
+
+**Residual.** Stale-while-revalidate is configured but not implemented (`MemoryCache` stale window is
+zero); repopulating a hot key still costs one blocking upstream call.
+

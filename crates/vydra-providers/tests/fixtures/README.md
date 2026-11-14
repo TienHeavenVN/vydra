@@ -26,3 +26,8 @@ Rules:
    and all URL query strings are removed by `scripts/fixtures/extract_recorded.py`.
 5. `scripts/fixtures/extract_recorded.py` regenerates `recorded/` and `malformed/` from an upstream
    checkout; see `docs/research/FIXTURE_PROVENANCE.md` for the exact command and commit.
+
+Rules 1, 3 and 4 are enforced by `tests/fixture_provenance.rs` (Phase 5B): every fixture needs a sidecar,
+the sidecar's `class` must come from the closed set, the directory must agree with the class, and a
+synthetic file must say it is not a capture and list what it does not prove. Rule 2 (values are never
+rewritten) is a review rule — no test can prove it.

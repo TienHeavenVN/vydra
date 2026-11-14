@@ -64,7 +64,7 @@ adBreakHeartbeatParams, messages
 | `microformat` | 2/4 | only `playerMicroformatRenderer`, with `availableCountries`, `canonicalUrl`, `category`, `description`, `embed`, `externalChannelId`, `externalVideoId`, `hasYpcMetadata`, `isFamilySafe`, `isShortsEligible`, `isUnlisted`, `lengthSeconds`, `likeCount`, `ownerChannelName`, `ownerProfileUrl`, `publishDate`, `thumbnail`, `title`, `uploadDate`, `viewCount` |
 | `streamingData` | **0/4** | not returned for a refused verdict. Format metadata therefore stays fixture-verified (§7) |
 | `captions` | **0/4** | same: the caption track list lives in a playable response |
-| `storyboards` | **0/4** | not implemented, and not observed |
+| `storyboards` | **0/4** | parsed since Phase 5B, but never observed — synthetic-only |
 
 Two distinct `errorScreen` renderers appeared, which matters because the parser must not assume one:
 
@@ -88,6 +88,20 @@ Values that the mapper used, from the `public` capture (2026-11-14):
 | `microformat…publishDate` | `2009-10-24T23:57:33-07:00` | `published_at = 2009-10-25T06:57:33Z` (offset applied) |
 | `microformat…category` | `Music` | `category` |
 | `microformat…thumbnail` | one 1280×720 entry | `summary.thumbnails` |
+
+Phase 5B added the fields this capture carried and the 5A mapper did not read:
+
+| Field | Upstream | Mapped to |
+| --- | --- | --- |
+| `microformat…likeCount` | `"19503628"` | `like_count` = exact 19 503 628 |
+| `microformat…publishDate` | `2009-10-24T23:57:33-07:00` | `publication.published_at` (UTC) **and** `upstream_text`/`upstream_offset_seconds` (`-25200`) |
+| `microformat…uploadDate` | same instant | `publication.uploaded_at`/`uploaded_text` |
+| `microformat…isUnlisted` | `false` | `unlisted` |
+| `microformat…isFamilySafe` | `true` | `family_safe` |
+| `microformat…lengthSeconds` | `"214"` | **rejected** — `evidence.conflicts[{kept: 213, rejected: 214}]` |
+| `microformat…externalChannelId`, `ownerChannelName`, `title`, `description` | present | fallbacks when `videoDetails` lacks the field |
+| `videoDetails.isLiveContent` | `false` | `live_state = not_live` |
+| `liveBroadcastDetails`, `storyboards` | **absent** | absent in the document too; synthetic-only elsewhere |
 
 ## 4. Verdict → taxonomy mapping
 
@@ -161,7 +175,7 @@ Reason selection uses **whole words** from `reason`, `playabilityStatus.messages
 | `microformat.playerMicroformatRenderer` | **VERIFIED_LIVE** | publishDate, category, owner, thumbnails |
 | `streamingData` | **UNVERIFIED_LIVE / VERIFIED_FIXTURE** | third-party 2025 recording only |
 | `captions.playerCaptionsTracklistRenderer` | **UNVERIFIED_LIVE / VERIFIED_FIXTURE** | same |
-| `storyboards` | **NOT_IMPLEMENTED** | no parser consumes it; not observed live |
+| `storyboards` | **SYNTHETIC_ONLY** (parser added in Phase 5B) | no capture carries it; the geometry parser is exercised only by `synthetic/player_live_broadcast_storyboards.json` |
 
 ## 8. Reproducing this analysis
 
