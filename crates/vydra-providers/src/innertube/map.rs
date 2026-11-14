@@ -992,7 +992,7 @@ pub fn map_player(
 
     // --- broadcast state ---------------------------------------------------------
     let broadcast = broadcast_from(micro);
-    let live_state = live_state_of(&details, broadcast.as_ref(), &mut evidence);
+    let live_state = player_live_state(&details, broadcast.as_ref(), &mut evidence);
 
     let availability = match verdict {
         Playability::Ok => match live_state {
@@ -1288,7 +1288,9 @@ fn broadcast_from(micro: Option<&MicroformatRendererDto>) -> Option<BroadcastInf
 }
 
 /// Broadcast state: `videoDetails` flags are primary, `liveBroadcastDetails` is the fallback.
-fn live_state_of(
+///
+/// Named `player_live_state` because `live_state_of` already means the search renderer's overlay check.
+fn player_live_state(
     details: &VideoDetailsDto,
     broadcast: Option<&BroadcastInfo>,
     evidence: &mut MetadataEvidence,
@@ -2096,7 +2098,7 @@ mod tests {
             "storyboards": {"playerStoryboardSpecRenderer": {"spec": "https://i.ytimg.com/sb/dQw4w9WgXcQ/storyboard3_L$L/$N.jpg?sqp=SECRET&sigh=SIGNED|48#27#100#10#10#0#default#SIG|160#90#50#5#5#1000#M$M#SIG2", "recommendedLevel": 1}}
         });
         let (document, _) = map(&payload);
-        let storyboard = document.storyboards.expect("storyboard");
+        let storyboard = document.storyboards.as_ref().expect("storyboard");
         assert!(storyboard.url_template_present);
         assert_eq!(storyboard.levels.len(), 2);
         assert_eq!(storyboard.levels[0].width, 48);

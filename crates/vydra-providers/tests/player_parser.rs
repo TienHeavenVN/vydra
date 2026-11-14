@@ -515,7 +515,7 @@ async fn synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions()
     assert_eq!(document.like_count.map(|count| count.value), Some(99));
 
     // Storyboards: geometry only.
-    let storyboard = document.storyboards.expect("storyboard geometry");
+    let storyboard = document.storyboards.as_ref().expect("storyboard geometry");
     assert!(storyboard.url_template_present);
     assert_eq!(storyboard.levels.len(), 2);
     assert_eq!(storyboard.levels[0].width, 48);

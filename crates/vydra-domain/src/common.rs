@@ -1,8 +1,7 @@
 //! Shared value objects: provenance, counts, thumbnails, availability, media and captions.
 
 use serde::{Deserialize, Serialize};
-use time::format_description::well_known::Rfc3339;
-use time::{OffsetDateTime, UtcOffset};
+use time::OffsetDateTime;
 use vydra_errors::UnavailabilityReason;
 
 /// Where a document came from and how clean the parse was (ADR-016).
@@ -425,6 +424,8 @@ pub enum AttemptOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use time::format_description::well_known::Rfc3339;
+    use time::UtcOffset;
 
     #[test]
     fn availability_serializes_with_reason() {
