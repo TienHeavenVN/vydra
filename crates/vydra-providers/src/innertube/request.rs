@@ -83,7 +83,10 @@ impl ClientContext {
                 client_version,
                 original_url: "https://www.youtube.com".to_owned(),
                 platform: profile.platform.map(str::to_owned),
-                visitor_data: session.visitor_data.clone().filter(|value| !value.is_empty()),
+                visitor_data: session
+                    .visitor_data
+                    .clone()
+                    .filter(|value| !value.is_empty()),
             },
             user: UserContext {
                 locked_safety_mode: false,
@@ -126,7 +129,11 @@ impl SearchRequest {
     /// The caller is responsible for the capability gate: `params` encoding is unverified, so this
     /// must only be reachable when `enable_unverified_filters` is set. It is public because the
     /// params builder lives next door, not because it is safe to call from anywhere.
-    pub fn with_params(context: ClientContext, query: impl Into<String>, params: impl Into<String>) -> Self {
+    pub fn with_params(
+        context: ClientContext,
+        query: impl Into<String>,
+        params: impl Into<String>,
+    ) -> Self {
         Self {
             context,
             query: query.into(),
@@ -252,7 +259,10 @@ mod tests {
     fn search_request_places_params_after_query() {
         let request = SearchRequest::with_params(context(), "q", "EgIQAQ%3D%3D");
         let json = serde_json::to_string(&request).expect("serialize");
-        assert!(json.ends_with(r#","query":"q","params":"EgIQAQ%3D%3D"}"#), "{json}");
+        assert!(
+            json.ends_with(r#","query":"q","params":"EgIQAQ%3D%3D"}"#),
+            "{json}"
+        );
         assert!(request.has_params());
         assert_eq!(request.params(), Some("EgIQAQ%3D%3D"));
     }
@@ -271,9 +281,7 @@ mod tests {
         let request = PlayerRequest::new(context(), "9Umm2MAKsMc");
         let json = serde_json::to_string(&request).expect("serialize");
         assert!(
-            json.ends_with(
-                r#","videoId":"9Umm2MAKsMc","contentCheckOk":true,"racyCheckOk":true}"#
-            ),
+            json.ends_with(r#","videoId":"9Umm2MAKsMc","contentCheckOk":true,"racyCheckOk":true}"#),
             "{json}"
         );
     }

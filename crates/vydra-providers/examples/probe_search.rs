@@ -365,8 +365,10 @@ async fn main() -> ProbeResult<()> {
     );
 
     // ---- page 1 (primary query) -------------------------------------------------------------
-    let page_1_body =
-        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), query.clone()))?;
+    let page_1_body = serde_json::to_value(SearchRequest::new(
+        client.context(&session, &ctx),
+        query.clone(),
+    ))?;
     let page_1 = record(&client, &main_context(), &out, "search_page_1", page_1_body).await?;
     let token = page_1
         .payload
@@ -395,14 +397,18 @@ async fn main() -> ProbeResult<()> {
     }
 
     // ---- mixed renderer kinds ---------------------------------------------------------------
-    let mixed_body =
-        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), mixed_query.clone()))?;
+    let mixed_body = serde_json::to_value(SearchRequest::new(
+        client.context(&session, &ctx),
+        mixed_query.clone(),
+    ))?;
     let mixed = record(&client, &main_context(), &out, "search_mixed", mixed_body).await?;
     records.push(mixed.summary());
 
     // ---- empty result page ------------------------------------------------------------------
-    let empty_body =
-        serde_json::to_value(SearchRequest::new(client.context(&session, &ctx), empty_query.clone()))?;
+    let empty_body = serde_json::to_value(SearchRequest::new(
+        client.context(&session, &ctx),
+        empty_query.clone(),
+    ))?;
     let empty = record(&client, &main_context(), &out, "search_empty", empty_body).await?;
     records.push(empty.summary());
 

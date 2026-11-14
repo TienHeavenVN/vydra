@@ -134,7 +134,9 @@ impl InnertubeProvider {
         let body = match cursor {
             Some(token) => serialize_body(&ContinuationRequest::new(context, token))?,
             None => match params {
-                Some(params) => serialize_body(&SearchRequest::with_params(context, query, params))?,
+                Some(params) => {
+                    serialize_body(&SearchRequest::with_params(context, query, params))?
+                }
                 None => serialize_body(&SearchRequest::new(context, query))?,
             },
         };
