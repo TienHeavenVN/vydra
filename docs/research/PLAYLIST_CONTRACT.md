@@ -112,14 +112,26 @@ signed payload.
 
 | Claim | Status | Evidence |
 | --- | --- | --- |
-| `VL{id}` returns a playlist page | **live-verified (partially)** | probe run 43561555917 requested the uploads playlist of a real channel; the response parsed without a cursor and without readable entry rows, which is why the row gap below is stated as a gap |
+| `VL{id}` returns a playlist page | **live-verified** | probe run 43570063308: the uploads playlist of a real channel returned a 4.07 MB page that mapped to 30 entries, `item_count = 550` |
+| a live playlist page renders readable entry rows | **live-verified** | same run: 30 entries, all from lockup rows |
+| a live playlist page states a page cursor | **no** — the sampled page carried none (`playlist_token=none`, page 2 `no_page_cursor`) | same run: paging a playlist beyond its first page needs a request Vydra does not yet make |
 | header/title/item-count/sidebar statistics | **fixture-verified** | `browse_playlist_page.json`, `browse_playlist_page2.json` |
-| `playlistVideoRenderer` entries with `index`, `isPlayable`, `lengthSeconds` | **fixture-verified** | `browse_playlist_page.json`, `browse_playlist_page2.json` |
-| lockup entries map with `position: None`, `availability: Unknown` | **fixture-verified** (synthetic, keyed like the sampled channel-tab shape) | `browse_playlist_entries_lockup.json` |
+| `playlistVideoRenderer` entries with `index`, `isPlayable`, `lengthSeconds` | **fixture-verified only** | `browse_playlist_page.json`, `browse_playlist_page2.json`; no live page from this egress rendered that shape, so the *classic* row is not verified live |
+| lockup entries map with `position: None`, `availability: Unknown` | **live-verified** | probe run 43570063308: 30 entries, `positions=[None, …]`, `unavailable=30` — the page states neither a position nor a playability |
+| the same on a synthetic page | **fixture-verified** | `browse_playlist_entries_lockup.json` |
 | private/missing alerts become `Unavailable` content facts | **fixture-verified** | `browse_playlist_private_alert.json`, `browse_playlist_missing_alert.json` |
 | positions survive continuation pages | **fixture-verified** | page-2 fixture starts at position 5 |
 | cursor minting, tamper detection, expiry, fingerprints | **unit-tested** | `vydra-common`, `vydra-engines` |
-| a *live* playlist page currently rendering readable entry rows | **not verified** | the one sampled page returned no readable rows; the mapper is fixture-verified against both row shapes, and Phase 6 does not claim more |
+
+Two consequences follow from that table, and they are the honest limits of this phase:
+
+1. **A playlist's first page is all Vydra can currently serve live.** The sampled page carried no page cursor, so
+   `/playlists/{id}/videos` returns entries and `next_cursor: null`. The code path for continuation pages is
+   implemented and unit-tested (and a *channel* continuation page is live-verified), but no live playlist continuation
+   has been observed.
+2. **`position` and `availability` are `None`/`Unknown` on every live entry**, because the live rows are lockups.
+   A client must read `position` as "unknown" rather than "1, 2, 3". This is the ADR-023 decision, now confirmed
+   against upstream rather than inferred.
 
 ## 9. Reproducing the checks
 

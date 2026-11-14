@@ -97,12 +97,17 @@ documented in `docs/architecture/PROVIDER_ENGINE.md` §6.4).
 
 ## 7. Evidence and verification boundaries
 
-### 7.1 Live-verified (probe runs 43561178733, 43561555917)
+### 7.1 Live-verified (probe runs 43561178733, 43561555917, 43570063308)
 
 * a channel page parses end to end: id, 7 tabs in document order, `subscribers = 21 400 000` (approximate),
   `videos = 550`, zero parse warnings, evidence sections `channelMetadataRenderer`, `header`, `tabs`;
 * the relayed videos-tab `params` blob is 20 bytes and is accepted; the tab response carried a 136-byte page cursor;
 * current channel listing rows are `richItemRenderer > content > lockupViewModel`;
+* **the lockup mapper works on a real page**: the live Videos tab maps to **30 items with 0 duplicates** and a
+  `next_cursor`, and the continuation page maps too (38 KB `onResponseReceivedEndpoints` response);
+* **a live playlist page maps to 30 entries** with `item_count = 550`, and every entry carries `position: None` and
+  `availability: Unknown` — the page states neither. `next_cursor` is `null` because the sampled page carried no page
+  cursor;
 * a `@handle` is **not** a browse id: `HTTP 400`.
 
 ### 7.2 Fixture-verified (synthetic, sidecar-classed)
@@ -113,9 +118,11 @@ playability, position preservation on page 2, lockup rows (title, thumbnails, du
 
 ### 7.3 Blocked, and why
 
-* **live playlist rows** — the one uploads playlist the probe requested returned no page cursor and no readable entry
-  rows. The mapper handles both known row shapes, but no live playlist page with rows has been observed from this
-  egress, so the claim stops at fixture-verified.
+* **playlist continuation pages** — the sampled playlist page carried no page cursor, so `/playlists/{id}/videos`
+  serves page 1 only (`next_cursor: null`). The continuation path is implemented and unit-tested, and a *channel*
+  continuation page is live-verified; no live playlist continuation has been observed.
+* **the classic `playlistVideoRenderer` row** — every live row the probe saw was a lockup, so `index`/`isPlayable`
+  handling is fixture-verified only.
 * **raw captures as fixtures** — the redacted channel page was 7.6 MB (above the probe's inline cap) and the job
   artifact is unreachable from the build sandbox, so no `recorded_vydra_probe` browse fixture exists. See
   `docs/research/CHANNEL_PLAYLIST_FIXTURE_PROVENANCE.md` §5–6.
@@ -184,10 +191,13 @@ from the build sandbox, which is why both exist.
 
 ## 11. Unresolved findings and limitations
 
-1. **Lockup rows are the current shape, and only channel tabs were sampled.** If a playlist surface nests them
-   differently, the mapper's by-key fallback may find nothing and the page will report `playlist_entries_missing`
-   rather than fabricating entries. That is the failure mode chosen deliberately, but it is a failure mode.
-2. **No live playlist listing.** Unchanged from §7.3.
+1. **Lockup rows are the current shape on both surfaces now** (channel tab and playlist page, probe 43570063308).
+   Chrome around them is still unmapped and counted: **57 parse warnings** on the live Videos page and **70** on the
+   live playlist page, all `unknown_renderer`/`unmapped_result` on `listItemViewModel`, `chipViewModel`,
+   `buttonViewModel` and similar. None of them produced an item and none was dropped silently, but the warning counts
+   are high enough that a client reading `provenance.parse_warnings` should not treat them as an error.
+2. **Playlist paging is limited to page 1 live.** Unchanged from §7.3, and it is a capability gap, not a bug:
+   the endpoint is honest about it (`next_cursor: null`) rather than looping.
 3. **Counts remain positional.** A page that renders subscribers and videos in the other order in some locale would
    swap them; the ambiguity guard only catches the one-part case. Mitigation: both values are `approximate` and keep
    their rendered text, so a swap is visible in `raw`.

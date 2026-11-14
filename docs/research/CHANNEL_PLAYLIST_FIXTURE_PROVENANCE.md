@@ -64,12 +64,14 @@ Three probe runs were made on 2026-11-13 (branch `arena/06c8b7fc-vydra`):
 | --- | --- | --- | --- |
 | 43560646681 | `probe` | success | the browse probe runs from a branch at all (`push` on `.github/probe-trigger`, because `workflow_dispatch` is not dispatchable while the workflow is absent from the default branch) |
 | 43561178733 | `probe` | success | a genuine channel page parsed: `id`, 7 tabs, `subscribers=21 400 000`, `videos=550`, zero parse warnings; the videos tab accepted the relayed 20-byte `params` blob and returned a 136-byte page cursor; `browseId: "@veritasium"` returned `HTTP 400` |
-| 43561555917 | `probe` | success | the same, plus the **row shape**: channel Videos rows are `richItemRenderer > content > lockupViewModel`; the page carries 30 `lockupViewModel`, 3 `continuationItemRenderer` and 1 `chipBarViewModel`, and the uploads playlist page returned neither a page cursor nor readable entry rows |
+| 43561555917 | `probe` | success | the same, plus the **row shape**: channel Videos rows are `richItemRenderer > content > lockupViewModel`; the page carries 30 `lockupViewModel`, 3 `continuationItemRenderer` and 1 `chipBarViewModel` |
+| 43570063308 | `probe` | success | after the lockup mapper landed: the live Videos tab maps to **30 items, 0 duplicates**, a page cursor, and a mapped page 2 (38 KB `onResponseReceivedEndpoints`); the uploads playlist maps to **30 entries** with `positions=[None, …]`, `unavailable=30`, `item_count=550`, and carries **no** page cursor (`playlist_token=none`, page 2 `no_page_cursor`) |
 
 **No raw capture is committed for Phase 6.** The redacted channel page was 7.6 MB, above the probe's inline-dump cap,
 and the job artifact is not reachable from this environment (the same limitation that makes job logs undownloadable).
-What is committed instead is the *finding*: the shape inventory, quoted in the fixture sidecars and in
-`docs/research/CHANNEL_CONTRACT.md` §9. Anyone with egress can regenerate the capture with the command in §7 and
+What is committed instead is the *finding*: the shape inventory and the mapping counts (`items=30`, `0 duplicates`,
+`next=true`; `items=30`, `positions=[None, …]`), quoted in the fixture sidecars and in
+`docs/research/CHANNEL_CONTRACT.md` §9 and `PLAYLIST_CONTRACT.md` §8. Anyone with egress can regenerate the capture with the command in §7 and
 promote it to a `recorded_vydra_probe` fixture under the rules above; until then the honest label for the lockup
 mappers is "fixture-verified against a sampled shape", not "live-verified".
 

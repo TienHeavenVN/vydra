@@ -79,6 +79,10 @@ The live probe (§9) read `subscriber_count = 21 400 000 (approximate, raw "21.4
 `video_count = 550 (approximate)` from one real channel in the two-part case, which is the case the positional rule
 is designed for.
 
+Residual, stated rather than fixed: the live videos page produced **57 parse warnings**, almost all `unknown_renderer`
+on page chrome (`listItemViewModel`, `chipViewModel`, `buttonViewModel`, …) that carries no list item. The warnings are
+reported in `provenance.parse_warnings`; none of them produced an item and none was dropped silently.
+
 ## 5. Tabs
 
 Tabs come from the page's tab strip in **document order**. A tab is emitted with its rendered title always, and with
@@ -132,8 +136,10 @@ unbounded continuation loop.
 | --- | --- | --- |
 | one `browse` call returns the channel page, tabs and header counts | **live-verified** | probe run 43561555917: `id`, 7 tabs, `subscribers=21 400 000`, `videos=550`, no parse warnings |
 | the videos tab needs the relayed `params` blob | **live-verified** | same run: relayed blob 20 bytes, tab response carried a page cursor of 136 bytes |
-| current listing rows are `richItemRenderer > content > lockupViewModel` | **live-verified** | same run: the page's row shape was sampled and reported |
-| lockup rows map to items (id, title, thumbnails, duration badge) | **fixture-verified** (synthetic, keyed like the sample) | `browse_channel_videos_lockup.json` |
+| current listing rows are `richItemRenderer > content > lockupViewModel` | **live-verified** | run 43561555917: the page's row shape was sampled and reported |
+| a continuation request returns page 2 | **live-verified** | run 43570063308: 38 KB `onResponseReceivedEndpoints` response, mapped without error |
+| lockup rows map to items (id, title, thumbnails, duration badge) | **live-verified** | probe run 43570063308: the live Videos tab mapped to **30 items, 0 duplicates**, with `next_cursor` present, and the continuation page mapped as well |
+| the same lockup mapping on a synthetic page with an invalid id, a live badge and no metadata block | **fixture-verified** | `browse_channel_videos_lockup.json` |
 | the tab strip order, slugs and `selected` flag | **fixture-verified** | `browse_channel_page.json` |
 | ambiguous single-count rows are not guessed | **fixture-verified** | `browse_channel_page_ambiguous_counts.json` |
 | a handle is not accepted upstream | **live-verified** | same run: `browseId: "@veritasium"` → `400` |
