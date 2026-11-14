@@ -124,17 +124,7 @@ jobs:
         if: always()
         run: |
           bash scripts/ci/annotate.sh probe-push.log -1 20
-          if [ -f probe-out/summary.json ]; then
-            python3 - <<'SUMMARY'
-import json
-
-summary = json.load(open("probe-out/summary.json", encoding="utf-8"))
-for key, value in summary.get("probe", {}).items():
-    print(f"::notice title=probe.{key}::{json.dumps(value)[:900]}")
-for record in summary.get("records", []):
-    print(f"::notice title=probe.{record.get('label')}::{json.dumps(record)[:900]}")
-SUMMARY
-          fi
+          python3 scripts/ci/summarise-probe.py probe-out/summary.json || true
 
   check:
     runs-on: ubuntu-latest
