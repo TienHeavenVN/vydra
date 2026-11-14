@@ -11,8 +11,8 @@ use std::time::{Duration, Instant};
 use vydra_cache::{Cache, CacheClass, Lookup};
 use vydra_common::{CursorCodec, PageParams, VideoId};
 use vydra_domain::{
-    CaptionTrackList, Chapter, Provenance, SearchItem, SearchResults, VideoChapters, VideoDocument,
-    VideoSummary,
+    Availability, CaptionTrackList, Chapter, Provenance, SearchItem, SearchResults, VideoChapters,
+    VideoDocument, VideoSummary,
 };
 use vydra_errors::Error;
 use vydra_provider_registry::{FetchOutcome, ProviderRegistry};
@@ -28,6 +28,10 @@ pub struct EnginesConfig {
     /// Budget for a single engine call, including fallback attempts.
     pub call_budget: Duration,
     pub metadata_ttl: Duration,
+    /// TTL for `live`/`upcoming` documents (ADR-022).
+    pub live_ttl: Duration,
+    /// TTL for content-fact `unavailable` documents (ADR-022).
+    pub unavailable_ttl: Duration,
     pub search_ttl: Duration,
     pub cache_search: bool,
     pub strictness: Strictness,
@@ -43,6 +47,8 @@ impl Default for EnginesConfig {
             gl: "US".into(),
             call_budget: Duration::from_millis(8_000),
             metadata_ttl: Duration::from_secs(300),
+            live_ttl: Duration::from_secs(30),
+            unavailable_ttl: Duration::from_secs(60),
             search_ttl: Duration::from_secs(60),
             cache_search: false,
             strictness: Strictness::Lenient,
@@ -68,6 +74,39 @@ pub struct VideoInput {
     pub id: VideoId,
     pub hl: Option<String>,
     pub gl: Option<String>,
+}
+
+/// How long a video document may be cached, as a function of what it says (ADR-022).
+///
+/// The rule is that the TTL follows the *fact*, not the endpoint:
+///
+/// | Document | TTL | Why |
+/// | --- | --- | --- |
+/// | `available` | `metadata_ttl` (300 s) | a published upload's metadata is stable for minutes |
+/// | `live` / `upcoming` | `live_ttl` (30 s) | viewer counts, end time and state move while it airs |
+/// | `unavailable` | `unavailable_ttl` (60 s) | content facts are reversible: private → public |
+/// | `unknown` | **never** | the next request may get a verdict, so caching one that did not would freeze a gap |
+///
+/// Upstream *failures* never reach this table: a transport or parse error is an `Err`, and the engine
+/// stores nothing at all, so a 20-minute upstream outage cannot be remembered as "this video is
+/// unavailable".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DocumentCachePolicy {
+    pub available: Duration,
+    pub live: Duration,
+    pub unavailable: Duration,
+}
+
+impl DocumentCachePolicy {
+    /// `None` means "do not cache".
+    pub fn ttl(self, availability: Availability) -> Option<Duration> {
+        match availability {
+            Availability::Available => Some(self.available),
+            Availability::Live | Availability::Upcoming => Some(self.live),
+            Availability::Unavailable { .. } => Some(self.unavailable),
+            Availability::Unknown => None,
+        }
+    }
 }
 
 /// The engine facade.
@@ -98,7 +137,10 @@ impl Engines {
         cursors: CursorCodec,
         config: EnginesConfig,
     ) -> Self {
-        let config_hash = fingerprint(&registry.provider_ids());
+        // Audit finding (Phase 5B): this used to fingerprint the provider *ids* only, so a client
+        // profile bump — which changes the request context and therefore the localized body — kept
+        // serving entries produced by the previous client. `config_fingerprint` covers the label too.
+        let config_hash = registry.config_fingerprint();
         Self {
             registry,
             cache,
@@ -110,6 +152,24 @@ impl Engines {
 
     pub fn registry(&self) -> &Arc<ProviderRegistry> {
         &self.registry
+    }
+
+    /// Effective document cache policy, from the configured TTLs.
+    pub fn cache_policy(&self) -> DocumentCachePolicy {
+        DocumentCachePolicy {
+            available: self.config.metadata_ttl,
+            live: self.config.live_ttl,
+            unavailable: self.config.unavailable_ttl,
+        }
+    }
+
+    /// Cache key for a video document: every dimension that changes the response, and nothing else.
+    ///
+    /// `hl`/`gl` change titles, dates and counts; the id selects the resource. The client profile is not
+    /// in the key because it cannot change at runtime — it is part of `config_hash`, which invalidates
+    /// the whole entry set when it does change.
+    fn video_cache_key(id: &VideoId, hl: &str, gl: &str) -> String {
+        format!("video:{id}:{hl}:{gl}")
     }
 
     fn context(&self, hl: Option<String>, gl: Option<String>) -> ProviderContext {
@@ -224,7 +284,7 @@ impl Engines {
     pub async fn video(&self, input: VideoInput) -> Result<VideoDocument, Error> {
         let hl = input.hl.clone().unwrap_or_else(|| self.config.hl.clone());
         let gl = input.gl.clone().unwrap_or_else(|| self.config.gl.clone());
-        let cache_key = format!("video:{}:{}:{}", input.id, hl, gl);
+        let cache_key = Engines::video_cache_key(&input.id, &hl, &gl);
         if let Lookup::Fresh(json) =
             self.cache
                 .get(CacheClass::Metadata, &cache_key, self.config_hash)
@@ -252,13 +312,15 @@ impl Engines {
         let mut document = *document;
         document.provenance.sources = attempts;
 
-        // Unavailable content is never cached: availability can change in both directions.
-        if document.availability.is_available() {
+        // Policy, not a boolean (ADR-022): `unknown` is never cached, `live`/`upcoming` expire in
+        // seconds, `unavailable` in a minute, `available` in `metadata_ttl`. Upstream failures never
+        // get here at all — they are `Err` and nothing is stored.
+        if let Some(ttl) = self.cache_policy().ttl(document.availability) {
             self.cache.set(
                 CacheClass::Metadata,
                 &cache_key,
                 serde_json::to_string(&document).map_err(|err| Error::Internal(err.to_string()))?,
-                self.config.metadata_ttl,
+                ttl,
                 self.config_hash,
             );
         }
@@ -333,17 +395,6 @@ fn describe_filters(filters: &SearchFilters) -> String {
         filters.duration,
         filters.features.len()
     )
-}
-
-fn fingerprint(providers: &[vydra_providers::ProviderId]) -> u64 {
-    let mut hash = 0xcbf29ce484222325u64;
-    for provider in providers {
-        for byte in provider.as_str().as_bytes() {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x100000001b3);
-        }
-    }
-    hash
 }
 
 fn uuid_like() -> String {
@@ -434,6 +485,12 @@ mod tests {
                         chapters: vec![],
                         caption_tracks: vec![],
                         formats: vec![],
+                        storyboards: None,
+                        publication: None,
+                        broadcast: None,
+                        unlisted: None,
+                        family_safe: None,
+                        evidence: vydra_domain::MetadataEvidence::default(),
                         provenance: provenance_for("fixed", "player"),
                     })))
                 }
@@ -442,6 +499,236 @@ mod tests {
                 }),
             }
         }
+    }
+
+    /// A provider that answers with a document in a chosen availability state.
+    ///
+    /// The cache policy is a function of the document, not of the endpoint, so the tests need to
+    /// produce each state from the same code path the real provider uses.
+    #[derive(Debug)]
+    struct DocumentProvider {
+        calls: Arc<AtomicUsize>,
+        availability: Availability,
+        label: &'static str,
+    }
+
+    #[async_trait]
+    impl Provider for DocumentProvider {
+        fn id(&self) -> ProviderId {
+            ProviderId::new("doc")
+        }
+        fn capabilities(&self) -> CapabilitySet {
+            CapabilitySet::from_slice(&[Capability::VideoMetadata])
+        }
+        fn client_label(&self) -> String {
+            self.label.into()
+        }
+        async fn fetch(
+            &self,
+            request: ProviderRequest,
+            _ctx: &ProviderContext,
+        ) -> Result<ProviderResponse, vydra_errors::ProviderError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            let ProviderRequest::Video { id, .. } = request else {
+                return Err(vydra_errors::ProviderError::Unsupported {
+                    capability: "video".into(),
+                });
+            };
+            Ok(ProviderResponse::Video(Box::new(VideoDocument {
+                summary: VideoSummary {
+                    id,
+                    title: "t".into(),
+                    channel_id: None,
+                    channel_title: None,
+                    duration_seconds: Some(60),
+                    view_count: None,
+                    published_text: None,
+                    published_at: None,
+                    thumbnails: vec![],
+                    live_state: None,
+                    badges: vec![],
+                },
+                availability: self.availability,
+                description: None,
+                category: None,
+                keywords: vec![],
+                like_count: None,
+                comment_count: None,
+                chapters: vec![],
+                caption_tracks: vec![],
+                formats: vec![],
+                storyboards: None,
+                publication: None,
+                broadcast: None,
+                unlisted: None,
+                family_safe: None,
+                evidence: vydra_domain::MetadataEvidence::default(),
+                provenance: provenance_for("doc", "player"),
+            })))
+        }
+    }
+
+    fn engines_for(
+        availability: Availability,
+        label: &'static str,
+        cache: Option<Arc<MemoryCache>>,
+    ) -> (Engines, Arc<AtomicUsize>, Arc<MemoryCache>) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = Arc::new(DocumentProvider {
+            calls: calls.clone(),
+            availability,
+            label,
+        });
+        let registry = Arc::new(ProviderRegistry::new(vec![provider]));
+        let cache = cache.unwrap_or_else(|| Arc::new(MemoryCache::new(64)));
+        let cursors =
+            CursorCodec::new("0123456789abcdef0123456789abcdef", Duration::from_secs(600))
+                .expect("codec");
+        (
+            Engines::new(registry, cache.clone(), cursors, EnginesConfig::default()),
+            calls,
+            cache,
+        )
+    }
+
+    fn video_input(hl: Option<&str>) -> VideoInput {
+        VideoInput {
+            id: VideoId::parse("dQw4w9WgXcQ").expect("id"),
+            hl: hl.map(str::to_owned),
+            gl: None,
+        }
+    }
+
+    #[test]
+    fn cache_ttl_follows_the_fact_not_the_endpoint() {
+        let policy = DocumentCachePolicy {
+            available: Duration::from_secs(300),
+            live: Duration::from_secs(30),
+            unavailable: Duration::from_secs(60),
+        };
+        assert_eq!(
+            policy.ttl(Availability::Available),
+            Some(Duration::from_secs(300))
+        );
+        assert_eq!(
+            policy.ttl(Availability::Live),
+            Some(Duration::from_secs(30))
+        );
+        assert_eq!(
+            policy.ttl(Availability::Upcoming),
+            Some(Duration::from_secs(30))
+        );
+        assert_eq!(
+            policy.ttl(Availability::Unavailable {
+                reason: vydra_errors::UnavailabilityReason::Private
+            }),
+            Some(Duration::from_secs(60)),
+            "unavailability is reversible, so it is cached briefly rather than forever"
+        );
+        assert_eq!(
+            policy.ttl(Availability::Unknown),
+            None,
+            "a missing verdict is never cached"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_missing_verdict_is_never_cached() {
+        let (engines, calls, _) = engines_for(Availability::Unknown, "doc-1", None);
+        engines.video(video_input(None)).await.expect("document");
+        let second = engines.video(video_input(None)).await.expect("document");
+        assert!(!second.provenance.cached);
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "the next request may get a verdict, so a verdict-less answer must not be reused"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_unavailable_document_is_cached_briefly_not_forever() {
+        let (engines, calls, _) = engines_for(
+            Availability::Unavailable {
+                reason: vydra_errors::UnavailabilityReason::Private,
+            },
+            "doc-1",
+            None,
+        );
+        engines.video(video_input(None)).await.expect("document");
+        let second = engines.video(video_input(None)).await.expect("document");
+        assert!(second.provenance.cached);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        // The stored TTL is the short one, so the entry cannot outlive a privacy change by long.
+        assert_eq!(
+            engines
+                .cache_policy()
+                .ttl(Availability::Unavailable {
+                    reason: vydra_errors::UnavailabilityReason::Private
+                }),
+            Some(Duration::from_secs(60))
+        );
+    }
+
+    #[tokio::test]
+    async fn live_documents_use_the_short_ttl() {
+        let (engines, _, _) = engines_for(Availability::Live, "doc-1", None);
+        let document = engines.video(video_input(None)).await.expect("document");
+        assert_eq!(document.availability, Availability::Live);
+        assert!(
+            engines
+                .cache_policy()
+                .ttl(document.availability)
+                .expect("live is cacheable")
+                < engines
+                    .cache_policy()
+                    .ttl(Availability::Available)
+                    .expect("available is cacheable"),
+            "live metadata moves while it airs and must expire sooner"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_cache_key_separates_every_locale_that_changes_the_document() {
+        let (engines, calls, _) = engines_for(Availability::Available, "doc-1", None);
+        engines
+            .video(video_input(Some("de")))
+            .await
+            .expect("document");
+        engines
+            .video(video_input(Some("en")))
+            .await
+            .expect("document");
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            2,
+            "a de answer must not be served to an en caller"
+        );
+
+        let again = engines
+            .video(video_input(Some("de")))
+            .await
+            .expect("document");
+        assert!(again.provenance.cached);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn a_client_profile_change_invalidates_cached_documents() {
+        // Same cache, same provider id, different client label: the second engine must not be served the
+        // first engine's body (Phase 5B: the key was salted with provider ids only).
+        let shared = Arc::new(MemoryCache::new(64));
+        let (first, first_calls, _) = engines_for(Availability::Available, "web-1", Some(shared.clone()));
+        first
+            .video(video_input(None))
+            .await
+            .expect("document");
+        assert_eq!(first_calls.load(Ordering::SeqCst), 1);
+
+        let (second, second_calls, _) = engines_for(Availability::Available, "web-2", Some(shared));
+        let document = second.video(video_input(None)).await.expect("document");
+        assert!(!document.provenance.cached);
+        assert_eq!(second_calls.load(Ordering::SeqCst), 1);
     }
 
     fn engines(cache_search: bool) -> (Engines, Arc<AtomicUsize>) {

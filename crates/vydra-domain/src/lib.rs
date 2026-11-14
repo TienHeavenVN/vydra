@@ -19,8 +19,10 @@ pub mod video;
 pub use captions::CaptionTrackList;
 pub use channel::{ChannelDocument, ChannelLink, ChannelSummary, ChannelTab, ChannelVideoList};
 pub use common::{
-    AttemptOutcome, Availability, CaptionKind, CaptionTrack, Chapter, Count, DeliveryKind,
-    LiveState, MediaFormatInfo, Precision, Provenance, SourceAttempt, Thumbnail,
+    AttemptOutcome, Availability, BroadcastInfo, CaptionKind, CaptionTrack, Chapter, Count,
+    DeliveryKind, FieldConflict, FieldFallback, FieldSource, LiveState, MediaFormatInfo,
+    MetadataEvidence, Precision, Provenance, Publication, SourceAttempt, Storyboard,
+    StoryboardLevel, Thumbnail,
 };
 pub use playlist::{PlaylistDocument, PlaylistItem, PlaylistSummary};
 pub use search::{SearchItem, SearchResults};

@@ -5,7 +5,8 @@ use time::OffsetDateTime;
 use vydra_common::{ChannelId, VideoId};
 
 use crate::common::{
-    Availability, CaptionTrack, Chapter, Count, LiveState, MediaFormatInfo, Provenance, Thumbnail,
+    Availability, BroadcastInfo, CaptionTrack, Chapter, Count, LiveState, MediaFormatInfo,
+    MetadataEvidence, Provenance, Publication, Storyboard, Thumbnail,
 };
 
 /// Compact video representation used by search results, playlists, feeds and related lists.
@@ -72,8 +73,30 @@ pub struct VideoDocument {
     /// Format metadata only — never media URLs (ADR-006).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub formats: Vec<MediaFormatInfo>,
+    /// Storyboard geometry, when upstream returned a spec. Never a URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storyboards: Option<Storyboard>,
+    /// Publication instants with the upstream text and offset preserved (Phase 5B).
+    ///
+    /// `summary.published_at` stays the same UTC instant for clients that only need the timestamp;
+    /// this object exists so a caller can see what upstream actually wrote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication: Option<Publication>,
+    /// Scheduled/broadcast window, when upstream states one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub broadcast: Option<BroadcastInfo>,
+    /// `microformat.isUnlisted` — a content fact, not an availability verdict.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unlisted: Option<bool>,
+    /// `microformat.isFamilySafe`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family_safe: Option<bool>,
+    /// Which sections the response carried, which fields fell back and which disagreed (ADR-021).
+    #[serde(default, skip_serializing_if = "MetadataEvidence::is_empty")]
+    pub evidence: MetadataEvidence,
     pub provenance: Provenance,
 }
+
 
 /// Document returned by `GET /videos/{id}/related`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

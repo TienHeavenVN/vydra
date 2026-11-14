@@ -1,0 +1,28 @@
+{
+  "class": "synthetic",
+  "provenance": "synthetic_schema_reference",
+  "note": "Hand-built fixture shaped after the InnerTube player sections documented in docs/research/EXTRACTION_METHODS.md and the reference implementations listed in docs/research/SOURCE_CODE_MAP.md. It is NOT a captured response and must not be described as one: every value, URL, id and signature here is a placeholder.",
+  "endpoint": "player, WEB client",
+  "created": "2026-11-14",
+  "purpose": "Exercise the sections no capture in the corpus carries in a single OK response: liveBroadcastDetails, playerStoryboardSpecRenderer and likeCount together with a verdict of OK, streamingData and captions. Phase 5A obtained no OK verdict live (bot-checked runner IP).",
+  "sections_exercised": [
+    "playabilityStatus.status=OK",
+    "videoDetails (incl. isLiveNow, lengthSeconds=0)",
+    "microformat.playerMicroformatRenderer (publishDate with -08:00 offset, likeCount, isUnlisted, isFamilySafe)",
+    "microformat.playerMicroformatRenderer.liveBroadcastDetails",
+    "storyboards.playerStoryboardSpecRenderer.spec",
+    "streamingData.formats / adaptiveFormats (one direct URL, one signatureCipher)",
+    "captions.playerCaptionsTracklistRenderer"
+  ],
+  "never_observed_live": [
+    "storyboards",
+    "liveBroadcastDetails",
+    "an OK verdict from Vydra's own egress (Phase 5A §11: BLOCKED, runner IP is bot-checked)"
+  ],
+  "not_verified": [
+    "that any of these sections still looks like this upstream",
+    "that the storyboard spec layout (url|w#h#frames#cols#rows#interval#name#sigh) matches current upstream output",
+    "that the placeholder URLs resolve: they are example.invalid on purpose",
+    "that the signature in this file is meaningful: it is a constant placeholder"
+  ]
+}

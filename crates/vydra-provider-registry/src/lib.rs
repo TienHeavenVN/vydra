@@ -377,6 +377,32 @@ impl ProviderRegistry {
             .collect()
     }
 
+    /// Fingerprint of everything about the provider set that can change a response body.
+    ///
+    /// The id alone is not enough: the InnerTube provider's `client_label()` carries the client profile
+    /// version, which is sent in the request context and therefore changes titles, dates and the
+    /// playability answer itself. Cache entries are stamped with this value, so a client bump
+    /// invalidates them instead of serving the previous client's body under the new configuration.
+    pub fn config_fingerprint(&self) -> u64 {
+        // FNV-1a over `id|client|` per provider: stable across runs and platforms, no dependency.
+        let mut hash = 0xcbf29ce484222325u64;
+        for provider in &self.providers {
+            let label = provider.client_label();
+            for byte in provider
+                .id()
+                .as_str()
+                .bytes()
+                .chain(std::iter::once(b'|'))
+                .chain(label.bytes())
+                .chain(std::iter::once(b'|'))
+            {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x100000001b3);
+            }
+        }
+        hash
+    }
+
     /// Sanitized health for `GET /status`.
     pub fn health(&self) -> Vec<ProviderHealthSnapshot> {
         let now = Instant::now();
@@ -668,6 +694,8 @@ mod tests {
         capabilities: CapabilitySet,
         behaviour: Behaviour,
         calls: Arc<AtomicUsize>,
+        /// Client profile label; part of the configuration fingerprint since Phase 5B.
+        label: &'static str,
     }
 
     #[derive(Debug, Clone)]
@@ -686,7 +714,7 @@ mod tests {
             self.capabilities
         }
         fn client_label(&self) -> String {
-            "stub".into()
+            self.label.into()
         }
         async fn fetch(
             &self,
@@ -729,6 +757,12 @@ mod tests {
             chapters: vec![],
             caption_tracks: vec![],
             formats: vec![],
+            storyboards: None,
+            publication: None,
+            broadcast: None,
+            unlisted: None,
+            family_safe: None,
+            evidence: vydra_domain::MetadataEvidence::default(),
             provenance: provenance(id.as_str()),
         }
     }
@@ -740,8 +774,22 @@ mod tests {
             capabilities: CapabilitySet::from_slice(&[Capability::VideoMetadata]),
             behaviour,
             calls: calls.clone(),
+            label: "stub",
         };
         (Arc::new(provider), calls)
+    }
+
+    /// A registry whose single provider reports `label` as its client profile.
+    fn labelled(label: &'static str) -> Arc<ProviderRegistry> {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let provider = StubProvider {
+            id: ProviderId::new("a"),
+            capabilities: CapabilitySet::from_slice(&[Capability::VideoMetadata]),
+            behaviour: Behaviour::Ok,
+            calls,
+            label,
+        };
+        Arc::new(ProviderRegistry::new(vec![Arc::new(provider)]))
     }
 
     #[tokio::test]
@@ -1079,4 +1127,19 @@ mod tests {
         registry.fetch(request(), &ctx()).await.expect("ok");
         assert_eq!(recorder.attempts.load(Ordering::SeqCst), 1);
     }
+    #[test]
+    fn config_fingerprint_covers_the_client_profile_not_only_the_id() {
+        // Phase 5B: cache entries are stamped with this value. The InnerTube client version is part of
+        // the request context and changes the body upstream returns, so bumping it must invalidate
+        // cached documents even though the provider id is unchanged.
+        let before = labelled("web-2.20260805.01.00").config_fingerprint();
+        let after = labelled("web-2.20260901.00.00").config_fingerprint();
+        assert_ne!(before, after, "a client bump must change the fingerprint");
+        assert_eq!(
+            before,
+            labelled("web-2.20260805.01.00").config_fingerprint(),
+            "the fingerprint must be stable for the same configuration"
+        );
+    }
+
 }

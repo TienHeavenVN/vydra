@@ -230,6 +230,27 @@ impl SearchQuery {
     }
 }
 
+/// Query parameters accepted by the video endpoints (Phase 5B).
+///
+/// `/videos/{id}` had no locale support at all: the handler hard-coded `hl`/`gl` to `None` even though
+/// the engine, the cache key and the provider all take them. A localized title was therefore
+/// unreachable through the API, which is the opposite of what `API_CONTRACTS.md` §5 promised.
+#[derive(Debug, Default, Deserialize)]
+pub struct VideoQuery {
+    pub hl: Option<String>,
+    pub gl: Option<String>,
+}
+
+impl VideoQuery {
+    fn into_input(self, id: VideoId) -> vydra_errors::Result<VideoInput> {
+        Ok(VideoInput {
+            id,
+            hl: normalise_locale("hl", self.hl)?,
+            gl: normalise_locale("gl", self.gl)?,
+        })
+    }
+}
+
 /// Locales are interpolated into provider query strings and cache keys, so they are validated here
 /// (finding A-11): ASCII letters/digits plus `-`, 2..=10 chars, lowercased.
 fn normalise_locale(
@@ -399,15 +420,15 @@ async fn video_handler(
     State(state): State<Arc<AppState>>,
     Extension(request_id): Extension<RequestId>,
     Path(id): Path<String>,
+    Query(query): Query<VideoQuery>,
 ) -> ApiResult<Json<Envelope<VideoDocument>>> {
     let video_id = VideoId::parse(id).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let input = query
+        .into_input(video_id)
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
     let document = state
         .engines
-        .video(VideoInput {
-            id: video_id,
-            hl: None,
-            gl: None,
-        })
+        .video(input)
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let meta = Meta::from_provenance(&request_id.0, &document.provenance, None);
@@ -421,15 +442,15 @@ async fn chapters_handler(
     State(state): State<Arc<AppState>>,
     Extension(request_id): Extension<RequestId>,
     Path(id): Path<String>,
+    Query(query): Query<VideoQuery>,
 ) -> ApiResult<Json<Envelope<vydra_domain::VideoChapters>>> {
     let video_id = VideoId::parse(id).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let input = query
+        .into_input(video_id)
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
     let chapters = state
         .engines
-        .chapters(VideoInput {
-            id: video_id,
-            hl: None,
-            gl: None,
-        })
+        .chapters(input)
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let meta = Meta::from_provenance(&request_id.0, &chapters.provenance, None);
@@ -443,15 +464,15 @@ async fn captions_handler(
     State(state): State<Arc<AppState>>,
     Extension(request_id): Extension<RequestId>,
     Path(id): Path<String>,
+    Query(query): Query<VideoQuery>,
 ) -> ApiResult<Json<Envelope<vydra_domain::CaptionTrackList>>> {
     let video_id = VideoId::parse(id).map_err(|e| ApiError::new(e, &request_id.0))?;
+    let input = query
+        .into_input(video_id)
+        .map_err(|e| ApiError::new(e, &request_id.0))?;
     let tracks = state
         .engines
-        .captions(VideoInput {
-            id: video_id,
-            hl: None,
-            gl: None,
-        })
+        .captions(input)
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let meta = Meta::from_provenance(&request_id.0, &tracks.provenance, None);
@@ -772,6 +793,43 @@ mod tests {
             ..simple_query()
         };
         assert!(query.into_input(SearchKind::All, false).is_err());
+    }
+
+    #[test]
+    fn video_query_validates_and_normalises_locales() {
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+
+        let input = VideoQuery {
+            hl: Some("DE-de".into()),
+            gl: Some("de".into()),
+        }
+        .into_input(id.clone())
+        .expect("valid locales");
+        assert_eq!(input.hl.as_deref(), Some("de-de"));
+        assert_eq!(input.gl.as_deref(), Some("de"));
+        assert_eq!(input.id, id);
+
+        // Absent means "use the deployment default", which the engine resolves.
+        let input = VideoQuery::default().into_input(id.clone()).expect("input");
+        assert!(input.hl.is_none() && input.gl.is_none());
+
+        // The same validation the search endpoint applies: locales reach the provider and the cache key.
+        assert!(
+            VideoQuery {
+                hl: Some("en us".into()),
+                ..Default::default()
+            }
+            .into_input(id.clone())
+            .is_err()
+        );
+        assert!(
+            VideoQuery {
+                gl: Some("x".into()),
+                ..Default::default()
+            }
+            .into_input(id)
+            .is_err()
+        );
     }
 
     #[test]

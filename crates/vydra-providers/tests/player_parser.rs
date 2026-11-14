@@ -26,7 +26,7 @@ use bytes::Bytes;
 use serde_json::Value;
 use time::UtcOffset;
 use vydra_common::VideoId;
-use vydra_domain::Availability;
+use vydra_domain::{Availability, FieldSource, LiveState};
 use vydra_errors::{ProviderError, UnavailabilityReason};
 use vydra_providers::innertube::{
     ClientKind, ClientProfile, InnertubeProvider, InnertubeProviderConfig,
@@ -423,4 +423,118 @@ async fn a_search_shaped_body_is_not_a_player_document() {
         .expect_err("wrong shape");
     assert_eq!(error.code(), "provider_parse");
     assert!(error.to_string().contains("videoDetails"), "{error}");
+}
+
+// --------------------------------------------------------------------------------------------
+// Phase 5B: microformat facts, live state, storyboards
+// --------------------------------------------------------------------------------------------
+
+/// The live capture carries facts the Phase 5A mapper did not read at all: `likeCount`, `uploadDate`,
+/// `isUnlisted`/`isFamilySafe`, and a `lengthSeconds` that **disagrees** with `videoDetails`.
+///
+/// The disagreement is the point. `videoDetails.lengthSeconds` is `213` and
+/// `microformat…lengthSeconds` is `214` in the same response; the document reports 213 because
+/// `videoDetails` is primary, and says so in `evidence.conflicts` instead of hiding the other value.
+#[tokio::test]
+async fn live_capture_maps_the_microformat_facts_and_records_the_disagreement() {
+    let provider = provider_with(&fixture(
+        "recorded/player_probe_public_unplayable_2026-11-14.json",
+    ));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Lenient)
+            .await
+            .expect("document"),
+    );
+
+    // `likeCount` is a plain integer upstream and has exactly one source.
+    let like_count = document.like_count.expect("like count");
+    assert_eq!(like_count.value, 19_503_628);
+    assert_eq!(
+        like_count.precision,
+        vydra_domain::Precision::Exact,
+        "an integer field is not an estimate"
+    );
+
+    // Publication keeps the publisher's offset *as data* while the instant stays UTC.
+    let publication = document.publication.expect("publication");
+    assert_eq!(publication.upstream_text, "2009-10-24T23:57:33-07:00");
+    assert_eq!(publication.upstream_offset_seconds, -25_200);
+    assert_eq!(publication.published_at.offset(), UtcOffset::UTC);
+    assert_eq!(publication.uploaded_at, Some(publication.published_at));
+
+    // Content facts from the microformat.
+    assert_eq!(document.unlisted, Some(false));
+    assert_eq!(document.family_safe, Some(true));
+
+    // Both sections are present, and the duration disagreement is recorded rather than averaged.
+    assert!(document.evidence.has_section(FieldSource::VideoDetails));
+    assert!(document.evidence.has_section(FieldSource::Microformat));
+    let conflict = document
+        .evidence
+        .conflicts
+        .iter()
+        .find(|conflict| conflict.field == "duration_seconds")
+        .expect("the capture disagrees about duration");
+    assert_eq!(conflict.kept_value, "213");
+    assert_eq!(conflict.rejected_value, "214");
+    assert_eq!(document.summary.duration_seconds, Some(213));
+
+    // This answer has no `streamingData`, no `captions` and no `storyboards`: absent, not invented.
+    assert!(document.formats.is_empty());
+    assert!(document.caption_tracks.is_empty());
+    assert!(document.storyboards.is_none());
+
+    // A recorded disagreement is a warning, not a counted loss: nothing was dropped or guessed.
+    assert_eq!(document.provenance.parse_warnings, 0);
+}
+
+/// The synthetic fixture is the only place a *complete* `OK` response exists in this repository, and it
+/// is explicitly synthetic (`synthetic/player_live_broadcast_storyboards.meta.json`). It exercises the
+/// sections no capture carries together, not upstream's current behaviour.
+#[tokio::test]
+async fn synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions() {
+    let provider = provider_with(&fixture(
+        "synthetic/player_live_broadcast_storyboards.json",
+    ));
+    let document = document(
+        video(&provider, PUBLIC_ID, Strictness::Strict)
+            .await
+            .expect("a clean synthetic document, accepted even in strict mode"),
+    );
+
+    // An `OK` verdict on a live broadcast is `live`, not `available`: the two cache differently.
+    assert_eq!(document.availability, Availability::Live);
+    assert_eq!(document.summary.live_state, Some(LiveState::Live));
+    let broadcast = document.broadcast.expect("broadcast window");
+    assert_eq!(broadcast.live_now, Some(true));
+    assert_eq!(
+        broadcast.start_at.map(|start| start.offset()),
+        Some(UtcOffset::UTC)
+    );
+
+    // `lengthSeconds: "0"` is a value, and it must stay distinguishable from "not reported".
+    assert_eq!(document.summary.duration_seconds, Some(0));
+    assert_eq!(document.like_count.map(|count| count.value), Some(99));
+
+    // Storyboards: geometry only.
+    let storyboard = document.storyboards.expect("storyboard geometry");
+    assert!(storyboard.url_template_present);
+    assert_eq!(storyboard.levels.len(), 2);
+    assert_eq!(storyboard.levels[0].width, 48);
+    assert_eq!(storyboard.levels[1].name.as_deref(), Some("M$M"));
+    assert!(document.evidence.has_section(FieldSource::Storyboards));
+
+    assert_eq!(document.formats.len(), 3, "2 adaptive + 1 muxed");
+    assert_eq!(
+        document.formats[0].delivery,
+        vydra_domain::DeliveryKind::SignatureProtected
+    );
+    assert_eq!(document.caption_tracks.len(), 1);
+    assert_eq!(document.caption_tracks[0].language_code, "en");
+
+    // Nothing signed, nothing URL-shaped, nothing that could be mistaken for a working media link.
+    let json = serde_json::to_string(&document).expect("serialize");
+    for secret in ["SYNTHETICSIG", "example.invalid", "sqp="] {
+        assert!(!json.contains(secret), "{secret} leaked into the document");
+    }
 }

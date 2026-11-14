@@ -153,8 +153,16 @@ paths:
         `data.availability` (`available`, `upcoming`, `live`, `unavailable` with a closed-set `reason`,
         or `unknown` when upstream stated no verdict). A `409` is returned only when upstream refused
         the metadata itself, in which case `details[0].reason` carries the same closed set.
+
+        `data.evidence` states what the response contained and where the values came from: which sections
+        were present, which fields were filled from the secondary section, and which fields the two
+        sections disagreed about (the accepted value is the one reported). `like_count`,
+        `publication.upstream_text` and `storyboards` are Phase 5B additions; all are omitted when
+        upstream did not send them, and none are inferred.
       parameters:
         - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
       responses:
         '200':
           description: Video document
@@ -171,6 +179,8 @@ paths:
       summary: Alias of `/videos/{id}`
       parameters:
         - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
       responses:
         '200':
           description: Video document
@@ -187,6 +197,8 @@ paths:
       summary: Chapter markers derived from the description
       parameters:
         - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
       responses:
         '200': {description: Chapter list}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -198,6 +210,8 @@ paths:
       summary: Caption track metadata (no transcript download)
       parameters:
         - $ref: '#/components/parameters/VideoId'
+        - $ref: '#/components/parameters/Hl'
+        - $ref: '#/components/parameters/Gl'
       responses:
         '200': {description: Caption tracks}
         '400': {$ref: '#/components/responses/BadRequest'}
@@ -363,5 +377,239 @@ components:
       type: object
       required: [data, meta]
       properties:
-        data: {type: object}
+        data: {$ref: '#/components/schemas/VideoDocument'}
         meta: {$ref: '#/components/schemas/Meta'}
+    VideoDocument:
+      type: object
+      required: [summary, availability, provenance]
+      description: |
+        Provider-neutral video metadata. Omitted members are values upstream did not send: an absent
+        `like_count` is not zero, an absent `duration_seconds` is not "live and indefinite", and an
+        absent `publication` is not "unpublished".
+      properties:
+        summary: {$ref: '#/components/schemas/VideoSummary'}
+        availability: {$ref: '#/components/schemas/Availability'}
+        description: {type: string}
+        category: {type: string}
+        keywords: {type: array, items: {type: string}}
+        like_count: {$ref: '#/components/schemas/Count'}
+        comment_count: {$ref: '#/components/schemas/Count'}
+        chapters:
+          type: array
+          items:
+            type: object
+            properties:
+              title: {type: string}
+              start_seconds: {type: integer}
+              end_seconds: {type: integer}
+              thumbnail: {$ref: '#/components/schemas/Thumbnail'}
+        caption_tracks:
+          type: array
+          items:
+            type: object
+            properties:
+              language_code: {type: string}
+              name: {type: string}
+              kind: {type: string, enum: [manual, automatic, unknown]}
+              is_translatable: {type: boolean}
+              base_url_present: {type: boolean}
+              translation_languages: {type: array, items: {type: string}}
+        formats:
+          type: array
+          description: Format metadata only. No media URL is ever returned (ADR-006).
+          items:
+            type: object
+            properties:
+              itag: {type: integer}
+              mime_type: {type: string}
+              codecs: {type: string}
+              bitrate: {type: integer}
+              width: {type: integer}
+              height: {type: integer}
+              fps: {type: integer}
+              quality_label: {type: string}
+              audio_quality: {type: string}
+              content_length: {type: integer}
+              approx_duration_ms: {type: integer}
+              audio_only: {type: boolean}
+              has_drm: {type: boolean}
+              delivery:
+                type: string
+                enum: [not_inspected, direct, signature_protected, token_protected, drm, unknown]
+        storyboards: {$ref: '#/components/schemas/Storyboard'}
+        publication: {$ref: '#/components/schemas/Publication'}
+        broadcast: {$ref: '#/components/schemas/Broadcast'}
+        unlisted: {type: boolean}
+        family_safe: {type: boolean}
+        evidence: {$ref: '#/components/schemas/MetadataEvidence'}
+        provenance:
+          type: object
+          description: Where the document came from and how many parse warnings it carries.
+          properties:
+            provider: {type: string}
+            endpoint: {type: string}
+            client: {type: string}
+            fetched_at: {type: string, format: date-time}
+            cached: {type: boolean}
+            parse_warnings: {type: integer}
+      example:
+        summary:
+          id: dQw4w9WgXcQ
+          title: Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)
+          channel_id: UCuAXFkgsw1L7xaCfnd5JJOw
+          channel_title: Rick Astley
+          duration_seconds: 213
+          view_count: {value: 1836979877, precision: exact}
+          published_at: '2009-10-25T06:57:33Z'
+          thumbnails:
+            - {url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg', width: 1280, height: 720}
+        availability: {state: unavailable, reason: other}
+        description: The official video for “Never Gonna Give You Up” by Rick Astley.
+        category: Music
+        keywords: [rick astley, never gonna give you up]
+        like_count: {value: 19503628, precision: exact}
+        caption_tracks: []
+        formats: []
+        unlisted: false
+        family_safe: true
+        publication:
+          published_at: '2009-10-25T06:57:33Z'
+          upstream_text: '2009-10-24T23:57:33-07:00'
+          upstream_offset_seconds: -25200
+          uploaded_at: '2009-10-25T06:57:33Z'
+          uploaded_text: '2009-10-24T23:57:33-07:00'
+        evidence:
+          sections: [video_details, microformat]
+          conflicts:
+            - field: duration_seconds
+              kept: video_details
+              kept_value: '213'
+              rejected: microformat
+              rejected_value: '214'
+        provenance:
+          provider: innertube-web
+          endpoint: player
+          client: web-2.20260805.01.00
+          fetched_at: '2026-11-14T03:05:36Z'
+          cached: false
+          parse_warnings: 0
+    VideoSummary:
+      type: object
+      required: [id, title]
+      properties:
+        id: {type: string}
+        title: {type: string}
+        channel_id: {type: string}
+        channel_title: {type: string}
+        duration_seconds:
+          type: integer
+          description: Whole seconds. Omitted for live items and when upstream did not state it.
+        view_count: {$ref: '#/components/schemas/Count'}
+        published_text: {type: string, description: 'Localized relative date, verbatim.'}
+        published_at: {type: string, format: date-time}
+        thumbnails:
+          type: array
+          description: Ordered smallest to largest.
+          items: {$ref: '#/components/schemas/Thumbnail'}
+        live_state: {type: string, enum: [not_live, live, upcoming, ended]}
+        badges: {type: array, items: {type: string}}
+    Count:
+      type: object
+      required: [value, precision]
+      properties:
+        value: {type: integer, minimum: 0}
+        precision:
+          type: string
+          enum: [exact, approximate]
+          description: |
+            `approximate` is used only when the number came from abbreviated localized text ("1.2K
+            views"); an exact upstream integer is never downgraded and an approximation is never
+            presented as exact.
+        raw: {type: string, description: The localized text the approximation came from.}
+    Thumbnail:
+      type: object
+      required: [url]
+      properties:
+        url: {type: string}
+        width: {type: integer}
+        height: {type: integer}
+    Availability:
+      type: object
+      required: [state]
+      description: |
+        Content existence and content availability are separate facts, so an unavailable video is a 200
+        with an explicit state (never a 404). `unknown` means upstream stated no verdict; it is never
+        cached and never reported as playable.
+      properties:
+        state: {type: string, enum: [available, upcoming, live, unavailable, unknown]}
+        reason:
+          type: string
+          enum: [deleted, private, members_only, login_required, age_restricted, geo_restricted,
+                 not_broadcasting, copyright_blocked, drm_protected, other]
+      example: {state: unavailable, reason: other}
+    Publication:
+      type: object
+      required: [published_at, upstream_text, upstream_offset_seconds]
+      description: |
+        The instant is normalised to UTC (ADR-016); the upstream string and the publisher's offset are
+        kept beside it so normalization loses nothing.
+      properties:
+        published_at: {type: string, format: date-time}
+        upstream_text: {type: string, example: '2009-10-24T23:57:33-07:00'}
+        upstream_offset_seconds: {type: integer, example: -25200}
+        uploaded_at: {type: string, format: date-time}
+        uploaded_text: {type: string}
+    Broadcast:
+      type: object
+      description: Present only when upstream stated a live-broadcast window.
+      properties:
+        live_now: {type: boolean}
+        start_at: {type: string, format: date-time}
+        end_at: {type: string, format: date-time}
+    Storyboard:
+      type: object
+      required: [levels, url_template_present]
+      description: |
+        Geometry only. The upstream spec also carries a signed image URL template; it is never stored or
+        returned, so `url_template_present` reports its existence without echoing it.
+      properties:
+        url_template_present: {type: boolean}
+        levels:
+          type: array
+          items:
+            type: object
+            properties:
+              width: {type: integer}
+              height: {type: integer}
+              frame_count: {type: integer}
+              columns: {type: integer}
+              rows: {type: integer}
+              interval_ms: {type: integer}
+              name: {type: string}
+              sigh_present: {type: boolean}
+    MetadataEvidence:
+      type: object
+      description: |
+        What the response contained and where the document's values came from. A field with no fallback
+        and no conflict, from a present section, is as strong as this provider can make it.
+      properties:
+        sections:
+          type: array
+          items: {type: string, enum: [video_details, microformat, streaming_data, captions, storyboards, description, request]}
+        fallbacks:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              source: {type: string}
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              field: {type: string}
+              kept: {type: string}
+              kept_value: {type: string}
+              rejected: {type: string}
+              rejected_value: {type: string}

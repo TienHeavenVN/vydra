@@ -4,5 +4,9 @@
   "note": "Hand-built fixture shaped after the InnerTube search renderer tree documented in docs/research/EXTRACTION_METHODS.md §5.2. It is NOT a captured live response and must not be described as one.",
   "endpoint": "search",
   "client": "WEB",
-  "created": "2026-11-13"
+  "created": "2026-11-13",
+  "not_verified": [
+    "nothing about YouTube's real output: every id, title and count here is invented",
+    "that the renderer nesting matches a current response (it follows the 2023-2024 documented tree)"
+  ]
 }

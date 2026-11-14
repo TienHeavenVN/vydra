@@ -200,6 +200,10 @@ pub struct CacheConfig {
     /// Maximum entries in the in-memory cache.
     pub max_entries: usize,
     pub metadata_ttl_secs: u64,
+    /// TTL for `live`/`upcoming` documents: state and counters move while it airs (ADR-022).
+    pub live_ttl_secs: u64,
+    /// TTL for content-fact `unavailable` documents — short, because a private video can be published.
+    pub unavailable_ttl_secs: u64,
     pub search_ttl_secs: u64,
     /// Serve stale entries for this long while revalidating. `0` disables stale serving.
     pub stale_while_revalidate_secs: u64,
@@ -214,6 +218,8 @@ impl Default for CacheConfig {
             redis_url: None,
             max_entries: 10_000,
             metadata_ttl_secs: 300,
+            live_ttl_secs: 30,
+            unavailable_ttl_secs: 60,
             search_ttl_secs: 60,
             stale_while_revalidate_secs: 0,
             cache_search: false,
@@ -500,6 +506,20 @@ impl Config {
             "VYDRA__CACHE__METADATA_TTL_SECS",
             &mut config.cache.metadata_ttl_secs,
             "cache.metadata_ttl_secs",
+            &mut issues,
+        );
+        set_u64(
+            vars,
+            "VYDRA__CACHE__LIVE_TTL_SECS",
+            &mut config.cache.live_ttl_secs,
+            "cache.live_ttl_secs",
+            &mut issues,
+        );
+        set_u64(
+            vars,
+            "VYDRA__CACHE__UNAVAILABLE_TTL_SECS",
+            &mut config.cache.unavailable_ttl_secs,
+            "cache.unavailable_ttl_secs",
             &mut issues,
         );
         set_u64(

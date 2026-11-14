@@ -110,6 +110,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             gl: config.providers.default_gl.clone(),
             call_budget: Duration::from_millis(config.server.request_timeout_ms),
             metadata_ttl: Duration::from_secs(config.cache.metadata_ttl_secs),
+            live_ttl: Duration::from_secs(config.cache.live_ttl_secs),
+            unavailable_ttl: Duration::from_secs(config.cache.unavailable_ttl_secs),
             search_ttl: Duration::from_secs(config.cache.search_ttl_secs),
             cache_search: config.cache.cache_search,
             strictness: vydra_providers::Strictness::Lenient,

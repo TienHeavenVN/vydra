@@ -13,8 +13,9 @@ use time::{OffsetDateTime, UtcOffset};
 use vydra_common::text::{is_abbreviated_count, parse_clock_duration, parse_view_count};
 use vydra_common::{ChannelId, PlaylistId, VideoId};
 use vydra_domain::{
-    Availability, CaptionKind, CaptionTrack, Chapter, Count, DeliveryKind, LiveState,
-    MediaFormatInfo, PlaylistSummary, Provenance, SearchItem, SearchResults, Thumbnail,
+    Availability, BroadcastInfo, CaptionKind, CaptionTrack, Chapter, Count, DeliveryKind,
+    FieldConflict, FieldSource, LiveState, MediaFormatInfo, MetadataEvidence, PlaylistSummary,
+    Provenance, Publication, SearchItem, SearchResults, Storyboard, StoryboardLevel, Thumbnail,
     VideoDocument, VideoSummary,
 };
 use vydra_errors::{ProviderError, UnavailabilityReason};
@@ -379,42 +380,100 @@ pub fn map_search(
 struct PlayerResponseDto {
     playability_status: Option<PlayabilityStatusDto>,
     video_details: Option<VideoDetailsDto>,
-    microformat: Option<Value>,
+    microformat: Option<MicroformatDto>,
     captions: Option<Value>,
     streaming_data: Option<StreamingDataDto>,
+    storyboards: Option<StoryboardsDto>,
 }
 
+/// `playabilityStatus`. Textual members are held as [`Value`] and read through `text_of`, so a single
+/// unexpected member type cannot reject the whole response.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PlayabilityStatusDto {
-    status: Option<String>,
-    reason: Option<String>,
+    status: Option<Value>,
+    reason: Option<Value>,
     /// Upstream's own explanation, e.g. `[{"text": "This video is private"}]`. Used to *classify*
     /// the restriction and never copied into a document.
-    messages: Option<Vec<Value>>,
+    messages: Option<Value>,
     /// `errorScreen.playerErrorMessageRenderer`: the rendered explanation for `LOGIN_REQUIRED` and
     /// friends, which often carries the wording the `reason` field omits.
     error_screen: Option<Value>,
 }
 
+/// `videoDetails`. Every member is optional and every member is read through a helper, because a
+/// response with one wrong-typed field must still yield the fields that are readable.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VideoDetailsDto {
-    video_id: Option<String>,
-    title: Option<String>,
-    length_seconds: Option<String>,
-    view_count: Option<String>,
-    author: Option<String>,
-    channel_id: Option<String>,
-    short_description: Option<String>,
-    keywords: Option<Vec<String>>,
-    is_live_content: Option<bool>,
-    is_live_now: Option<bool>,
-    is_upcoming: Option<bool>,
+    video_id: Option<Value>,
+    title: Option<Value>,
+    length_seconds: Option<Value>,
+    view_count: Option<Value>,
+    author: Option<Value>,
+    channel_id: Option<Value>,
+    short_description: Option<Value>,
+    keywords: Option<Value>,
+    is_live_content: Option<Value>,
+    is_live_now: Option<Value>,
+    is_upcoming: Option<Value>,
     /// `{"thumbnails": [...]}` — the same shape as the microformat's `thumbnail`, used as a fallback
     /// when the optional `microformat` object is absent (Phase 5A live capture: 5 sizes here, 1
     /// there).
     thumbnail: Option<Value>,
+}
+
+/// `microformat`. The renderer is nested under `playerMicroformatRenderer` in every capture; the
+/// `microformat` alias exists because an older shape wrapped it under its own name.
+#[derive(Debug, Deserialize)]
+struct MicroformatDto {
+    #[serde(rename = "playerMicroformatRenderer", alias = "microformat")]
+    renderer: Option<MicroformatRendererDto>,
+}
+
+/// `microformat.playerMicroformatRenderer` (Phase 5B).
+///
+/// Values are held as [`Value`] where upstream has changed type between recordings (numbers arrive as
+/// strings in every capture, but not everywhere in the ecosystem) so that a type change degrades one
+/// field instead of failing the document.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MicroformatRendererDto {
+    publish_date: Option<Value>,
+    upload_date: Option<Value>,
+    category: Option<Value>,
+    title: Option<Value>,
+    description: Option<Value>,
+    owner_channel_name: Option<Value>,
+    external_channel_id: Option<Value>,
+    length_seconds: Option<Value>,
+    view_count: Option<Value>,
+    like_count: Option<Value>,
+    is_unlisted: Option<Value>,
+    is_family_safe: Option<Value>,
+    thumbnail: Option<Value>,
+    live_broadcast_details: Option<LiveBroadcastDetailsDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LiveBroadcastDetailsDto {
+    is_live_now: Option<Value>,
+    start_timestamp: Option<Value>,
+    end_timestamp: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoryboardsDto {
+    player_storyboard_spec_renderer: Option<StoryboardSpecDto>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoryboardSpecDto {
+    /// `url_template|level|level…`; the template is dropped, the levels are parsed.
+    spec: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -422,6 +481,20 @@ struct VideoDetailsDto {
 struct StreamingDataDto {
     formats: Option<Vec<Value>>,
     adaptive_formats: Option<Vec<Value>>,
+}
+
+/// Read a JSON boolean that may arrive as `true`, `"true"` or `1`.
+fn flag(raw: &Option<Value>) -> Option<bool> {
+    match raw.as_ref()? {
+        Value::Bool(value) => Some(*value),
+        Value::String(text) => match text.trim().to_ascii_lowercase().as_str() {
+            "true" | "yes" => Some(true),
+            "false" | "no" => Some(false),
+            _ => None,
+        },
+        Value::Number(number) => number.as_u64().map(|value| value != 0),
+        _ => None,
+    }
 }
 
 /// The playability verdict, classified into Vydra's vocabulary.
@@ -479,13 +552,11 @@ fn collect_strings(value: &Value, out: &mut String) {
 /// say. `LOGIN_REQUIRED` explains the age gate there rather than in `reason`.
 fn playability_detail(status: &PlayabilityStatusDto) -> String {
     let mut text = String::new();
-    if let Some(reason) = &status.reason {
-        text.push_str(reason);
+    if let Some(reason) = status.reason.as_ref().and_then(text_of) {
+        text.push_str(&reason);
     }
     if let Some(messages) = &status.messages {
-        for message in messages {
-            collect_strings(message, &mut text);
-        }
+        collect_strings(messages, &mut text);
     }
     if let Some(screen) = &status.error_screen {
         collect_strings(screen, &mut text);
@@ -494,21 +565,21 @@ fn playability_detail(status: &PlayabilityStatusDto) -> String {
 }
 
 fn classify_playability(status: &PlayabilityStatusDto) -> Playability {
-    match status.status.as_deref() {
-        Some("OK") => Playability::Ok,
-        Some(raw) => {
-            let detail = playability_detail(status);
-            let normalized = if detail.trim().is_empty() {
-                None
-            } else {
-                Some(detail.as_str())
-            };
-            match unavailability_from_status(raw, normalized) {
-                UnavailabilityReason::Other => Playability::Unrecognised,
-                reason => Playability::Restricted(reason),
-            }
-        }
-        None => Playability::Missing,
+    let Some(raw) = status.status.as_ref().and_then(text_of) else {
+        return Playability::Missing;
+    };
+    if raw == "OK" {
+        return Playability::Ok;
+    }
+    let detail = playability_detail(status);
+    let normalized = if detail.trim().is_empty() {
+        None
+    } else {
+        Some(detail.as_str())
+    };
+    match unavailability_from_status(&raw, normalized) {
+        UnavailabilityReason::Other => Playability::Unrecognised,
+        reason => Playability::Restricted(reason),
     }
 }
 
@@ -528,8 +599,9 @@ fn mentions(detail: &str, words: &[&str]) -> bool {
 /// The message is a fixed phrase plus at most 200 printable characters of upstream's `reason`; the
 /// response body itself is never quoted, so nothing session-scoped can reach a log or a response.
 fn playability_error(status: &PlayabilityStatusDto, reason: UnavailabilityReason) -> ProviderError {
-    let raw = status.status.as_deref().unwrap_or("absent");
-    let detail: Option<String> = status.reason.as_deref().map(|reason| {
+    let raw = status.status.as_ref().and_then(text_of);
+    let raw = raw.as_deref().unwrap_or("absent");
+    let detail: Option<String> = status.reason.as_ref().and_then(text_of).map(|reason| {
         reason
             .chars()
             .filter(|character| !character.is_control())
@@ -743,6 +815,13 @@ fn media_format_from(value: &Value) -> Option<MediaFormatInfo> {
 }
 
 /// Build a [`VideoDocument`] from a player response.
+///
+/// Precedence between the two metadata sections is fixed and documented in
+/// `docs/research/VIDEO_METADATA_CONTRACT.md` §3: `videoDetails` is primary for everything it carries,
+/// `microformat` fills the gaps (`publishDate`, `likeCount`, `category`, `isUnlisted`) and is a fallback
+/// for the rest. Where both carry a value and they disagree, the primary wins **and the disagreement is
+/// recorded** in `document.evidence.conflicts` — the live capture disagrees about duration (213 vs 214 s),
+/// which is exactly the kind of thing a silently-chosen number would hide forever.
 pub fn map_player(
     payload: &Value,
     expected_id: &VideoId,
@@ -768,7 +847,7 @@ pub fn map_player(
     //
     // Neither outcome may claim `Available`, and an unrecognised verdict is never silent.
     let playability = dto.playability_status.as_ref();
-    let raw_status = playability.and_then(|status| status.status.as_deref());
+    let raw_status = playability.and_then(|status| status.status.as_ref()).and_then(text_of);
     let verdict = match playability {
         Some(status) => classify_playability(status),
         None => Playability::Missing,
@@ -776,7 +855,7 @@ pub fn map_player(
     if verdict == Playability::Missing {
         report.missing_field("playabilityStatus", "status");
     } else if verdict != Playability::Ok
-        && let Some(status) = raw_status
+        && let Some(status) = raw_status.as_deref()
     {
         // Recorded for every non-OK verdict, so an unknown or future status stays observable even
         // when the payload also carries a usable metadata document.
@@ -801,7 +880,8 @@ pub fn map_player(
     // attributed to the requested id, so this is a parse failure rather than a nullable field.
     let upstream_id = details
         .video_id
-        .as_deref()
+        .as_ref()
+        .and_then(text_of)
         .ok_or_else(|| ProviderError::Parse {
             message: "player response without videoDetails.videoId".into(),
         })?;
@@ -813,8 +893,109 @@ pub fn map_player(
         });
     }
 
+    let mut evidence = MetadataEvidence::default();
+    evidence.section(FieldSource::VideoDetails);
+
+    let micro = dto
+        .microformat
+        .as_ref()
+        .and_then(|microformat| microformat.renderer.as_ref());
+    if micro.is_some() {
+        evidence.section(FieldSource::Microformat);
+    }
+    if dto.streaming_data.is_some() {
+        evidence.section(FieldSource::StreamingData);
+    }
+    if dto.captions.is_some() {
+        evidence.section(FieldSource::Captions);
+    }
+
+    // --- text fields -------------------------------------------------------------
+    let title = match details.title.as_ref().and_then(text_of) {
+        Some(title) => Some(title),
+        None => micro.and_then(|micro| micro.title.as_ref()).and_then(text_of).inspect(
+            |_| evidence.fallback("title", FieldSource::Microformat),
+        ),
+    };
+    let title = title.unwrap_or_else(|| {
+        report.missing_field("videoDetails", "title");
+        String::new()
+    });
+
+    let description = match details.short_description.as_ref().and_then(text_of) {
+        Some(text) => Some(text),
+        None => micro
+            .and_then(|micro| micro.description.as_ref())
+            .and_then(text_of)
+            .inspect(|_| evidence.fallback("description", FieldSource::Microformat)),
+    };
+
+    let channel_id = match details
+        .channel_id
+        .as_ref()
+        .and_then(text_of)
+        .and_then(|raw| ChannelId::parse(&raw).ok())
+    {
+        Some(id) => Some(id),
+        None => micro
+            .and_then(|micro| micro.external_channel_id.as_ref())
+            .and_then(text_of)
+            .and_then(|raw| ChannelId::parse(&raw).ok())
+            .inspect(|_| evidence.fallback("channel_id", FieldSource::Microformat)),
+    };
+
+    let channel_title = match details.author.as_ref().and_then(text_of) {
+        Some(author) => Some(author),
+        None => micro
+            .and_then(|micro| micro.owner_channel_name.as_ref())
+            .and_then(text_of)
+            .inspect(|_| evidence.fallback("channel_title", FieldSource::Microformat)),
+    };
+
+    // --- numbers -----------------------------------------------------------------
+    let duration_seconds = resolve_u32(
+        "duration_seconds",
+        details.length_seconds.as_ref(),
+        FieldSource::VideoDetails,
+        "lengthSeconds",
+        micro.and_then(|micro| micro.length_seconds.as_ref()),
+        report,
+        &mut evidence,
+    );
+
+    let view_count = resolve_count(
+        "view_count",
+        details.view_count.as_ref(),
+        FieldSource::VideoDetails,
+        "viewCount",
+        micro.and_then(|micro| micro.view_count.as_ref()),
+        report,
+        &mut evidence,
+    );
+
+    // `likeCount` has exactly one source: the microformat. It is a plain integer string there, so it is
+    // an exact count; when the key is absent the field stays `None` rather than becoming 0.
+    let like_count = match micro.and_then(|micro| micro.like_count.as_ref()) {
+        Some(raw) => required_number(raw, "microformat", "likeCount", report).map(Count::exact),
+        None => None,
+    };
+
+    // --- publication -------------------------------------------------------------
+    let publication = publication_from(micro, report);
+    let published_at = publication.as_ref().map(|publication| publication.published_at);
+
+    // --- broadcast state ---------------------------------------------------------
+    let broadcast = broadcast_from(micro);
+    let live_state = live_state_of(&details, broadcast.as_ref(), &mut evidence);
+
     let availability = match verdict {
-        Playability::Ok => Availability::Available,
+        Playability::Ok => match live_state {
+            // An `OK` verdict on a live broadcast is not the same fact as an `OK` verdict on a
+            // published upload: the metadata above it changes while it airs, which is a cache concern.
+            Some(LiveState::Live) => Availability::Live,
+            Some(LiveState::Upcoming) => Availability::Upcoming,
+            _ => Availability::Available,
+        },
         Playability::Restricted(reason) => Availability::Unavailable { reason },
         Playability::Unrecognised => Availability::Unavailable {
             reason: UnavailabilityReason::Other,
@@ -824,83 +1005,45 @@ pub fn map_player(
         Playability::Missing => Availability::Unknown,
     };
 
-    let title = details.title.unwrap_or_default();
-    if title.trim().is_empty() {
-        report.missing_field("videoDetails", "title");
-    }
+    let category = micro
+        .and_then(|micro| micro.category.as_ref())
+        .and_then(text_of);
+    let unlisted = micro.and_then(|micro| flag(&micro.is_unlisted));
+    let family_safe = micro.and_then(|micro| flag(&micro.is_family_safe));
 
-    let duration_seconds = details
-        .length_seconds
-        .as_deref()
-        .and_then(|value| value.parse::<u32>().ok());
-
-    let view_count = details
-        .view_count
-        .as_deref()
-        .and_then(|value| value.parse::<u64>().ok())
-        .map(Count::exact);
-
-    let channel_id = details
-        .channel_id
-        .as_deref()
-        .and_then(|value| ChannelId::parse(value).ok());
-
-    let live_state = if details.is_live_now == Some(true) {
-        Some(LiveState::Live)
-    } else if details.is_upcoming == Some(true) {
-        Some(LiveState::Upcoming)
-    } else if details.is_live_content == Some(true) {
-        Some(LiveState::NotLive)
-    } else {
-        None
-    };
-
-    let microformat = dto.microformat.clone();
-    let published_at = microformat
-        .as_ref()
-        .and_then(|micro| {
-            micro
-                .get("playerMicroformatRenderer")
-                .or_else(|| micro.get("microformat"))
-                .and_then(|renderer| renderer.get("publishDate"))
-                .and_then(Value::as_str)
-        })
-        // ADR-016: timestamps are RFC 3339 **UTC**. The live capture publishes
-        // `2009-10-24T23:57:33-07:00`; keeping that offset would mean the same instant had two wire
-        // forms depending on who published it, so the value is normalised on the way in.
-        .and_then(|date| OffsetDateTime::parse(date, &Rfc3339).ok())
-        .map(|published| published.to_offset(UtcOffset::UTC));
-
-    let category = microformat
-        .as_ref()
-        .and_then(|micro| micro.get("playerMicroformatRenderer"))
-        .and_then(|renderer| renderer.get("category"))
-        .and_then(Value::as_str)
-        .map(str::to_owned);
-
-    let thumbnails = microformat
-        .as_ref()
-        .and_then(|micro| micro.get("playerMicroformatRenderer"))
-        .and_then(|renderer| renderer.get("thumbnail"))
-        .map(thumbnails_of)
-        .unwrap_or_default();
     // `microformat` is optional but `videoDetails.thumbnail` is not: without this fallback a real
     // document would map to zero thumbnails purely because one optional section was missing.
-    let thumbnails = if thumbnails.is_empty() {
-        details
-            .thumbnail
-            .as_ref()
-            .map(thumbnails_of)
-            .unwrap_or_default()
-    } else {
-        thumbnails
-    };
+    let mut thumbnails: Vec<Thumbnail> = micro
+        .and_then(|micro| micro.thumbnail.as_ref())
+        .map(thumbnails_of)
+        .unwrap_or_default();
+    if thumbnails.is_empty()
+        && let Some(fallback) = details.thumbnail.as_ref().map(thumbnails_of)
+        && !fallback.is_empty()
+    {
+        thumbnails = fallback;
+        evidence.fallback("thumbnails", FieldSource::VideoDetails);
+    }
 
-    let description = details.short_description.clone();
+    let keywords = details
+        .keywords
+        .as_ref()
+        .and_then(Value::as_array)
+        .map(|keywords| {
+            keywords
+                .iter()
+                .filter_map(|keyword| keyword.as_str().map(str::to_owned))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
     let chapters = description
         .as_deref()
         .map(parse_chapters)
         .unwrap_or_default();
+    if !chapters.is_empty() {
+        evidence.section(FieldSource::Description);
+    }
 
     let caption_tracks = dto
         .captions
@@ -925,12 +1068,14 @@ pub fn map_player(
         report.warn("no_formats");
     }
 
+    let storyboards = storyboards_from(dto.storyboards.as_ref(), report, &mut evidence);
+
     Ok(VideoDocument {
         summary: VideoSummary {
             id: expected_id.clone(),
             title,
             channel_id,
-            channel_title: details.author,
+            channel_title,
             duration_seconds,
             view_count,
             published_text: None,
@@ -942,13 +1087,310 @@ pub fn map_player(
         availability,
         description,
         category,
-        keywords: details.keywords.unwrap_or_default(),
-        like_count: None,
+        keywords,
+        like_count,
         comment_count: None,
         chapters,
         caption_tracks,
         formats,
+        storyboards,
+        publication,
+        broadcast,
+        unlisted,
+        family_safe,
+        evidence,
         provenance,
+    })
+}
+
+/// Read a numeric field that must be a plain integer, reporting when it is present but unreadable.
+///
+/// The distinction matters: an absent key is upstream saying nothing (a live broadcast has no
+/// duration), while a present-but-unreadable key is a parse loss and is counted as one.
+fn required_number(
+    raw: &Value,
+    section: &str,
+    field: &str,
+    report: &mut ParseReport,
+) -> Option<u64> {
+    match number_of(raw) {
+        Some(value) => Some(value),
+        None => {
+            report.missing_field(section, field);
+            None
+        }
+    }
+}
+
+/// Optional-value wrapper around [`required_number`]: absent stays silent.
+fn optional_number(
+    raw: Option<&Value>,
+    section: &str,
+    field: &str,
+    report: &mut ParseReport,
+) -> Option<u64> {
+    raw.and_then(|raw| required_number(raw, section, field, report))
+}
+
+/// Primary/fallback resolution for an integer field, recording the fallback or the conflict.
+fn resolve_u32(
+    field: &str,
+    primary: Option<&Value>,
+    primary_source: FieldSource,
+    primary_name: &str,
+    secondary: Option<&Value>,
+    report: &mut ParseReport,
+    evidence: &mut MetadataEvidence,
+) -> Option<u32> {
+    let (value, source) = resolve_number(
+        field,
+        primary,
+        primary_source,
+        primary_name,
+        secondary,
+        report,
+        evidence,
+    )?;
+    match u32::try_from(value) {
+        Ok(value) => Some(value),
+        Err(_) => {
+            // Out of range for the domain type: a loss, not a value to clamp.
+            report.missing_field(source.as_str(), field);
+            None
+        }
+    }
+}
+
+fn resolve_count(
+    field: &str,
+    primary: Option<&Value>,
+    primary_source: FieldSource,
+    primary_name: &str,
+    secondary: Option<&Value>,
+    report: &mut ParseReport,
+    evidence: &mut MetadataEvidence,
+) -> Option<Count> {
+    resolve_number(
+        field,
+        primary,
+        primary_source,
+        primary_name,
+        secondary,
+        report,
+        evidence,
+    )
+    .map(|(value, _)| Count::exact(value))
+}
+
+/// Resolve a field carried by two sections, returning the value and the section it came from.
+fn resolve_number(
+    field: &str,
+    primary: Option<&Value>,
+    primary_source: FieldSource,
+    primary_name: &str,
+    secondary: Option<&Value>,
+    report: &mut ParseReport,
+    evidence: &mut MetadataEvidence,
+) -> Option<(u64, FieldSource)> {
+    let primary_value = optional_number(primary, primary_source.as_str(), primary_name, report);
+    let secondary_value = optional_number(secondary, "microformat", field, report);
+    match (primary_value, secondary_value) {
+        (Some(kept), Some(other)) => {
+            if kept != other {
+                evidence.conflict(FieldConflict {
+                    field: field.to_owned(),
+                    kept: primary_source,
+                    kept_value: kept.to_string(),
+                    rejected: FieldSource::Microformat,
+                    rejected_value: other.to_string(),
+                });
+                report.warn(format!("conflict:{field}:{kept}!={other}"));
+            }
+            Some((kept, primary_source))
+        }
+        (Some(kept), None) => Some((kept, primary_source)),
+        (None, Some(value)) => {
+            evidence.fallback(field, FieldSource::Microformat);
+            Some((value, FieldSource::Microformat))
+        }
+        (None, None) => None,
+    }
+}
+
+/// `microformat.publishDate` with the upstream text and offset preserved (`crate::Publication`).
+fn publication_from(
+    micro: Option<&MicroformatRendererDto>,
+    report: &mut ParseReport,
+) -> Option<Publication> {
+    let raw = micro?.publish_date.as_ref()?.as_str()?.trim().to_owned();
+    let parsed = match OffsetDateTime::parse(&raw, &Rfc3339) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            report.missing_field("microformat", "publishDate");
+            return None;
+        }
+    };
+
+    // ADR-016: timestamps are RFC 3339 **UTC** on the wire. The live capture publishes
+    // `2009-10-24T23:57:33-07:00`, so the value is normalised here and the original kept beside it.
+    let mut publication = Publication {
+        published_at: parsed.to_offset(UtcOffset::UTC),
+        upstream_text: raw,
+        upstream_offset_seconds: parsed.offset().whole_seconds(),
+        uploaded_at: None,
+        uploaded_text: None,
+    };
+
+    if let Some(upload_raw) = micro
+        .and_then(|micro| micro.upload_date.as_ref())
+        .and_then(Value::as_str)
+        .map(|text| text.trim().to_owned())
+        && let Ok(uploaded) = OffsetDateTime::parse(&upload_raw, &Rfc3339)
+    {
+        publication.uploaded_at = Some(uploaded.to_offset(UtcOffset::UTC));
+        publication.uploaded_text = Some(upload_raw);
+    }
+
+    Some(publication)
+}
+
+/// `microformat.liveBroadcastDetails`, when upstream states a broadcast window.
+fn broadcast_from(micro: Option<&MicroformatRendererDto>) -> Option<BroadcastInfo> {
+    let details = micro?.live_broadcast_details.as_ref()?;
+    let start_at = details
+        .start_timestamp
+        .as_ref()
+        .and_then(Value::as_str)
+        .and_then(|raw| OffsetDateTime::parse(raw, &Rfc3339).ok())
+        .map(|start| start.to_offset(UtcOffset::UTC));
+    let end_at = details
+        .end_timestamp
+        .as_ref()
+        .and_then(Value::as_str)
+        .and_then(|raw| OffsetDateTime::parse(raw, &Rfc3339).ok())
+        .map(|end| end.to_offset(UtcOffset::UTC));
+    let live_now = flag(&details.is_live_now);
+
+    if !live_now.is_some() && start_at.is_none() && end_at.is_none() {
+        return None;
+    }
+    Some(BroadcastInfo {
+        live_now,
+        start_at,
+        end_at,
+    })
+}
+
+/// Broadcast state: `videoDetails` flags are primary, `liveBroadcastDetails` is the fallback.
+fn live_state_of(
+    details: &VideoDetailsDto,
+    broadcast: Option<&BroadcastInfo>,
+    evidence: &mut MetadataEvidence,
+) -> Option<LiveState> {
+    if let Some(state) = details_flag_state(details) {
+        return Some(state);
+    }
+    let broadcast = broadcast?;
+    let state = match (broadcast.live_now, broadcast.end_at, broadcast.start_at) {
+        (Some(true), _, _) => Some(LiveState::Live),
+        (_, Some(_), _) => Some(LiveState::Ended),
+        (Some(false), None, Some(start)) if start > OffsetDateTime::now_utc() => {
+            Some(LiveState::Upcoming)
+        }
+        (Some(false), None, Some(_)) => Some(LiveState::NotLive),
+        _ => None,
+    };
+    if state.is_some() {
+        evidence.fallback("live_state", FieldSource::Microformat);
+    }
+    state
+}
+
+/// `videoDetails` live flags, in their own precedence (`live` beats `upcoming` beats `not live`).
+fn details_flag_state(details: &VideoDetailsDto) -> Option<LiveState> {
+    if flag(&details.is_live_now) == Some(true) {
+        Some(LiveState::Live)
+    } else if flag(&details.is_upcoming) == Some(true) {
+        Some(LiveState::Upcoming)
+    } else if flag(&details.is_live_content) == Some(true) {
+        Some(LiveState::NotLive)
+    } else {
+        None
+    }
+}
+
+/// Storyboard geometry from `storyboards.playerStoryboardSpecRenderer.spec`.
+///
+/// The spec is `url_template|width#height#frames#cols#rows#interval_ms#name#sigh|…`. Only the numbers
+/// are modelled; the template is a signed image URL and is never stored (ADR-006). A spec this build
+/// cannot read produces **no** storyboards and one counted warning — never a guess.
+fn storyboards_from(
+    section: Option<&StoryboardsDto>,
+    report: &mut ParseReport,
+    evidence: &mut MetadataEvidence,
+) -> Option<Storyboard> {
+    let spec = section
+        .and_then(|section| section.player_storyboard_spec_renderer.as_ref())
+        .and_then(|renderer| renderer.spec.as_ref())
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|spec| !spec.is_empty())?;
+
+    let mut parts = spec.split('|');
+    let template = parts.next().unwrap_or_default();
+    let mut levels = Vec::new();
+    for level in parts {
+        let fields: Vec<&str> = level.split('#').collect();
+        if fields.len() < 6 {
+            report.warn("storyboards_unparsed");
+            return None;
+        }
+        let parsed = fields
+            .get(0..6)
+            .and_then(|fields| {
+                let mut numbers = [0u32; 6];
+                for (slot, raw) in numbers.iter_mut().zip(fields) {
+                    *slot = raw.trim().parse::<u32>().ok()?;
+                }
+                Some(numbers)
+            });
+        let Some([width, height, frame_count, columns, rows, interval_ms]) = parsed else {
+            report.warn("storyboards_unparsed");
+            return None;
+        };
+        if width == 0 || height == 0 || columns == 0 || rows == 0 {
+            report.warn("storyboards_unparsed");
+            return None;
+        }
+        let name = fields
+            .get(6)
+            .map(|name| name.trim())
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned);
+        let sigh_present = fields
+            .get(7)
+            .map(|sigh| !sigh.trim().is_empty())
+            .unwrap_or(false);
+        levels.push(StoryboardLevel {
+            width,
+            height,
+            frame_count,
+            columns,
+            rows,
+            interval_ms,
+            name,
+            sigh_present,
+        });
+    }
+
+    if levels.is_empty() {
+        report.warn("storyboards_unparsed");
+        return None;
+    }
+    evidence.section(FieldSource::Storyboards);
+    Some(Storyboard {
+        levels,
+        url_template_present: template.starts_with("http"),
     })
 }
 
@@ -1367,6 +1809,329 @@ mod tests {
         assert_eq!(document.summary.thumbnails.len(), 2);
         assert_eq!(document.summary.thumbnails[1].width, Some(1280));
         assert!(document.summary.thumbnails[0].url.starts_with("https://"));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Phase 5B: microformat, publication, broadcast, storyboards, evidence
+    // ---------------------------------------------------------------------------------------
+
+    fn player_with(microformat: Value, details: Value) -> Value {
+        json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": details,
+            "microformat": {"playerMicroformatRenderer": microformat}
+        })
+    }
+
+    fn map(payload: &Value) -> (VideoDocument, ParseReport) {
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(payload, &id, &mut report, provenance()).expect("document");
+        (document, report)
+    }
+
+    #[test]
+    fn like_count_is_mapped_from_the_only_section_that_carries_it() {
+        let (document, _) = map(&player_with(
+            json!({"likeCount": "19503628"}),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        ));
+        let like = document.like_count.expect("like count");
+        assert_eq!(like.value, 19_503_628);
+        assert_eq!(like.precision, Precision::Exact);
+
+        // Absent is not zero.
+        let (document, _) = map(&player_with(
+            json!({}),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        ));
+        assert!(document.like_count.is_none());
+    }
+
+    #[test]
+    fn publication_keeps_the_offset_while_the_document_stays_utc() {
+        let (document, _) = map(&player_with(
+            json!({
+                "publishDate": "2009-10-24T23:57:33-07:00",
+                "uploadDate": "2009-10-24T23:57:33-07:00"
+            }),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        ));
+        let publication = document.publication.expect("publication");
+        assert_eq!(publication.upstream_text, "2009-10-24T23:57:33-07:00");
+        assert_eq!(publication.upstream_offset_seconds, -25_200);
+        assert_eq!(publication.published_at.offset(), UtcOffset::UTC);
+        assert_eq!(publication.published_at.hour(), 6);
+        assert_eq!(publication.published_at.day(), 25);
+        assert_eq!(
+            publication.uploaded_at.map(|uploaded| uploaded.offset()),
+            Some(UtcOffset::UTC)
+        );
+        // The summary keeps carrying the same instant, so existing clients are unaffected.
+        assert_eq!(document.summary.published_at, Some(publication.published_at));
+    }
+
+    #[test]
+    fn unparsable_publish_date_is_counted_not_invented() {
+        let (document, report) = map(&player_with(
+            json!({"publishDate": "yesterday"}),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        ));
+        assert!(document.summary.published_at.is_none());
+        assert!(document.publication.is_none());
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message == "missing_field:microformat.publishDate"),
+            "{:?}",
+            report.messages()
+        );
+    }
+
+    #[test]
+    fn disagreeing_sections_keep_the_primary_value_and_record_the_conflict() {
+        // The live capture really does disagree: videoDetails says 213 s, microformat 214 s.
+        let (document, report) = map(&player_with(
+            json!({"lengthSeconds": "214", "viewCount": "1836979877"}),
+            json!({
+                "videoId": "dQw4w9WgXcQ",
+                "title": "t",
+                "lengthSeconds": "213",
+                "viewCount": "1836979877"
+            }),
+        ));
+        assert_eq!(document.summary.duration_seconds, Some(213));
+        let conflict = document
+            .evidence
+            .conflicts
+            .iter()
+            .find(|conflict| conflict.field == "duration_seconds")
+            .expect("duration conflict");
+        assert_eq!(conflict.kept, FieldSource::VideoDetails);
+        assert_eq!(conflict.kept_value, "213");
+        assert_eq!(conflict.rejected, FieldSource::Microformat);
+        assert_eq!(conflict.rejected_value, "214");
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message == "conflict:duration_seconds:213!=214"),
+            "{:?}",
+            report.messages()
+        );
+        // Agreement is not a conflict.
+        assert!(
+            !document
+                .evidence
+                .conflicts
+                .iter()
+                .any(|conflict| conflict.field == "view_count")
+        );
+    }
+
+    #[test]
+    fn microformat_fills_gaps_and_the_fallback_is_recorded() {
+        // `videoDetails` carries only identity: everything else must come from the microformat,
+        // and each of those fields is a recorded fallback rather than an invisible substitution.
+        let (document, _) = map(&player_with(
+            json!({
+                "title": {"simpleText": "Microformat title"},
+                "description": {"simpleText": "Microformat description"},
+                "externalChannelId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+                "ownerChannelName": "Rick Astley",
+                "lengthSeconds": "213",
+                "viewCount": "1836979877",
+                "category": "Music",
+                "isUnlisted": false,
+                "isFamilySafe": true
+            }),
+            json!({"videoId": "dQw4w9WgXcQ"}),
+        ));
+
+        assert_eq!(document.summary.title, "Microformat title");
+        assert_eq!(document.description.as_deref(), Some("Microformat description"));
+        assert_eq!(
+            document.summary.channel_id.as_ref().map(|id| id.as_str()),
+            Some("UCuAXFkgsw1L7xaCfnd5JJOw")
+        );
+        assert_eq!(document.summary.channel_title.as_deref(), Some("Rick Astley"));
+        assert_eq!(document.summary.duration_seconds, Some(213));
+        assert_eq!(
+            document.summary.view_count.as_ref().map(|count| count.value),
+            Some(1_836_979_877)
+        );
+        assert_eq!(document.category.as_deref(), Some("Music"));
+        assert_eq!(document.unlisted, Some(false));
+        assert_eq!(document.family_safe, Some(true));
+
+        let fallbacks: Vec<&str> = document
+            .evidence
+            .fallbacks
+            .iter()
+            .map(|fallback| fallback.field.as_str())
+            .collect();
+        for field in [
+            "title",
+            "description",
+            "channel_id",
+            "channel_title",
+            "duration_seconds",
+            "view_count",
+        ] {
+            assert!(fallbacks.contains(&field), "{field} missing from {fallbacks:?}");
+        }
+        assert!(
+            document
+                .evidence
+                .has_section(FieldSource::Microformat)
+                && document.evidence.has_section(FieldSource::VideoDetails)
+        );
+    }
+
+    #[test]
+    fn a_present_but_unreadable_number_is_a_counted_loss() {
+        let (document, report) = map(&player_with(
+            json!({}),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t", "lengthSeconds": "two minutes"}),
+        ));
+        assert!(document.summary.duration_seconds.is_none(), "never 0, never a guess");
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message == "missing_field:videoDetails.lengthSeconds"),
+            "{:?}",
+            report.messages()
+        );
+        // An absent field is upstream saying nothing and is not counted.
+        let (_, report) = map(&player_with(
+            json!({}),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        ));
+        assert!(!report
+            .messages()
+            .iter()
+            .any(|message| message.contains("lengthSeconds")));
+    }
+
+    #[test]
+    fn a_live_verdict_becomes_live_availability_not_available() {
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t", "isLiveNow": true}
+        });
+        let (document, _) = map(&payload);
+        assert_eq!(document.availability, Availability::Live);
+        assert_eq!(document.summary.live_state, Some(LiveState::Live));
+        assert!(document.availability.is_available(), "live content is playable");
+
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t", "isUpcoming": true}
+        });
+        let (document, _) = map(&payload);
+        assert_eq!(document.availability, Availability::Upcoming);
+    }
+
+    #[test]
+    fn broadcast_details_fill_in_when_video_details_stays_silent() {
+        let payload = player_with(
+            json!({
+                "liveBroadcastDetails": {
+                    "isLiveNow": true,
+                    "startTimestamp": "2026-11-14T18:00:00Z",
+                    "endTimestamp": "2026-11-14T19:30:00Z"
+                }
+            }),
+            json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
+        );
+        let (document, _) = map(&payload);
+        assert_eq!(document.availability, Availability::Live);
+        assert_eq!(document.summary.live_state, Some(LiveState::Live));
+        let broadcast = document.broadcast.expect("broadcast window");
+        assert_eq!(broadcast.live_now, Some(true));
+        assert!(broadcast.start_at.is_some() && broadcast.end_at.is_some());
+        assert!(
+            document
+                .evidence
+                .fallbacks
+                .iter()
+                .any(|fallback| fallback.field == "live_state"
+                    && fallback.source == FieldSource::Microformat)
+        );
+    }
+
+    #[test]
+    fn storyboard_spec_is_reduced_to_geometry_and_never_to_a_url() {
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t"},
+            "storyboards": {"playerStoryboardSpecRenderer": {"spec": "https://i.ytimg.com/sb/dQw4w9WgXcQ/storyboard3_L$L/$N.jpg?sqp=SECRET&sigh=SIGNED|48#27#100#10#10#0#default#SIG|160#90#50#5#5#1000#M$M#SIG2", "recommendedLevel": 1}}
+        });
+        let (document, _) = map(&payload);
+        let storyboard = document.storyboards.expect("storyboard");
+        assert!(storyboard.url_template_present);
+        assert_eq!(storyboard.levels.len(), 2);
+        assert_eq!(storyboard.levels[0].width, 48);
+        assert_eq!(storyboard.levels[0].frame_count, 100);
+        assert_eq!(storyboard.levels[0].columns, 10);
+        assert_eq!(storyboard.levels[0].interval_ms, 0);
+        assert_eq!(storyboard.levels[0].name.as_deref(), Some("default"));
+        assert!(storyboard.levels[0].sigh_present);
+        assert_eq!(storyboard.levels[1].width, 160);
+        assert_eq!(storyboard.levels[1].name.as_deref(), Some("M$M"));
+
+        // The signature and the template are not in the document at all.
+        let json = serde_json::to_string(&document).expect("serialize");
+        assert!(!json.contains("SECRET"), "the template query string leaked");
+        assert!(!json.contains("SIGNED"));
+        assert!(!json.contains("i.ytimg.com/sb"));
+    }
+
+    #[test]
+    fn an_unreadable_storyboard_spec_yields_nothing_and_says_so() {
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {"videoId": "dQw4w9WgXcQ", "title": "t"},
+            "storyboards": {"playerStoryboardSpecRenderer": {"spec": "https://example.invalid/sb|48#27"}}
+        });
+        let (document, report) = map(&payload);
+        assert!(document.storyboards.is_none(), "half a spec is not a storyboard");
+        assert!(
+            report
+                .messages()
+                .iter()
+                .any(|message| message == "storyboards_unparsed"),
+            "{:?}",
+            report.messages()
+        );
+    }
+
+    #[test]
+    fn a_wrong_typed_member_costs_one_field_not_the_document() {
+        // `lengthSeconds` as an object, `keywords` as a string, `isLiveNow` as text: the response is
+        // still usable, and none of the three can crash the mapping.
+        let payload = json!({
+            "playabilityStatus": {"status": "OK", "reason": 5},
+            "videoDetails": {
+                "videoId": "dQw4w9WgXcQ",
+                "title": "t",
+                "lengthSeconds": {"unexpected": true},
+                "keywords": "not-a-list",
+                "isLiveNow": "true",
+                "viewCount": "12"
+            }
+        });
+        let (document, _) = map(&payload);
+        assert_eq!(document.summary.title, "t");
+        assert!(document.summary.duration_seconds.is_none());
+        assert!(document.keywords.is_empty());
+        assert_eq!(document.summary.live_state, Some(LiveState::Live));
+        assert_eq!(
+            document.summary.view_count.as_ref().map(|count| count.value),
+            Some(12)
+        );
     }
 
     #[test]
