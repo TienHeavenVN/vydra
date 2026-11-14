@@ -139,6 +139,9 @@ sorting/filtering (would need unverified `params`), comments, captions, live API
 | `vydra-config`, `vydra-cache`, `vydra-auth`, `vydra-errors`, `vydra-observability` | 8 / 5 / 5 / 4 / 2 |
 | **total** | **270** |
 
+The CI run above executed all 270; the per-crate counts are the attribute count (`#[test]` + `#[tokio::test]`) in
+each crate, which is what the 14 test jobs run.
+
 New for Phase 6: 12 channel mapper tests, 7 playlist mapper tests, 6 engine browse tests, 6 domain serialization
 tests, 2 probe-workflow-side grep checks (annotations), plus the 12 fixture-provenance checks that now cover 12 browse
 fixtures.
@@ -148,13 +151,19 @@ Not unit-tested, stated rather than implied: the live path itself (needs egress)
 
 ## 9. CI
 
-Final state: **see §11**. What the phase cost to get there, recorded because it is the useful part:
+Final state: **22/22 jobs green** on run [43569267185](https://github.com/TienHeavenVN/vydra/actions/runs/43569267185)
+(`push`, HEAD `78655a01`) and [43569274250](https://github.com/TienHeavenVN/vydra/actions/runs/43569274250)
+(`pull_request`, same SHA). 14 of the 22 jobs are per-crate test jobs; the rest are `fmt`, `check`, `clippy`,
+`docker`, `audit`, `deny`, `secrets`, `openapi`.
+
+What the phase cost to get there, recorded because it is the useful part:
 
 | Round | Failures | Cause |
 | --- | --- | --- |
 | 1 | fmt, clippy, docker, test (providers) | unused parameter in the probe; tab order reversed by a LIFO stack; a dev-dependency added without regenerating `Cargo.lock` |
 | 2 | fmt, clippy, docker, test (api/api-server/providers) | `&Error` vs `Error`; unused import; an assertion on `ParseReport::count()`, which counts findings and not warnings |
 | 3 | fmt, test (providers) | rustfmt wants `let x = <chain>` broken differently; a synthetic sidecar note must say "not a capture" |
+| 4–9 | fmt only | six more rounds of rustfmt preferences (chain width, macro argument width, array breaking) — no compiler or test failures. Rounds 4–9 established that hand-predicting rustfmt without a local toolchain costs ~8 minutes per diff, so a temporary `fmt-apply` job committed rustfmt's own output (`fec1c22`) and was retired in the next commit |
 
 Two CI changes were needed to make these diagnosable at all: the `fmt` job now republishes the rustfmt diff as
 annotations, and the `browse` probe job republishes its `PROBE` lines as annotations. Job logs are not downloadable
