@@ -1,0 +1,22 @@
+{
+  "source_class": "live",
+  "captured_by": "vydra provider engine (examples/probe_player.rs, production transport and client)",
+  "capture_run": "43549736295",
+  "captured_at": "2026-11-14T03:05:36.574513145Z",
+  "capture_commit": "cf5aa84901b67c48781ec7fd9be713c8328a52df",
+  "endpoint": "POST https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+  "request_body": {
+    "context": "see PLAYER_REQUEST_CONTRACT.md",
+    "contentCheckOk": true,
+    "racyCheckOk": true
+  },
+  "client": {
+    "name": "WEB",
+    "version": "2.20260805.01.00"
+  },
+  "redaction": "identity/session/tracking keys removed; cipher blobs dropped; every URL string value has its query string stripped; bodies that still matched an api-key or signature marker were withheld",
+  "transformation": "none — archived bytes, verbatim",
+  "sha256": "f49b08f0867b505dd2c8cbfccfe387886a6ebf549ae176eda247442fda6f7d8e",
+  "bytes": 628,
+  "description": "Syntactically valid id that does not resolve: ERROR / 'This video is unavailable', no videoDetails. Upstream does not distinguish deleted from never-existed."
+}

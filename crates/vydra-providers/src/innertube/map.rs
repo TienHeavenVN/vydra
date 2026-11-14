@@ -411,6 +411,10 @@ struct VideoDetailsDto {
     is_live_content: Option<bool>,
     is_live_now: Option<bool>,
     is_upcoming: Option<bool>,
+    /// `{"thumbnails": [...]}` — the same shape as the microformat's `thumbnail`, used as a fallback
+    /// when the optional `microformat` object is absent (Phase 5A live capture: 5 sizes here, 1
+    /// there).
+    thumbnail: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -461,11 +465,11 @@ fn collect_strings(value: &Value, out: &mut String) {
                 collect_strings(item, out);
             }
         }
-        Value::String(text) => {
-            if out.len() < 512 {
-                out.push(' ');
-                out.push_str(text);
-            }
+        // The bound keeps a huge description or promo blob from being copied into classification
+        // text; anything past it is ignored rather than truncated mid-word into a false match.
+        Value::String(text) if out.len() < 512 => {
+            out.push(' ');
+            out.push_str(text);
         }
         _ => {}
     }
@@ -876,6 +880,17 @@ pub fn map_player(
         .and_then(|renderer| renderer.get("thumbnail"))
         .map(thumbnails_of)
         .unwrap_or_default();
+    // `microformat` is optional but `videoDetails.thumbnail` is not: without this fallback a real
+    // document would map to zero thumbnails purely because one optional section was missing.
+    let thumbnails = if thumbnails.is_empty() {
+        details
+            .thumbnail
+            .as_ref()
+            .map(thumbnails_of)
+            .unwrap_or_default()
+    } else {
+        thumbnails
+    };
 
     let description = details.short_description.clone();
     let chapters = description
@@ -1327,6 +1342,27 @@ mod tests {
             map_player(&payload, &id, &mut report, provenance()),
             Err(ProviderError::Parse { .. })
         ));
+    }
+
+    #[test]
+    fn thumbnails_fall_back_to_video_details_when_microformat_is_absent() {
+        let payload = json!({
+            "playabilityStatus": {"status": "OK"},
+            "videoDetails": {
+                "videoId": "dQw4w9WgXcQ",
+                "title": "t",
+                "thumbnail": {"thumbnails": [
+                    {"url": "//i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", "width": 480, "height": 360},
+                    {"url": "//i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg", "width": 1280, "height": 720}
+                ]}
+            }
+        });
+        let id = VideoId::parse("dQw4w9WgXcQ").expect("id");
+        let mut report = ParseReport::new();
+        let document = map_player(&payload, &id, &mut report, provenance()).expect("document");
+        assert_eq!(document.summary.thumbnails.len(), 2);
+        assert_eq!(document.summary.thumbnails[1].width, Some(1280));
+        assert!(document.summary.thumbnails[0].url.starts_with("https://"));
     }
 
     #[test]

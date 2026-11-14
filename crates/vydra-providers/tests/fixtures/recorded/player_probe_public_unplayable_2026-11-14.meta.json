@@ -1,0 +1,22 @@
+{
+  "source_class": "live",
+  "captured_by": "vydra provider engine (examples/probe_player.rs, production transport and client)",
+  "capture_run": "43549736295",
+  "captured_at": "2026-11-14T03:05:36.574513145Z",
+  "capture_commit": "cf5aa84901b67c48781ec7fd9be713c8328a52df",
+  "endpoint": "POST https://www.youtube.com/youtubei/v1/player?prettyPrint=false&key=<redacted>",
+  "request_body": {
+    "context": "see PLAYER_REQUEST_CONTRACT.md",
+    "contentCheckOk": true,
+    "racyCheckOk": true
+  },
+  "client": {
+    "name": "WEB",
+    "version": "2.20260805.01.00"
+  },
+  "redaction": "identity/session/tracking keys removed; cipher blobs dropped; every URL string value has its query string stripped; bodies that still matched an api-key or signature marker were withheld",
+  "transformation": "none — archived bytes, verbatim",
+  "sha256": "99e1a0145e7929e4d592dce55b1a7c2f3244f562e128c15ec213abff1335cbe4",
+  "bytes": 12879,
+  "description": "Public video answered UNPLAYABLE ('The page needs to be reloaded.') while still carrying videoDetails and microformat: the hybrid document case."
+}
