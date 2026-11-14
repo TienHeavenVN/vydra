@@ -317,6 +317,15 @@ async fn player_headers_match_the_web_client_profile() {
     let transport = replay(BOOTSTRAP, PLAYER_BODY);
     let provider = innertube(transport.clone());
 
+    // Locale is taken from `ProviderContext`, which the engine builds from the API query; the
+    // `hl`/`gl` fields on `ProviderRequest` are redundant for this provider (the context is
+    // authoritative). Asserting the header alone would have hidden that, so both are checked below.
+    let request_context = ProviderContext {
+        hl: "de".into(),
+        gl: "DE".into(),
+        ..context(Strictness::Lenient)
+    };
+
     provider
         .fetch(
             ProviderRequest::Video {
@@ -324,7 +333,7 @@ async fn player_headers_match_the_web_client_profile() {
                 hl: "de".into(),
                 gl: "DE".into(),
             },
-            &context(Strictness::Lenient),
+            &request_context,
         )
         .await
         .expect("player response");
@@ -347,6 +356,11 @@ async fn player_headers_match_the_web_client_profile() {
     );
     let user_agent = header(player, "user-agent").expect("user agent");
     assert!(user_agent.contains("Chrome/"), "{user_agent}");
+
+    // The locale reaches the body too, not only the header.
+    let body = body_of(player);
+    assert_eq!(body["context"]["client"]["hl"], "de");
+    assert_eq!(body["context"]["client"]["gl"], "DE");
 
     // The path is the player endpoint, not search, and the key stays in the query string.
     assert!(

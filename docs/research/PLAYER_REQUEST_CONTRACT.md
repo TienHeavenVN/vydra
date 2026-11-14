@@ -48,7 +48,7 @@ that claimed struct order on the wire was wrong; the test that compares bytes ca
 | query | `prettyPrint=false`, `key=<bootstrap key>` | same; the key is a **query parameter**, never a header |
 | `videoId` | the 11-character id from the validated `VideoId` newtype | same; the four captures used three distinct ids, all echoed in `videoDetails.videoId` where metadata was returned |
 | `contentCheckOk`, `racyCheckOk` | `true`, `true` | accepted; see §3 for the paired false/false request |
-| `context` | one object, built by `ClientContext::new` from the client profile + session | accepted on every request; identical to the search context |
+| `context` | one object, built by `ClientContext::new` from the client profile + session; `hl`/`gl` come from `ProviderContext` (the engine builds it from the API query), not from the redundant `hl`/`gl` fields on `ProviderRequest` | accepted on every request; identical to the search context |
 | header `x-youtube-client-name` / `-version` | `1` / bootstrap version | accepted; a mismatch is a plausible cause of `UNPLAYABLE`, so the version is taken from the bootstrap rather than hard-coded |
 
 The type has no other fields: a player request physically cannot carry `query`, `params`,
