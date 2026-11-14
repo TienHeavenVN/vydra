@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use vydra_cache::{Cache, CacheClass, Lookup};
 use vydra_common::{ChannelId, ChannelRef, CursorCodec, PageParams, PlaylistId, VideoId};
 use vydra_domain::{
-    Availability, CaptionTrackList, Chapter, ChannelDocument, ChannelVideoList, PlaylistDocument,
+    Availability, CaptionTrackList, ChannelDocument, ChannelVideoList, Chapter, PlaylistDocument,
     PlaylistVideoList, Provenance, SearchItem, SearchResults, VideoChapters, VideoDocument,
     VideoSummary,
 };

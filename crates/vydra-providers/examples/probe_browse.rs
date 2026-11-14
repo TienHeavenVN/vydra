@@ -41,6 +41,10 @@ use vydra_common::{ChannelId, ChannelRef, PlaylistId};
 use vydra_providers::innertube::browse_map::{
     map_channel, map_channel_videos, map_playlist, map_playlist_videos, videos_tab_params,
 };
+use vydra_providers::innertube::{
+    BrowseRequest, ClientKind, ClientProfile, ContinuationRequest, InnertubeClient,
+    InnertubeProviderConfig,
+};
 use vydra_providers::parse::find_page_cursor;
 use vydra_providers::{ProviderContext, ReqwestTransport, Strictness};
 

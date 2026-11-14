@@ -127,3 +127,90 @@ pub struct PlaylistVideoList {
     pub repeated_entries: Option<u32>,
     pub provenance: Provenance,
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use serde_json::{Value, json};
+    use time::macros::datetime;
+    use vydra_common::{PlaylistId, VideoId};
+
+    use super::*;
+    use crate::common::{Availability, Provenance};
+
+    fn provenance() -> Provenance {
+        Provenance {
+            provider: "innertube-web".into(),
+            endpoint: "browse".into(),
+            client: Some("web".into()),
+            fetched_at: datetime!(2026-11-13 00:00 UTC),
+            cached: false,
+            parse_warnings: 0,
+            sources: vec![],
+        }
+    }
+
+    fn item(position: Option<u32>, availability: Availability) -> PlaylistItem {
+        PlaylistItem {
+            position,
+            video_id: VideoId::parse("vid00000000").ok(),
+            title: "Entry".into(),
+            channel_id: None,
+            channel_title: None,
+            duration_seconds: Some(599),
+            thumbnails: vec![],
+            availability,
+            source: PlaylistEntrySource::Lockup,
+        }
+    }
+
+    #[test]
+    fn an_entry_without_a_position_omits_it() {
+        let value: Value =
+            serde_json::from_str(&serde_json::to_string(&item(None, Availability::Unknown)).expect("serialize"))
+                .expect("parse");
+        assert!(value.get("position").is_none(), "{value}");
+        assert_eq!(value["source"], json!("lockup"));
+        assert_eq!(value["availability"]["state"], json!("unknown"));
+    }
+
+    #[test]
+    fn an_unknown_availability_is_not_playable_after_a_round_trip() {
+        let original = item(None, Availability::Unknown);
+        assert!(!original.is_playable());
+        let back: PlaylistItem =
+            serde_json::from_str(&serde_json::to_string(&original).expect("serialize"))
+                .expect("deserialize");
+        assert_eq!(back, original);
+        assert!(!back.is_playable());
+    }
+
+    #[test]
+    fn an_empty_entry_list_is_omitted_rather_than_empty() {
+        let document = PlaylistDocument {
+            summary: PlaylistSummary {
+                id: PlaylistId::parse("PLaaaaaaaaaaaaaaaaaaaaaa").expect("valid id"),
+                title: "Example".into(),
+                channel_id: None,
+                channel_title: None,
+                description: None,
+                item_count: Some(Count::exact(0)),
+                thumbnails: vec![],
+            },
+            availability: Availability::Available,
+            items: vec![],
+            next_cursor: None,
+            view_count: None,
+            last_updated_text: None,
+            repeated_entries: None,
+            evidence: MetadataEvidence::default(),
+            provenance: provenance(),
+        };
+        let value: Value =
+            serde_json::from_str(&serde_json::to_string(&document).expect("serialize")).expect("parse");
+        assert!(value.get("items").is_none(), "{value}");
+        // An empty playlist states `0`; a hidden one would be `None`. Both exist and differ.
+        assert_eq!(value["summary"]["item_count"]["value"], json!(0));
+    }
+}

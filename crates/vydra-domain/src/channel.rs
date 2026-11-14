@@ -135,3 +135,96 @@ pub struct ChannelVideoList {
 fn is_zero(value: &u32) -> bool {
     *value == 0
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use serde_json::{Value, json};
+    use time::macros::datetime;
+    use vydra_common::ChannelId;
+
+    use super::*;
+    use crate::common::{Availability, Provenance};
+
+    fn provenance() -> Provenance {
+        Provenance {
+            provider: "innertube-web".into(),
+            endpoint: "browse".into(),
+            client: Some("web".into()),
+            fetched_at: datetime!(2026-11-13 00:00 UTC),
+            cached: false,
+            parse_warnings: 0,
+            sources: vec![],
+        }
+    }
+
+    fn document(subscriber_count: Option<Count>, video_count: Option<Count>) -> ChannelDocument {
+        ChannelDocument {
+            summary: ChannelSummary {
+                id: ChannelId::parse("UCaaaaaaaaaaaaaaaaaaaaaa").expect("valid id"),
+                title: "Example".into(),
+                handle: None,
+                description: None,
+                thumbnails: vec![],
+                subscriber_count,
+                video_count,
+            },
+            availability: Availability::Available,
+            banner: None,
+            links: vec![],
+            joined_at: None,
+            country: None,
+            total_view_count: None,
+            tabs: vec![],
+            verification: vec![],
+            evidence: MetadataEvidence::default(),
+            provenance: provenance(),
+        }
+    }
+
+    #[test]
+    fn absent_counts_are_omitted_and_never_rendered_as_zero() {
+        let json = serde_json::to_string(&document(None, None)).expect("serialize");
+        let value: Value = serde_json::from_str(&json).expect("parse");
+        assert!(value["summary"].get("subscriber_count").is_none());
+        assert!(value["summary"].get("video_count").is_none());
+
+        // Absence survives a round trip: reading the document back does not invent a zero.
+        let back: ChannelDocument = serde_json::from_str(&json).expect("deserialize");
+        assert!(back.summary.subscriber_count.is_none());
+        assert_eq!(back, document(None, None));
+    }
+
+    #[test]
+    fn an_approximate_count_keeps_its_rendered_text() {
+        let document = document(
+            Some(Count::approximate(21_400_000, "21.4M subscribers")),
+            Some(Count::exact(550)),
+        );
+        let value: Value =
+            serde_json::from_str(&serde_json::to_string(&document).expect("serialize")).expect("parse");
+
+        let subscribers = &value["summary"]["subscriber_count"];
+        assert_eq!(subscribers["precision"], json!("approximate"));
+        assert_eq!(subscribers["raw"], json!("21.4M subscribers"));
+        assert_eq!(subscribers["value"], json!(21_400_000u64));
+        // An exact count carries no `raw`: there is no rendering to preserve.
+        let videos = &value["summary"]["video_count"];
+        assert_eq!(videos["precision"], json!("exact"));
+        assert!(videos.get("raw").is_none());
+    }
+
+    #[test]
+    fn an_unknown_tab_has_no_slug() {
+        let tab = ChannelTab {
+            title: "Communauté".into(),
+            slug: None,
+            selected: false,
+        };
+        let value: Value = serde_json::from_str(&serde_json::to_string(&tab).expect("serialize"))
+            .expect("parse");
+        assert_eq!(value["title"], json!("Communauté"));
+        assert!(value.get("slug").is_none(), "{value}");
+    }
+}

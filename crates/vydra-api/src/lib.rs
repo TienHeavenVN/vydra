@@ -576,8 +576,8 @@ async fn channel_videos_handler(
     Path(id): Path<String>,
     Query(query): Query<ListingQuery>,
 ) -> ApiResult<Json<Envelope<ChannelVideoList>>> {
-    let channel_id = vydra_common::ChannelId::parse(id.trim())
-        .map_err(|e| ApiError::new(e, &request_id.0))?;
+    let channel_id =
+        vydra_common::ChannelId::parse(id.trim()).map_err(|e| ApiError::new(e, &request_id.0))?;
     let (hl, gl) = query
         .locales()
         .map_err(|e| ApiError::new(e, &request_id.0))?;
