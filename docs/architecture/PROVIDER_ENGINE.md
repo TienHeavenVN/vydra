@@ -298,6 +298,46 @@ configuration fingerprint that stamps every entry (`ProviderRegistry::config_fin
 label). A client bump therefore invalidates the entry class instead of serving one client's body under
 another's configuration.
 
+## 6.5 Channel and playlist engines (Phase 6, ADR-023, ADR-024)
+
+Two document shapes and two listing shapes, all on the same `browse` endpoint:
+
+| Operation | Request body | Document |
+| --- | --- | --- |
+| `channel` | `{context, browseId: "UC…"}` | `ChannelDocument` |
+| `channel_videos` | page 1: `{context, browseId, params: <relayed>}`; page *n*: `{context, continuation}` | `ChannelVideoList` |
+| `playlist` | `{context, browseId: "VL…"}` | `PlaylistDocument` |
+| `playlist_videos` | page 1: `{context, browseId: "VL…"}`; page *n*: `{context, continuation}` | `PlaylistVideoList` |
+
+Three structural rules separate this from the search path:
+
+* **only one invented wire string** exists in the whole engine — `"VL" + playlist id`. The channel videos tab's
+  `params` blob is *relayed* from the channel page and validated by `is_relayable_params`; no tab-parameter table is
+  compiled in, because a hard-coded blob is a claim upstream cannot be made to honour.
+* **a listing row may not state what a document states.** `lockupViewModel` rows have no `index` and no `isPlayable`,
+  so a playlist entry built from them carries `position: None` and `availability: Unknown` — never a computed
+  position, never an assumed verdict (ADR-023).
+* **a handle is not an id.** `@handle` is refused at the API edge and by the provider, because upstream answered a
+  handle browse id with `HTTP 400` (probe, Phase 6) and resolving it would require a guessing second request
+  (ADR-024).
+
+Cache classes reuse ADR-022 with two more TTLs, so a listing and a continuation page do not share a lifetime:
+
+| Document | TTL | Key |
+| --- | --- | --- |
+| channel document | `metadata_ttl_secs` (300) / `unavailable_ttl_secs` (60) / never when `unknown` | `channel:{id}:{hl}:{gl}` |
+| channel videos, page 1 | `listing_ttl_secs` (120) | `channel.videos:{id}:{token}:{limit}:{hl}:{gl}` |
+| channel videos, page *n* | `cursor_page_ttl_secs` (60) | as above, with the page token |
+| playlist document | `listing_ttl_secs` (120) | `playlist:{id}:{hl}:{gl}` |
+| playlist entries, page 1 / page *n* | `listing_ttl_secs` / `cursor_page_ttl_secs` | `playlist.videos:{id}:{token}:{limit}:{hl}:{gl}` |
+
+Cursors carry the same dimensions in their signed payload (`k` namespace `channel.videos:{id}` /
+`playlist.videos:{id}`, `p` provider id, `t` upstream token, `iat`), so a cursor minted for one listing cannot be
+replayed against another, and one minted under a different provider or fingerprint fails verification.
+
+Verification boundaries are in `docs/research/CHANNEL_CONTRACT.md` §9 and `PLAYLIST_CONTRACT.md` §8; the fixture
+classes are in `docs/research/CHANNEL_PLAYLIST_FIXTURE_PROVENANCE.md`.
+
 ## 7. Adding a provider (the whole checklist)
 
 1. Implement `Provider` in a new module of `vydra-providers` (or a new crate depending only on

@@ -547,3 +547,69 @@ scope. (d) Add Redis — measured requirement absent, ADR-015 stands.
 **Residual.** Stale-while-revalidate is configured but not implemented (`MemoryCache` stale window is
 zero); repopulating a hot key still costs one blocking upstream call.
 
+## ADR-023 — A listing row is not a document: lockup rows keep `position: None` and `availability: Unknown`
+
+**Status:** accepted (Phase 6)
+**Context.** Current channel tabs and playlist pages render their rows as `richItemRenderer > content >
+lockupViewModel` rather than `videoRenderer`/`playlistVideoRenderer`. The Phase 6 probe captured a live channel
+Videos tab (run 43561555917) and its rows carry a validated `contentId`, a title, thumbnail sources, a duration
+badge and a metadata row pair — and **no** `index` and **no** `isPlayable` field anywhere. Two tempting
+shortcuts exist: compute the position from the row's offset in the page, and treat a missing `isPlayable` as
+"available". Phase 5A already measured what the second shortcut costs (`Availability::Unknown` exists because
+the mapper used to manufacture a success), and the first is worse: a continuation page starts at an arbitrary
+offset, so a computed position would contradict the number the playlist owner sees.
+
+**Decision.**
+
+1. Lockup rows are mapped (id, title, thumbnails, duration badge, metadata row pair) instead of being counted as
+   unmapped content, because a row shape this common is content, not noise.
+2. `position` stays `None` when the row states none. It is never derived from the page offset, the request's
+   limit, or the previous item.
+3. `availability` stays `Unknown` when the row states no playability, and `PlaylistItem::is_playable()` returns
+   false for it. `Unknown` is not cached as success and is not counted as a failure.
+4. A duration comes only from a badge that parses as a clock value; a badge label ("Now playing", "LIVE") is
+   never read as a length.
+5. A row whose `contentId` fails `VideoId` validation is dropped with `skipped_item` and a reason — a lookalike
+   string never becomes a video reference.
+
+**Rejected alternatives.** (a) Count lockup rows as unmapped — that is what Phase 6 shipped first, and it made
+both listing endpoints return zero items on a real page. (b) Compute positions from offsets — silently wrong on
+every continuation page. (c) Emit `Available` for a row with no verdict — the exact defect Phase 5A exists to
+prevent. (d) Drop rows without a title silently — they are reported as `missing_field` instead.
+
+**Evidence.** `channel_parser::lockup_rows_map_into_a_channel_video_listing`,
+`channel_parser::lockup_rows_survive_a_missing_metadata_block`,
+`playlist_parser::lockup_entries_keep_an_unknown_position_and_an_unknown_availability`,
+`playlist_parser::a_lockup_entry_without_a_title_is_reported_instead_of_fabricated`; fixtures
+`browse_channel_videos_lockup.json`, `browse_playlist_entries_lockup.json` (synthetic, keyed like the live sample).
+
+**Residual.** Only the channel Videos tab was sampled; if a playlist surface nests lockup rows differently the
+by-key fallback may find nothing and the page reports `playlist_entries_missing` instead of fabricating entries.
+
+## ADR-024 — A `@handle` is refused, not resolved
+
+**Status:** accepted (Phase 6)
+**Context.** `ChannelRef` models both a canonical `UC…` id and a `@handle`, because channel pages render vanity URLs
+and search results carry handles. The first Phase 6 implementation sent `{browseId: "@veritasium"}` straight to
+`browse`; the probe (run 43561555917) received `HTTP 400`. A handle is therefore not a browse id. Resolving one
+would require a second request — a search, or the `about` tab — whose result is Vydra's guess about which channel
+the caller meant, and whose id would differ from the id in the request path.
+
+**Decision.**
+
+1. `/api/v1/channels/{id}` accepts a canonical `UC…` id only; the OpenAPI pattern says so.
+2. A handle is rejected with `400 validation_failed{field: "id", issue: "handle_not_supported"}` before any
+   provider call, and the provider refuses it with a typed `Unsupported` error as defence in depth.
+3. `ChannelSummary::handle` remains: a *document* may state its own vanity URL even though a *request* may not use
+   one.
+
+**Rejected alternatives.** (a) Search for the handle and take the first channel — a guess presented as a lookup.
+(b) Fetch `youtube.com/@handle` and scrape the redirect — a second undocumented surface, and the redirect is exactly
+what a bot check gates. (c) Silently rewrite the response id — a client that asked for `@x` and got `UCy` cannot
+tell a redirect from a wrong answer.
+
+**Evidence.** probe run 43561555917 (`browseId "@veritasium"` → `400`); `docs/research/CHANNEL_CONTRACT.md` §7.
+
+**Residual.** Handle support returns when a handle→id resolution can be verified as an exact match (e.g. a page
+whose stated vanity URL equals the requested handle), not before.
+

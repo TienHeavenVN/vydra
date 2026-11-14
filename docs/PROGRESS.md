@@ -1,6 +1,6 @@
 # Progress and Verification Status
 
-Last updated: 2026-11-14. This file is the authoritative answer to "does it work?".
+Last updated: 2026-11-13. This file is the authoritative answer to "does it work?".
 
 ## Blocked verification (read first)
 
@@ -48,10 +48,23 @@ Consequences, stated plainly:
 | 5A — Player endpoint verification | **complete, CI green** (https://github.com/TienHeavenVN/vydra/actions/runs/43552284213, 22/22); metadata + verdicts verified live, formats/captions unverified live | 8 raw player requests from 2 runs (`43549141233`, `43549736295`), 8× HTTP 200, all archived with SHA-256; `docs/reports/PHASE_5A_REPORT.md`, `docs/research/{PLAYER_RESPONSE_ANALYSIS,PLAYER_REQUEST_CONTRACT,PLAYER_FIXTURE_PROVENANCE}.md`; ADR-020 |
 | 5B — Video metadata engine | **complete; metadata live-verified, an `OK` verdict still blocked** | domain evidence/conflict model, microformat + broadcast + storyboard mapping, `DocumentCachePolicy`, `hl`/`gl` on the video endpoints; `docs/reports/PHASE_5B_REPORT.md`, `docs/research/{VIDEO_METADATA_CONTRACT,VIDEO_METADATA_FIXTURE_PROVENANCE}.md`; ADR-021, ADR-022 |
 | 5 — Search engine | written for mixed search only | type-scoped search gated behind an opt-in flag |
-| 6 — Metadata engines | video metadata verified live (5A); chapters + captions from fixtures | channels, playlists, comments **not implemented** |
+| 6 — Channel & playlist engines | **complete for channels and playlists; no live playlist listing yet** | four endpoints, signed cursors, per-resource cache classes, 12 fixtures with sidecars; `docs/reports/PHASE_6_REPORT.md`, `docs/research/{CHANNEL_CONTRACT,PLAYLIST_CONTRACT,CHANNEL_PLAYLIST_FIXTURE_PROVENANCE}.md`; ADR-023, ADR-024. Comments still **not implemented** |
 | 7 — Advanced modules | not started | live, music, trending, related, discovery |
 | 8 — Infrastructure | skeleton only | Postgres schema + repository stub; Redis/NATS/OpenSearch deferred (ADR-015) |
 | 9 — Hardening | not started | security model documented, not tested |
+
+## Phase 6 — channels and playlists (what CI actually proved)
+
+| Claim | Evidence |
+|---|---|
+| A channel page maps end to end from a live capture | probe run 43561555917: id, 7 tabs, `subscribers=21 400 000` (approximate), `videos=550`, 0 parse warnings |
+| The videos tab needs the relayed `params` blob, and upstream accepts it | same run: 20-byte relayed blob, 136-byte page cursor returned |
+| Current listing rows are `lockupViewModel` | same run: shape inventory reported by the probe |
+| A `@handle` is not a browse id | same run: `browseId "@veritasium"` → `HTTP 400`; the API refuses handles with 400 `handle_not_supported` |
+| Positions are never computed, unavailability never shifts a list | `playlist_parser::lockup_entries_keep_an_unknown_position_and_an_unknown_availability`, `playlist_parser` page-2 position test |
+| Chip and sort tokens never become cursors | `channel_parser` sort-token test, `parse::find_page_cursor` |
+| Cache TTLs differ per resource class | `vydra-engines` browse tests, `cache.listing_ttl_secs` / `cache.cursor_page_ttl_secs` |
+| No live playlist listing has been observed | probe run 43561555917: the sampled uploads playlist page carried no page cursor and no readable rows |
 
 ## Phase 5B — video metadata (what CI actually proved)
 
