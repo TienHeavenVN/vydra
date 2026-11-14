@@ -8,8 +8,8 @@ use std::collections::HashSet;
 
 use serde::Deserialize;
 use serde_json::Value;
-use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
+use time::{OffsetDateTime, UtcOffset};
 use vydra_common::text::{is_abbreviated_count, parse_clock_duration, parse_view_count};
 use vydra_common::{ChannelId, PlaylistId, VideoId};
 use vydra_domain::{
@@ -865,7 +865,11 @@ pub fn map_player(
                 .and_then(|renderer| renderer.get("publishDate"))
                 .and_then(Value::as_str)
         })
-        .and_then(|date| OffsetDateTime::parse(date, &Rfc3339).ok());
+        // ADR-016: timestamps are RFC 3339 **UTC**. The live capture publishes
+        // `2009-10-24T23:57:33-07:00`; keeping that offset would mean the same instant had two wire
+        // forms depending on who published it, so the value is normalised on the way in.
+        .and_then(|date| OffsetDateTime::parse(date, &Rfc3339).ok())
+        .map(|published| published.to_offset(UtcOffset::UTC));
 
     let category = microformat
         .as_ref()

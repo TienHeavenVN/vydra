@@ -24,6 +24,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use serde_json::Value;
+use time::UtcOffset;
 use vydra_common::VideoId;
 use vydra_domain::Availability;
 use vydra_errors::{ProviderError, UnavailabilityReason};
@@ -172,14 +173,16 @@ async fn live_unplayable_capture_keeps_metadata_and_reports_the_verdict() {
     );
     assert!(description.len() > 1_000);
 
-    // `publishDate` is `2009-10-24T23:57:33-07:00`: the offset must be applied, not dropped.
+    // `publishDate` is `2009-10-24T23:57:33-07:00`. ADR-016 says timestamps are RFC 3339 **UTC**, so
+    // the same instant must arrive normalised as 2009-10-25T06:57:33Z; keeping the publisher's offset
+    // would give one instant two wire forms.
     let published = document.summary.published_at.expect("publish date");
+    assert_eq!(published.offset(), UtcOffset::UTC);
     assert_eq!(published.year(), 2009);
-    assert_eq!(
-        published.day(),
-        25,
-        "UTC day after applying the -07:00 offset"
-    );
+    assert_eq!(published.day(), 25);
+    assert_eq!(published.hour(), 6);
+    assert_eq!(published.minute(), 57);
+    assert_eq!(published.second(), 33);
 
     // Thumbnails come from the microformat and are normalised to absolute https URLs.
     assert_eq!(document.summary.thumbnails.len(), 1);
