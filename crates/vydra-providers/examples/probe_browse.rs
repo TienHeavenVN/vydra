@@ -502,25 +502,27 @@ async fn main() -> ProbeResult<()> {
             &mut parse_report,
             synthetic_provenance(fetched_at),
         ) {
-            Ok(document) => println!(
-                "PROBE mapped_channel id={} title_bytes={} tabs={:?} subscribers={:?} videos={:?} warnings={} sections={:?}",
-                document.summary.id.as_str(),
-                document.summary.title.len(),
-                document
+            Ok(document) => {
+                let tabs: Vec<String> = document
                     .tabs
                     .iter()
                     .map(|tab| tab.slug.clone().unwrap_or_else(|| "?".to_owned()))
-                    .collect::<Vec<_>>(),
-                document.summary.subscriber_count.as_ref().map(|count| count.value),
-                document.summary.video_count.as_ref().map(|count| count.value),
-                parse_report.count(),
-                document
+                    .collect();
+                let sections: Vec<&str> = document
                     .evidence
                     .sections
                     .iter()
                     .map(|section| section.as_str())
-                    .collect::<Vec<_>>(),
-            ),
+                    .collect();
+                let subscribers = document.summary.subscriber_count.as_ref().map(|c| c.value);
+                let videos = document.summary.video_count.as_ref().map(|c| c.value);
+                println!(
+                    "PROBE mapped_channel id={} title_bytes={} tabs={tabs:?} subscribers={subscribers:?} videos={videos:?} warnings={} sections={sections:?}",
+                    document.summary.id.as_str(),
+                    document.summary.title.len(),
+                    parse_report.count(),
+                );
+            }
             Err(error) => println!("PROBE mapped_channel=error={error}"),
         }
     }
@@ -577,10 +579,10 @@ async fn main() -> ProbeResult<()> {
                     "PROBE mapped_playlist items={} positions={positions:?} unavailable={unavailable}",
                     document.items.len(),
                 );
+                let item_count = document.summary.item_count.as_ref().map(|c| c.value);
                 println!(
-                    "PROBE mapped_playlist repeated={:?} item_count={:?} warnings={}",
+                    "PROBE mapped_playlist repeated={:?} item_count={item_count:?} warnings={}",
                     document.repeated_entries,
-                    document.summary.item_count.as_ref().map(|count| count.value),
                     parse_report.count(),
                 );
             }
