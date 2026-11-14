@@ -529,7 +529,12 @@ async fn main() -> ProbeResult<()> {
     if let Some(page) = videos_page.as_ref() {
         for line in structure_inventory(
             page,
-            &["lockupViewModel", "richItemRenderer", "videoRenderer", "continuationItemRenderer"],
+            &[
+                "lockupViewModel",
+                "richItemRenderer",
+                "videoRenderer",
+                "continuationItemRenderer",
+            ],
             &["lockupViewModel", "richItemRenderer"],
         ) {
             println!("PROBE struct_channel_videos {line}");
