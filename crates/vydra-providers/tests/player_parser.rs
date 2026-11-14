@@ -503,7 +503,7 @@ async fn synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions()
     // An `OK` verdict on a live broadcast is `live`, not `available`: the two cache differently.
     assert_eq!(document.availability, Availability::Live);
     assert_eq!(document.summary.live_state, Some(LiveState::Live));
-    let broadcast = document.broadcast.expect("broadcast window");
+    let broadcast = document.broadcast.as_ref().expect("broadcast window");
     assert_eq!(broadcast.live_now, Some(true));
     assert_eq!(
         broadcast.start_at.map(|start| start.offset()),
@@ -512,7 +512,10 @@ async fn synthetic_ok_capture_maps_live_state_storyboards_formats_and_captions()
 
     // `lengthSeconds: "0"` is a value, and it must stay distinguishable from "not reported".
     assert_eq!(document.summary.duration_seconds, Some(0));
-    assert_eq!(document.like_count.map(|count| count.value), Some(99));
+    assert_eq!(
+        document.like_count.as_ref().map(|count| count.value),
+        Some(99)
+    );
 
     // Storyboards: geometry only.
     let storyboard = document.storyboards.as_ref().expect("storyboard geometry");

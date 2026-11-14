@@ -1277,7 +1277,7 @@ fn broadcast_from(micro: Option<&MicroformatRendererDto>) -> Option<BroadcastInf
         .map(|end| end.to_offset(UtcOffset::UTC));
     let live_now = flag(&details.is_live_now);
 
-    if !live_now.is_some() && start_at.is_none() && end_at.is_none() {
+    if live_now.is_none() && start_at.is_none() && end_at.is_none() {
         return None;
     }
     Some(BroadcastInfo {
@@ -1373,10 +1373,7 @@ fn storyboards_from(
             .map(|name| name.trim())
             .filter(|name| !name.is_empty())
             .map(str::to_owned);
-        let sigh_present = fields
-            .get(7)
-            .map(|sigh| !sigh.trim().is_empty())
-            .unwrap_or(false);
+        let sigh_present = fields.get(7).is_some_and(|sigh| !sigh.trim().is_empty());
         levels.push(StoryboardLevel {
             width,
             height,
@@ -1842,7 +1839,7 @@ mod tests {
             json!({"likeCount": "19503628"}),
             json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
         ));
-        let like = document.like_count.expect("like count");
+        let like = document.like_count.as_ref().expect("like count");
         assert_eq!(like.value, 19_503_628);
         assert_eq!(like.precision, Precision::Exact);
 
@@ -1863,7 +1860,7 @@ mod tests {
             }),
             json!({"videoId": "dQw4w9WgXcQ", "title": "t"}),
         ));
-        let publication = document.publication.expect("publication");
+        let publication = document.publication.as_ref().expect("publication");
         assert_eq!(publication.upstream_text, "2009-10-24T23:57:33-07:00");
         assert_eq!(publication.upstream_offset_seconds, -25_200);
         assert_eq!(publication.published_at.offset(), UtcOffset::UTC);
@@ -2077,7 +2074,7 @@ mod tests {
         let (document, _) = map(&payload);
         assert_eq!(document.availability, Availability::Live);
         assert_eq!(document.summary.live_state, Some(LiveState::Live));
-        let broadcast = document.broadcast.expect("broadcast window");
+        let broadcast = document.broadcast.as_ref().expect("broadcast window");
         assert_eq!(broadcast.live_now, Some(true));
         assert!(broadcast.start_at.is_some() && broadcast.end_at.is_some());
         assert!(
