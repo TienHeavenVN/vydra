@@ -1,0 +1,60 @@
+name: probe
+
+# Manual only. This workflow performs real requests to www.youtube.com through Vydra's guarded
+# transport so that the recorded fixture corpus can contain captures made by Vydra itself, with a
+# stated date and a stated redaction pass. It is deliberately *not* part of `ci.yml`:
+#
+#   * it needs egress to YouTube, which the CI policy does not otherwise require;
+#   * it must never be a required check, because a blocked datacenter IP is a fact about the runner,
+#     not a regression in Vydra;
+#   * it uploads evidence artifacts instead of asserting anything, so nothing depends on it passing.
+#
+# See docs/research/SEARCH_RESPONSE_ANALYSIS.md and scripts/fixtures/import_probe.py.
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: Primary search query
+        required: false
+        default: captain jack
+      mixed_query:
+        description: Query expected to mix renderer kinds (video + channel + playlist)
+        required: false
+        default: veritasium
+      empty_query:
+        description: Query expected to return no results
+        required: false
+        default: zzqqxxvydraprobe9931
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: run the evidence probe
+        env:
+          VYDRA_PROBE_OUT: probe-out
+          VYDRA_PROBE_QUERY: ${{ inputs.query }}
+          VYDRA_PROBE_MIXED_QUERY: ${{ inputs.mixed_query }}
+          VYDRA_PROBE_EMPTY_QUERY: ${{ inputs.empty_query }}
+          RUST_LOG: info
+        run: cargo run --release -p vydra-providers --example probe_search 2>&1 | tee probe.log
+      - name: summarise (annotations)
+        if: always()
+        run: |
+          bash scripts/ci/annotate.sh probe.log -1 25
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-out
+          path: |
+            probe-out
+            probe.log
+          retention-days: 14
+          if-no-files-found: warn

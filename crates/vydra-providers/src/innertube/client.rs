@@ -314,6 +314,34 @@ impl InnertubeClient {
         Ok((value, elapsed))
     }
 
+    /// Execute an endpoint call and return the raw status and body **without** interpreting it.
+    ///
+    /// Added for the Phase 4.3 upstream evidence probe: an error envelope is evidence too, and
+    /// `post_json` maps a non-success status to a `ProviderError` whose message keeps only the first
+    /// 200 bytes. The probe needs the bytes.
+    ///
+    /// The request is built exactly like [`Self::post_json`] (same URL, key placement, headers,
+    /// timeout and body cap); only the response handling differs. A `401`/`403` does **not**
+    /// invalidate the session here — the caller decides whether the status means "stale session".
+    pub async fn post_raw(
+        &self,
+        endpoint: &str,
+        body: Value,
+        ctx: &ProviderContext,
+    ) -> Result<(u16, Bytes), ProviderError> {
+        let encoded = serde_json::to_vec(&body).map_err(|err| ProviderError::InvalidRequest {
+            field: "body".into(),
+            issue: format!("serialize: {err}"),
+        })?;
+
+        let session = self.session(ctx).await;
+        let url = self.endpoint_url(endpoint, &session);
+        let (response, _) = self
+            .send(&url, ctx, Some(Bytes::from(encoded)), &session)
+            .await?;
+        Ok((response.status, response.body))
+    }
+
     /// Build the `context` object shared by every endpoint.
     pub fn context_value(&self, session: &SessionData, ctx: &ProviderContext) -> Value {
         let profile = &self.config.client;
