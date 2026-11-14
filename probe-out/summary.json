@@ -4,7 +4,7 @@
     "client_name_id": "1",
     "client_version": "2.20260805.01.00",
     "empty_query": "zzqqxxvydraprobe9931",
-    "generated_at": "2026-11-14T01:49:52.705963969Z",
+    "generated_at": "2026-11-14T02:04:50.51169735Z",
     "gl": "US",
     "has_api_key": true,
     "has_visitor_data": true,
@@ -15,7 +15,7 @@
       "endpoint": "search",
       "ok": true,
       "summary": {
-        "estimated_results": 23544833,
+        "estimated_results": 23544793,
         "first": {
           "duration_seconds": 440,
           "id": "koft_Yschnc",
@@ -34,10 +34,10 @@
           "video",
           "video",
           "video",
+          "video",
+          "video",
+          "video",
           "channel",
-          "video",
-          "video",
-          "video",
           "video",
           "video",
           "video",
@@ -45,19 +45,19 @@
           "video",
           "video"
         ],
-        "next_cursor_len": 812,
-        "parse_warnings": 133
+        "next_cursor_len": 638,
+        "parse_warnings": 132
       }
     },
     "query": "captain jack"
   },
   "records": [
     {
-      "bytes": 664211,
+      "bytes": 660981,
       "channel_renderers": 1,
-      "continuation_token_len": 812,
-      "elapsed_ms": 638,
-      "estimated_results": "23544834",
+      "continuation_token_len": 638,
+      "elapsed_ms": 672,
+      "estimated_results": "23544604",
       "item_sections": 1,
       "label": "search_page_1",
       "playlist_renderers": 0,
@@ -81,11 +81,11 @@
       "video_renderers": 18
     },
     {
-      "bytes": 263144,
+      "bytes": 488298,
       "channel_renderers": 0,
-      "continuation_token_len": 732,
-      "elapsed_ms": 320,
-      "estimated_results": "19",
+      "continuation_token_len": 670,
+      "elapsed_ms": 609,
+      "estimated_results": "23544805",
       "item_sections": 1,
       "label": "search_page_2",
       "playlist_renderers": 0,
@@ -98,6 +98,8 @@
       "status": 200,
       "top_level_keys": [
         "estimatedResults",
+        "header",
+        "isSafeSearchTriggered",
         "onResponseReceivedCommands",
         "responseContext",
         "topbar",
@@ -106,11 +108,11 @@
       "video_renderers": 18
     },
     {
-      "bytes": 1396201,
+      "bytes": 1236535,
       "channel_renderers": 1,
-      "continuation_token_len": 818,
-      "elapsed_ms": 688,
-      "estimated_results": "200258",
+      "continuation_token_len": 612,
+      "elapsed_ms": 802,
+      "estimated_results": "200236",
       "item_sections": 1,
       "label": "search_mixed",
       "playlist_renderers": 0,
@@ -131,13 +133,13 @@
         "topbar",
         "trackingParams"
       ],
-      "video_renderers": 29
+      "video_renderers": 24
     },
     {
-      "bytes": 21748,
+      "bytes": 21754,
       "channel_renderers": 0,
       "continuation_token_len": null,
-      "elapsed_ms": 1328,
+      "elapsed_ms": 1456,
       "estimated_results": "0",
       "item_sections": 1,
       "label": "search_empty",
@@ -164,7 +166,7 @@
       "bytes": 274,
       "channel_renderers": 0,
       "continuation_token_len": null,
-      "elapsed_ms": 18,
+      "elapsed_ms": 20,
       "estimated_results": null,
       "item_sections": 0,
       "label": "search_error",
