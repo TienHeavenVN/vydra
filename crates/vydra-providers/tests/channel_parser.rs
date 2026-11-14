@@ -208,7 +208,9 @@ fn a_single_count_part_is_not_guessed_to_be_subscribers_or_videos() {
     // absent and the ambiguity is recorded.
     assert!(document.summary.subscriber_count.is_none());
     assert!(document.summary.video_count.is_none());
-    assert!(report.count() >= 1);
+    // `ParseReport::count()` counts unmapped/skipped/missing/structural findings; a *warning* is separate.
+    assert_eq!(report.count(), 0);
+    assert_eq!(report.messages().len(), 1);
     assert!(
         report
             .messages()

@@ -550,21 +550,15 @@ async fn channel_handler(
     // Phase 6 probe received `400`), and a channel reached through a search is a guess about which channel
     // the caller meant. `docs/research/CHANNEL_CONTRACT.md` §7 records the evidence.
     if matches!(reference, ChannelRef::Handle(_)) {
-        return Err(ApiError::new(
-            &Error::validation("id", "handle_not_supported"),
-            &request_id.0,
-        ));
+        let error = Error::validation("id", "handle_not_supported");
+        return Err(ApiError::new(error, &request_id.0));
     }
     let (hl, gl) = query
         .locales()
         .map_err(|e| ApiError::new(e, &request_id.0))?;
     let document = state
         .engines
-        .channel(ChannelInput {
-            reference,
-            hl,
-            gl,
-        })
+        .channel(ChannelInput { reference, hl, gl })
         .instrument(tracing::info_span!("engine.channel"))
         .await
         .map_err(|e| ApiError::new(e, &request_id.0))?;
