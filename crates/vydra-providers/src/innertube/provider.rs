@@ -126,9 +126,12 @@ impl InnertubeProvider {
         }
         let params = encode_search_filters(&filters)?;
 
-        // Continuation pages carry only the token; the query is not repeated (all reference
-        // implementations do the same — see docs/research/EXTRACTION_METHODS.md §5.3). The body types
-        // encode that: `ContinuationRequest` has no `query` field to forget about.
+        // Continuation pages carry only the token; the query is not repeated. This is not a reading
+        // of the reference clients any more: the Phase 4.3 probe sent exactly this body
+        // (`{context, continuation}`) for the token taken from the first page and upstream answered
+        // 200 with a complete second page (run 43541388070, capture `search_page_2`, 262,854 bytes).
+        // The body type encodes it structurally: `ContinuationRequest` has no `query` field to
+        // forget about, and none of the carried-in flags can leak into it.
         let session = self.client.session(ctx).await;
         let context = self.client.context(&session, ctx);
         let body = match cursor {

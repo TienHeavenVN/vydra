@@ -155,8 +155,10 @@ impl SearchRequest {
 /// Continuation body: `{context, continuation}`.
 ///
 /// There is deliberately no `query`, no `params` and no `cursor` field: a continuation page carries
-/// the token and nothing else (reference evidence in
-/// `docs/research/INNERTUBE_REQUEST_CONTRACTS.md` §4), and the type is what prevents the mistake.
+/// the token and nothing else. Reference evidence is in
+/// `docs/research/INNERTUBE_REQUEST_CONTRACTS.md` §4, and the Phase 4.3 probe confirmed it against
+/// the live endpoint (token-only body → 200, complete second page). The type is what prevents the
+/// mistake, not review attention.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContinuationRequest {

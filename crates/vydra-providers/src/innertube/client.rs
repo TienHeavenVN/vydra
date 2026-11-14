@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use serde_json::{Value, json};
+use serde_json::Value;
 use tokio::sync::Mutex;
 use tracing::debug;
 use url::Url;

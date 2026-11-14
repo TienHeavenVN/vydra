@@ -71,6 +71,10 @@ jobs:
     if: contains(github.event.head_commit.message, '[probe]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Publishing the capture as a commit is the only retrieval route the development sandbox has
+    # (artifact storage is unreachable from it) — without this the step fails with HTTP 403.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

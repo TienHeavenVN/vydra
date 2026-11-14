@@ -4,6 +4,8 @@
 //! mirror: renderer shapes vary per surface (search / grid / shelf) and a mirror would break on every
 //! permutation (ADR-002). The player response has a stable top-level shape, so it is typed.
 
+use std::collections::HashSet;
+
 use serde::Deserialize;
 use serde_json::Value;
 use time::OffsetDateTime;
@@ -313,6 +315,15 @@ pub fn search_item_from_renderer(
 }
 
 /// Build [`SearchResults`] from a raw search/continuation response.
+/// De-duplication key for a mapped search item: the entity kind plus its id.
+fn item_key(item: &SearchItem) -> (u8, String) {
+    match item {
+        SearchItem::Video(video) => (0, video.id.as_str().to_owned()),
+        SearchItem::Channel(channel) => (1, channel.id.as_str().to_owned()),
+        SearchItem::Playlist(playlist) => (2, playlist.id.as_str().to_owned()),
+    }
+}
+
 pub fn map_search(
     payload: &Value,
     renderers: Vec<Renderer<'_>>,
@@ -320,10 +331,20 @@ pub fn map_search(
     provenance: Provenance,
 ) -> SearchResults {
     let mut items = Vec::with_capacity(renderers.len());
+    let mut seen: HashSet<(u8, String)> = HashSet::new();
     for renderer in &renderers {
-        if let Some(item) = search_item_from_renderer(renderer, report) {
-            items.push(item);
+        let Some(item) = search_item_from_renderer(renderer, report) else {
+            continue;
+        };
+        // The same entity can appear twice on one page (a video in a shelf and again in the result
+        // list, a playlist promoted at the top). The domain model carries no per-occurrence context,
+        // so the second copy is information-free — and keeping it would make `limit` arithmetic and
+        // the client's "append at the end" cursor assumption wrong. Counted, never silent.
+        if !seen.insert(item_key(&item)) {
+            report.skipped_item("duplicate_item");
+            continue;
         }
+        items.push(item);
     }
 
     let estimated_results = payload
