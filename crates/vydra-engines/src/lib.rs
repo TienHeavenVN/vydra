@@ -1298,12 +1298,9 @@ mod tests {
                         provenance: provenance_for("browse", "browse"),
                     }))
                 }
-                ProviderRequest::Playlist { id, .. } => {
-                    Ok(ProviderResponse::Playlist(Box::new(playlist_document(
-                        id,
-                        self.next.clone(),
-                    ))))
-                }
+                ProviderRequest::Playlist { id, .. } => Ok(ProviderResponse::Playlist(Box::new(
+                    playlist_document(id, self.next.clone()),
+                ))),
                 ProviderRequest::PlaylistVideos { .. } => {
                     Ok(ProviderResponse::PlaylistVideos(PlaylistVideoList {
                         items: vec![],
